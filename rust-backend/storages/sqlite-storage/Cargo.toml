@@ -1,0 +1,37 @@
+[package]
+name = "whatsapp-rust-sqlite-storage"
+version = "0.6.0"
+edition = "2024"
+authors = ["João Lucas <jlucaso@hotmail.com>"]
+license = "MIT"
+repository = "https://github.com/jlucaso1/whatsapp-rust"
+description = "SQLite storage backend for whatsapp-rust"
+
+[features]
+default = ["bundled-sqlite"]
+bundled-sqlite = ["libsqlite3-sys/bundled"]
+
+[dependencies]
+async-trait = { workspace = true }
+bincode = { version = "2.0.1", features = ["serde"] }
+bytes = { workspace = true }
+diesel = { version = "2.3.10", default-features = false, features = [
+    "sqlite",
+    "r2d2",
+    "32-column-tables",
+] }
+diesel_migrations = { version = "2.3.1", default-features = false, features = [
+    "sqlite",
+] }
+libsqlite3-sys = { version = "0.37", default-features = false, optional = true }
+log = { workspace = true }
+serde_json = { workspace = true, features = ["std"] }
+tokio = { workspace = true, features = ["sync", "rt", "time", "macros"] }
+wacore = { workspace = true }
+
+[dev-dependencies]
+portable-atomic = { workspace = true }
+tokio = { workspace = true, features = ["sync", "rt", "time", "macros"] }
+
+[lints]
+workspace = true

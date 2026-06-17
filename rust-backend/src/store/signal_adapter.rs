@@ -1,0 +1,390 @@
+use crate::store::Device;
+use crate::store::signal_cache::SignalStoreCache;
+use async_lock::RwLock;
+use async_trait::async_trait;
+use std::sync::Arc;
+use wacore::libsignal::protocol::{
+    Direction, IdentityChange, IdentityKey, IdentityKeyPair, IdentityKeyStore, PreKeyId,
+    PreKeyRecord, PreKeyStore, ProtocolAddress, SessionRecord, SessionStore, SignalProtocolError,
+    SignedPreKeyId, SignedPreKeyRecord, SignedPreKeyStore,
+};
+
+use wacore::libsignal::store::record_helpers as wacore_record;
+use wacore::libsignal::store::sender_key_name::SenderKeyName;
+use wacore::libsignal::store::{
+    PreKeyStore as WacorePreKeyStore, SignedPreKeyStore as WacoreSignedPreKeyStore,
+};
+
+fn signal_err<E>(context: &'static str) -> impl FnOnce(E) -> SignalProtocolError
+where
+    E: Into<Box<dyn std::error::Error + Send + Sync + 'static>>,
+{
+    move |e| SignalProtocolError::BackendError(context, e.into())
+}
+
+#[derive(Clone)]
+struct SharedDevice {
+    device: Arc<RwLock<Device>>,
+    cache: Arc<SignalStoreCache>,
+}
+
+#[derive(Clone)]
+pub struct SessionAdapter(SharedDevice);
+#[derive(Clone)]
+pub struct IdentityAdapter(SharedDevice);
+#[derive(Clone)]
+pub struct PreKeyAdapter(SharedDevice);
+#[derive(Clone)]
+pub struct SignedPreKeyAdapter(SharedDevice);
+
+#[derive(Clone)]
+pub struct SenderKeyAdapter(SharedDevice);
+
+impl SenderKeyAdapter {
+    /// Build a standalone sender-key store without constructing the full
+    /// five-store [`SignalProtocolStoreAdapter`]. Used on the SKDM-processing
+    /// path, which only needs the sender-key store.
+    pub fn new(device: Arc<RwLock<Device>>, cache: Arc<SignalStoreCache>) -> Self {
+        Self(SharedDevice { device, cache })
+    }
+}
+
+#[derive(Clone)]
+pub struct SignalProtocolStoreAdapter {
+    pub session_store: SessionAdapter,
+    pub identity_store: IdentityAdapter,
+    pub pre_key_store: PreKeyAdapter,
+    pub signed_pre_key_store: SignedPreKeyAdapter,
+    pub sender_key_store: SenderKeyAdapter,
+}
+
+impl SignalProtocolStoreAdapter {
+    pub fn new(device: Arc<RwLock<Device>>, cache: Arc<SignalStoreCache>) -> Self {
+        let shared = SharedDevice { device, cache };
+        Self {
+            session_store: SessionAdapter(shared.clone()),
+            identity_store: IdentityAdapter(shared.clone()),
+            pre_key_store: PreKeyAdapter(shared.clone()),
+            signed_pre_key_store: SignedPreKeyAdapter(shared.clone()),
+            sender_key_store: SenderKeyAdapter(shared),
+        }
+    }
+
+    pub fn as_signal_stores(&mut self) -> wacore::send::SignalStores<'_> {
+        wacore::send::SignalStores {
+            session_store: &mut self.session_store,
+            identity_store: &mut self.identity_store,
+            prekey_store: &mut self.pre_key_store,
+            signed_prekey_store: &self.signed_pre_key_store,
+            sender_key_store: &mut self.sender_key_store,
+        }
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+impl SessionStore for SessionAdapter {
+    async fn load_session(
+        &self,
+        address: &ProtocolAddress,
+    ) -> Result<Option<SessionRecord>, SignalProtocolError> {
+        let device = self.0.device.read().await;
+        self.0
+            .cache
+            .get_session(address, &*device.backend)
+            .await
+            .map_err(signal_err("backend"))
+    }
+
+    async fn has_session(&self, address: &ProtocolAddress) -> Result<bool, SignalProtocolError> {
+        let device = self.0.device.read().await;
+        self.0
+            .cache
+            .has_session(address, &*device.backend)
+            .await
+            .map_err(signal_err("backend"))
+    }
+
+    async fn store_session(
+        &mut self,
+        address: &ProtocolAddress,
+        record: SessionRecord,
+    ) -> Result<(), SignalProtocolError> {
+        self.0.cache.put_session(address, record).await;
+        Ok(())
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+impl IdentityKeyStore for IdentityAdapter {
+    async fn get_identity_key_pair(&self) -> Result<IdentityKeyPair, SignalProtocolError> {
+        let device = self.0.device.read().await;
+        IdentityKeyStore::get_identity_key_pair(&*device)
+            .await
+            .map_err(signal_err("get_identity_key_pair"))
+    }
+
+    async fn get_local_registration_id(&self) -> Result<u32, SignalProtocolError> {
+        let device = self.0.device.read().await;
+        IdentityKeyStore::get_local_registration_id(&*device)
+            .await
+            .map_err(signal_err("get_local_registration_id"))
+    }
+
+    async fn save_identity(
+        &mut self,
+        address: &ProtocolAddress,
+        identity: &IdentityKey,
+    ) -> Result<IdentityChange, SignalProtocolError> {
+        let existing_identity = self.get_identity(address).await?;
+
+        // Cache-first: write to cache only. The cache flushes to the backend
+        // during flush_signal_cache(). This avoids a synchronous backend write
+        // on every encrypt/decrypt. is_trusted_identity always returns true
+        // (matching WA Web), so the Device-level save is redundant.
+        self.0
+            .cache
+            .put_identity(address, identity.public_key().public_key_bytes())
+            .await;
+
+        match existing_identity {
+            None => Ok(IdentityChange::NewOrUnchanged),
+            Some(existing) if &existing == identity => Ok(IdentityChange::NewOrUnchanged),
+            Some(_) => Ok(IdentityChange::ReplacedExisting),
+        }
+    }
+
+    async fn is_trusted_identity(
+        &self,
+        _address: &ProtocolAddress,
+        _identity: &IdentityKey,
+        _direction: Direction,
+    ) -> Result<bool, SignalProtocolError> {
+        // WAWebProtocolStoreUnifiedApi.isTrustedIdentity always returns true;
+        // identity changes surface via save_identity. Avoid acquiring the
+        // device RwLock just to delegate to a stub — the read is acquired N
+        // times per group send (once per recipient device) and adds
+        // contention pressure under any future parallel encrypt path.
+        Ok(true)
+    }
+
+    async fn get_identity(
+        &self,
+        address: &ProtocolAddress,
+    ) -> Result<Option<IdentityKey>, SignalProtocolError> {
+        let device = self.0.device.read().await;
+        match self
+            .0
+            .cache
+            .get_identity(address, &*device.backend)
+            .await
+            .map_err(signal_err("get_identity"))?
+        {
+            Some(data) if !data.is_empty() => {
+                // Cache and backend store raw 32-byte DJB public key bytes
+                let public_key =
+                    wacore::libsignal::protocol::PublicKey::from_djb_public_key_bytes(&data)?;
+                Ok(Some(IdentityKey::new(public_key)))
+            }
+            _ => Ok(None),
+        }
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+impl PreKeyStore for PreKeyAdapter {
+    async fn get_pre_key(&self, prekey_id: PreKeyId) -> Result<PreKeyRecord, SignalProtocolError> {
+        let device = self.0.device.read().await;
+        WacorePreKeyStore::load_prekey(&*device, prekey_id.into())
+            .await
+            .map_err(signal_err("backend"))?
+            .ok_or(SignalProtocolError::InvalidPreKeyId)
+            .and_then(wacore_record::prekey_structure_to_record)
+    }
+    async fn save_pre_key(
+        &mut self,
+        prekey_id: PreKeyId,
+        record: &PreKeyRecord,
+    ) -> Result<(), SignalProtocolError> {
+        let device = self.0.device.read().await;
+        let structure = wacore_record::prekey_record_to_structure(record)?;
+        WacorePreKeyStore::store_prekey(&*device, prekey_id.into(), structure, false)
+            .await
+            .map_err(signal_err("backend"))
+    }
+    async fn remove_pre_key(&mut self, prekey_id: PreKeyId) -> Result<(), SignalProtocolError> {
+        // Plain immediate-removal primitive. The inbound pkmsg path does NOT route
+        // through here: message_decrypt reports the consumed prekey and the receive
+        // path buffers it via buffer_consumed_prekey so the durable delete is
+        // atomic with the session flush (matching WAWebSignalProtocolStoreUnifiedApi).
+        let device = self.0.device.read().await;
+        device
+            .backend
+            .remove_prekey(prekey_id.into())
+            .await
+            .map_err(signal_err("backend"))
+    }
+}
+
+impl PreKeyAdapter {
+    /// Buffer a consumed one-time prekey for deletion on the next cache flush,
+    /// keyed by the session address whose pkmsg promotion consumed it. Called by
+    /// the inbound receive path after `message_decrypt` reports the consumed
+    /// prekey: the promoted session is still volatile in the cache, so the prekey
+    /// must only be deleted once that session is durably flushed.
+    pub async fn buffer_consumed_prekey(&self, prekey_id: PreKeyId, address: &ProtocolAddress) {
+        self.0
+            .cache
+            .remove_prekey(prekey_id.into(), address.as_str())
+            .await;
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+impl SignedPreKeyStore for SignedPreKeyAdapter {
+    async fn get_signed_pre_key(
+        &self,
+        signed_prekey_id: SignedPreKeyId,
+    ) -> Result<SignedPreKeyRecord, SignalProtocolError> {
+        let device = self.0.device.read().await;
+        WacoreSignedPreKeyStore::load_signed_prekey(&*device, signed_prekey_id.into())
+            .await
+            .map_err(signal_err("backend"))?
+            .ok_or(SignalProtocolError::InvalidSignedPreKeyId)
+            .and_then(wacore_record::signed_prekey_structure_to_record)
+    }
+    async fn save_signed_pre_key(
+        &mut self,
+        _id: SignedPreKeyId,
+        _record: &SignedPreKeyRecord,
+    ) -> Result<(), SignalProtocolError> {
+        Ok(())
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+impl wacore::libsignal::protocol::SenderKeyStore for SenderKeyAdapter {
+    async fn store_sender_key(
+        &mut self,
+        sender_key_name: &SenderKeyName,
+        record: wacore::libsignal::protocol::SenderKeyRecord,
+    ) -> wacore::libsignal::protocol::error::Result<()> {
+        self.0.cache.put_sender_key(sender_key_name, record).await;
+        Ok(())
+    }
+
+    async fn load_sender_key(
+        &self,
+        sender_key_name: &SenderKeyName,
+    ) -> wacore::libsignal::protocol::error::Result<
+        Option<wacore::libsignal::protocol::SenderKeyRecord>,
+    > {
+        let device = self.0.device.read().await;
+        // group_decrypt mutates the loaded record (catch-up + ratchet) and stores
+        // it back, so the trait needs an owned copy. The cache keeps its `Arc`, so
+        // this clones the inner record (unchanged from the prior behavior).
+        self.0
+            .cache
+            .get_sender_key(sender_key_name, &*device.backend)
+            .await
+            .map(|opt| opt.map(std::sync::Arc::unwrap_or_clone))
+            .map_err(signal_err("backend"))
+    }
+
+    async fn sender_key_lock(
+        &self,
+        sender_key_name: &SenderKeyName,
+    ) -> std::sync::Arc<async_lock::Mutex<()>> {
+        self.0.cache.sender_key_lock(sender_key_name).await
+    }
+
+    async fn session_setup_lock(
+        &self,
+        sender_key_name: &SenderKeyName,
+    ) -> std::sync::Arc<async_lock::Mutex<()>> {
+        self.0.cache.session_setup_lock(sender_key_name).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::store::Device;
+    use wacore::store::in_memory::InMemoryBackend;
+
+    const PREKEY_ID: u32 = 7777;
+
+    /// The inbound decrypt path consumes a one-time prekey and buffers it via
+    /// `buffer_consumed_prekey`. It must NOT delete the prekey from the backend
+    /// synchronously: the promoted session is still volatile at that point, so an
+    /// eager backend delete would lose both on a crash. The removal must only be
+    /// committed during the session-bearing cache flush.
+    #[tokio::test]
+    async fn buffer_consumed_prekey_defers_backend_delete_to_flush() {
+        let backend: Arc<dyn crate::store::Backend> = Arc::new(InMemoryBackend::new());
+        backend
+            .store_prekey(PREKEY_ID, b"durable-prekey", false)
+            .await
+            .unwrap();
+
+        let device = Arc::new(RwLock::new(Device::new(backend.clone())));
+        let cache = Arc::new(SignalStoreCache::new());
+        let adapter = SignalProtocolStoreAdapter::new(device, cache.clone());
+
+        let addr = ProtocolAddress::new("bob".to_string(), 1.into());
+        // The real path stores the promoted session before buffering the prekey.
+        cache
+            .put_session(
+                &addr,
+                wacore::libsignal::protocol::SessionRecord::new_fresh(),
+            )
+            .await;
+        adapter
+            .pre_key_store
+            .buffer_consumed_prekey(PREKEY_ID.into(), &addr)
+            .await;
+
+        // Still durable: the removal was only buffered, not written to the backend.
+        assert!(
+            backend.load_prekey(PREKEY_ID).await.unwrap().is_some(),
+            "buffer_consumed_prekey must not delete from the backend before flush"
+        );
+
+        // The flush commits the session AND the buffered prekey removal together.
+        cache.flush(backend.as_ref()).await.unwrap();
+        assert!(
+            backend.load_prekey(PREKEY_ID).await.unwrap().is_none(),
+            "flush must commit the buffered prekey removal"
+        );
+    }
+
+    /// The plain `remove_pre_key` primitive (not used by the inbound consume path)
+    /// removes immediately from the backend.
+    #[tokio::test]
+    async fn remove_pre_key_deletes_immediately() {
+        let backend: Arc<dyn crate::store::Backend> = Arc::new(InMemoryBackend::new());
+        backend
+            .store_prekey(PREKEY_ID, b"durable-prekey", false)
+            .await
+            .unwrap();
+
+        let device = Arc::new(RwLock::new(Device::new(backend.clone())));
+        let cache = Arc::new(SignalStoreCache::new());
+        let mut adapter = SignalProtocolStoreAdapter::new(device, cache.clone());
+
+        adapter
+            .pre_key_store
+            .remove_pre_key(PREKEY_ID.into())
+            .await
+            .unwrap();
+
+        assert!(
+            backend.load_prekey(PREKEY_ID).await.unwrap().is_none(),
+            "remove_pre_key must delete from the backend immediately"
+        );
+    }
+}

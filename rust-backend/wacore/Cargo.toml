@@ -1,0 +1,96 @@
+[package]
+name = "wacore"
+version = "0.6.0"
+edition = "2024"
+authors = ["João Lucas <jlucaso@hotmail.com>"]
+license = "MIT"
+repository = "https://github.com/jlucaso1/whatsapp-rust"
+description = "Core WhatsApp protocol implementation without runtime dependencies"
+
+[features]
+default = ["simd"]
+simd = ["wacore-appstate/simd"]
+debug-diagnostics = []
+debug-snapshots = []
+# Optional observability: emit tracing spans/events. Off by default (no dep).
+tracing = ["dep:tracing"]
+# Optional metrics via the `metrics` facade. Off by default (no dep).
+metrics = ["dep:metrics"]
+# Render raw phone numbers in tracing fields instead of redacted tokens (debug only).
+tracing-pii = ["wacore-binary/tracing-pii"]
+# Disables XEdDSA verification of the server's Noise cert chain. Required
+# for the e2e mock server (self-signed certs). NEVER enable in prod.
+danger-skip-cert-chain-verify = ["wacore-noise/danger-skip-cert-chain-verify"]
+# Enable JS-based random number generation for wasm32 targets.
+# Activates getrandom's wasm_js backend so rand works in the browser.
+js = ["getrandom/wasm_js"]
+
+[dependencies]
+aes = { workspace = true }
+anyhow = { workspace = true }
+async-channel = { workspace = true }
+async-lock = { workspace = true }
+async-trait = { workspace = true }
+base64 = { workspace = true }
+bytes = { workspace = true }
+chrono = { workspace = true, features = ["now", "serde"] }
+compact_str = { workspace = true }
+ctr = { workspace = true }
+event-listener = { workspace = true }
+flate2 = { workspace = true }
+futures = { workspace = true, features = ["std"] }
+getrandom = { workspace = true, optional = true }
+hex = { workspace = true }
+hkdf = { workspace = true }
+hmac = { workspace = true }
+itoa = { workspace = true }
+log = { workspace = true }
+md5 = "0.8.0"
+metrics = { workspace = true, optional = true }
+portable-atomic = { workspace = true }
+prost = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true }
+serde-big-array = { workspace = true }
+serde_json = { workspace = true, features = ["std"] }
+sha1 = { workspace = true }
+sha2 = { workspace = true }
+subtle = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true, optional = true }
+typed-builder = "0.23"
+wacore-appstate = { workspace = true }
+wacore-binary = { workspace = true, features = ["serde"] }
+wacore-derive = { workspace = true }
+wacore-libsignal = { workspace = true }
+wacore-noise = { workspace = true }
+waproto = { workspace = true }
+
+[dev-dependencies]
+aes-gcm = { workspace = true }
+divan = { workspace = true }
+futures = { workspace = true, features = ["executor", "thread-pool"] }
+tokio = { workspace = true, features = ["macros", "rt"] }
+
+[[bench]]
+name = "reporting_token_benchmark"
+harness = false
+
+[[bench]]
+name = "send_receive_benchmark"
+harness = false
+
+[[bench]]
+name = "history_sync_benchmark"
+harness = false
+
+[[bench]]
+name = "message_utils_benchmark"
+harness = false
+
+[[bench]]
+name = "appstate_sync_benchmark"
+harness = false
+
+[lints]
+workspace = true

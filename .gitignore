@@ -1,0 +1,15 @@
+/target
+/*.xml
+/*.txt
+/whatsapp_store
+/.cargo
+/.vscode
+/*.db*
+.env
+docs
+.claude
+__pycache__
+.codex
+dhat-heap*.json
+/size-out
+.DS_Store
