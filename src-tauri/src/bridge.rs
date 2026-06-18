@@ -27,10 +27,22 @@ pub async fn pump(app: AppHandle, session_id: String, rx: Receiver<Arc<Event>>) 
                 "text": event.message_text(),
                 "message": msg,
             }),
+            // Flatten the pairing events to the documented {code, timeoutSecs}
+            // shape. Without this they serialize externally-tagged
+            // ({"PairingQrCode":{...}}), so the UI reads `payload.code` as
+            // undefined and renders a QR of the literal text "undefined".
+            Event::PairingQrCode { code, timeout } => json!({
+                "code": code,
+                "timeoutSecs": timeout.as_secs(),
+            }),
+            Event::PairingCode { code, timeout } => json!({
+                "code": code,
+                "timeoutSecs": timeout.as_secs(),
+            }),
             // Not serializable / too noisy for the UI; skip entirely.
             Event::Notification(_) | Event::RawNode(_) => continue,
-            // Externally-tagged JSON, e.g. {"Connected":null} or
-            // {"Receipt":{...}}. The `kind` field below disambiguates.
+            // Everything else: externally-tagged JSON, e.g. {"Connected":null}
+            // or {"Receipt":{...}}. The `kind` field below disambiguates.
             other => serde_json::to_value(other).unwrap_or(Value::Null),
         };
 

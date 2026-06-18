@@ -41,6 +41,14 @@ pub async fn auth_start_pair_code(
     mgr: Mgr<'_>,
 ) -> ApiResult<PairCodeDto> {
     let (id, session) = mgr.session(session_id).await?;
+    // The companion-hello IQ needs a live socket. The library's own bot pairs
+    // only after wait_for_socket; mirror that so a click right after launch
+    // doesn't fail with IqError::NotConnected.
+    session
+        .client
+        .wait_for_socket(std::time::Duration::from_secs(30))
+        .await
+        .map_err(ApiError::library)?;
     let code = session
         .client
         .pair_with_code(PairCodeOptions {
@@ -49,7 +57,7 @@ pub async fn auth_start_pair_code(
             ..Default::default()
         })
         .await
-        .map_err(ApiError::library)?;
+        .map_err(ApiError::source_chain)?;
     Ok(PairCodeDto {
         session_id: id,
         code,

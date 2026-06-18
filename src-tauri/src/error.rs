@@ -25,6 +25,20 @@ impl ApiError {
     pub fn library(e: impl std::fmt::Display) -> Self {
         ApiError::Library(e.to_string())
     }
+
+    /// Like `library`, but walks the `source()` chain so wrapped causes aren't
+    /// hidden behind a generic top-level message — e.g. `PairError`'s
+    /// "pair-code IQ request failed" becomes "...: client is not connected".
+    pub fn source_chain(e: impl std::error::Error) -> Self {
+        use std::fmt::Write;
+        let mut msg = e.to_string();
+        let mut src = e.source();
+        while let Some(s) = src {
+            let _ = write!(msg, ": {s}");
+            src = s.source();
+        }
+        ApiError::Library(msg)
+    }
 }
 
 pub type ApiResult<T> = std::result::Result<T, ApiError>;
