@@ -1,0 +1,32 @@
+[package]
+name = "whatsapp-integrate"
+version = "0.1.0"
+description = "Tauri desktop app wrapping the whatsapp-rust library"
+edition = "2021"
+rust-version = "1.82"
+
+# Tauri v2 convention: the app logic lives in a lib so mobile targets can reuse
+# it; main.rs is a thin shim. crate-type covers desktop + mobile linking.
+[lib]
+name = "whatsapp_integrate_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+anyhow = "1"
+log = "0.4"
+env_logger = "0.11"
+tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros"] }
+# Must match the major version whatsapp-rust uses, so the Receiver<Arc<Event>>
+# type from ChannelEventHandler lines up across the crate boundary.
+async-channel = "2"
+
+# The vendored protocol library, pulled in by path. Default features bring the
+# SQLite store, Tokio WebSocket transport, ureq HTTP client and Tokio runtime.
+whatsapp-rust = { path = "../rust-backend" }
