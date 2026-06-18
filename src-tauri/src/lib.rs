@@ -1,0 +1,62 @@
+//! WhatsApp-Integrate — Tauri backend (the "monolith").
+//!
+//! Owns long-lived whatsapp-rust `Client`s (one per session), exposes their
+//! operations as Tauri commands, and forwards the library event stream to the
+//! UI as Tauri events. See `docs/ARCHITECTURE.md`.
+
+mod bridge;
+mod commands;
+mod dto;
+mod error;
+mod session;
+
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use tauri::Manager;
+
+use session::{SessionManager, DEFAULT_SESSION};
+
+/// Where per-session SQLite files live.
+///
+/// Dev: the vendored `rust-backend/` dir (resolved at build time, so it's
+/// independent of the runtime working directory). Override with `WA_DATA_DIR`.
+/// Phase 4 will switch the default to the OS app-data dir.
+fn data_dir() -> PathBuf {
+    if let Ok(dir) = std::env::var("WA_DATA_DIR") {
+        return PathBuf::from(dir);
+    }
+    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../rust-backend"))
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+
+    tauri::Builder::default()
+        .setup(|app| {
+            let manager = Arc::new(SessionManager::new(app.handle().clone(), data_dir()));
+            app.manage(manager.clone());
+
+            // Auto-boot the default session so a QR code appears on launch
+            // without the frontend having to ask first.
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = manager.get_or_create(DEFAULT_SESSION).await {
+                    log::error!("failed to boot default session: {e:?}");
+                }
+            });
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            commands::auth_status,
+            commands::auth_start_qr,
+            commands::auth_start_pair_code,
+            commands::connect,
+            commands::disconnect,
+            commands::auth_logout,
+            commands::send_text,
+            commands::mark_read,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
