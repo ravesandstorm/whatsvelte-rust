@@ -1,0 +1,41 @@
+# Common dev commands for whatsapp-integrate (Tauri monolith).
+# Note: `make server` runs the whole app (Rust backend + WebView) via tauri dev.
+
+.PHONY: help setup server dev build frontend fmt clippy clean
+
+help:
+	@echo "Targets:"
+	@echo "  setup     Install the Tauri CLI + JS deps (run once)"
+	@echo "  server    Run the app in dev mode (tauri dev) — the continuous dev loop"
+	@echo "  dev       Alias for 'server'"
+	@echo "  build     Build the single-executable bundle (tauri build, Phase 4)"
+	@echo "  frontend  Phase 1: static placeholder (no dev server). Phase 2: vite dev"
+	@echo "  fmt       cargo fmt for the Tauri backend"
+	@echo "  clippy    cargo clippy for the Tauri backend"
+	@echo "  clean     Remove the Tauri target dir"
+
+setup:
+	npm install
+
+# The "continuously running for development" loop: compiles the Rust backend,
+# loads the frontend, and hot-reconnects on change.
+server:
+	npm run tauri dev
+
+dev: server
+
+build:
+	npm run tauri build
+
+frontend:
+	@echo "Phase 1 uses a static placeholder served by Tauri (svelte-frontend/index.html)."
+	@echo "Phase 2 will run a Vite dev server here."
+
+fmt:
+	cd src-tauri && cargo fmt
+
+clippy:
+	cd src-tauri && cargo clippy
+
+clean:
+	cd src-tauri && cargo clean

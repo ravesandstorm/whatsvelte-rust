@@ -1,0 +1,5 @@
+# Match the toolchain the vendored whatsapp-rust library is developed against,
+# so the Tauri monolith and the library compile identically.
+[toolchain]
+channel = "nightly-2026-04-05"
+components = ["rustfmt", "clippy"]

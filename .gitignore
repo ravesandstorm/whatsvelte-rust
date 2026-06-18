@@ -22,6 +22,17 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Rust build artifacts
+target/
+src-tauri/target/
+# Tauri generated schemas/permissions
+src-tauri/gen/
+
+# Local WhatsApp session databases (created at runtime)
+*.db
+*.db-shm
+*.db-wal
+
 # Editor and OS-specific files
 .DS_Store
 .vscode/

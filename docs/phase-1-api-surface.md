@@ -205,9 +205,29 @@ never sees prost internals:
 
 ---
 
-## F. Phase 1 scaffold plan (build order)
+## F. Phase 1 scaffold — status: IMPLEMENTED
 
-Implemented only after this doc is approved.
+Built and verified. `cargo build` produces the binary; launching it boots the
+default session, creates the SQLite DB, starts the event bridge, and reaches out
+to WhatsApp to begin pairing. Verified log:
+
+```
+[default] booting session, db = …/whatsapp-default.db
+whatsapp_rust::bot Creating client...
+[default] event bridge started
+whatsapp_rust::client::lifecycle Failed to connect: … sw.js … invalid peer
+  certificate: UnknownIssuer. Will retry…
+```
+
+> The `UnknownIssuer` TLS error only appears under a network that intercepts
+> HTTPS (e.g. a sandbox/proxy with a custom CA). On a normal connection the
+> version fetch succeeds and a QR is emitted on `wa://auth/qr`. Do **not** enable
+> the library's `danger-skip-tls-verify` feature to work around it.
+
+Decisions locked in: **Tauri v2**; **multi-session** with `"default"` fallback;
+dev DB under `rust-backend/` (override via `WA_DATA_DIR`).
+
+### As-built build order
 
 1. **Create the Tauri app** in `src-tauri/` (target Tauri v2):
    - `Cargo.toml` deps: `tauri`, `whatsapp-rust = { path = "../rust-backend" }`,
