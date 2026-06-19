@@ -2,6 +2,7 @@
 
 import { SvelteMap } from "svelte/reactivity";
 import type { MessageDto } from "../types";
+import { schedulePersistMessages } from "../persist";
 
 export interface UiMessage extends MessageDto {
   status?: "sending" | "sent";
@@ -22,6 +23,7 @@ function commit(jid: string, arr: UiMessage[]) {
   arr.sort((a, b) => a.timestamp - b.timestamp);
   // New array reference so SvelteMap consumers re-render.
   messagesByChat.set(jid, [...arr]);
+  schedulePersistMessages(jid);
 }
 
 export function addMessage(m: UiMessage) {
@@ -77,6 +79,7 @@ export function confirmOptimistic(jid: string, tempId: string, realId: string) {
   if (idx >= 0) {
     arr[idx] = { ...arr[idx], id: realId, status: "sent" };
     messagesByChat.set(jid, [...arr]);
+    schedulePersistMessages(jid);
   }
 }
 

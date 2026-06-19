@@ -160,10 +160,20 @@ one, not bolted on at the end).
   form; two-pane WhatsApp layout (chat list, conversation, composer); message
   bubbles with fromMe distinction and inline image thumbnails; lazy contact
   names/avatars.
-- Data is event-driven and **in-memory**: the backend has no message DB, so the
-  chat list/messages are rebuilt from `wa://history` (decoded from history-sync
-  at pairing) + live `wa://message`. Optimistic send reconciles with the echoed
-  event. Restart without re-pairing starts empty (documented limitation).
+- Data is event-driven: the backend has no message DB, so the chat list/messages
+  are rebuilt from `wa://history` (decoded from history-sync at pairing) + live
+  `wa://message`. Optimistic send reconciles with the echoed event.
+- **Frontend persistence** (`lib/persist.ts`): because HistorySync fires only
+  once (at pairing), a plain relaunch has no events to rebuild from. The
+  event-derived chats/messages are mirrored into the webview's **IndexedDB**
+  (debounced) and rehydrated on boot — no backend/SQLite change. The cache is
+  keyed to the linked account (`accountJid` meta) and wiped on logout or when a
+  different account links. Avatars are deliberately not cached (profile-picture
+  URLs expire; they re-fetch live). **Every** chat and message is stored (no
+  cap) — RAM is bounded only on the render side (windowed list). Writes are
+  additive (`put`, never `clear`) so a partly-hydrated map can't wipe the cache;
+  hydration runs independent of the racy `loggedIn` flag and reconstructs any
+  chat row missing from the chats store out of its persisted messages.
 - Backend glue added: normalized `MessageDto` on `wa://message`, per-conversation
   `wa://history` decode, and `get_contact`/`get_profile_picture_url` commands.
 - MVP hardening: chat JIDs are normalized (`normalize_chat_jid` strips the

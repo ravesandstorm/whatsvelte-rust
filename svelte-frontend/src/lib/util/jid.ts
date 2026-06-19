@@ -6,6 +6,14 @@ export function isGroup(jid: string): boolean {
   return jid.endsWith("@g.us");
 }
 
+/** Strip the device/agent suffix so two forms of the same JID compare equal. */
+export function normalizeJid(jid: string): string {
+  const at = jid.indexOf("@");
+  if (at < 0) return jid;
+  const user = jid.slice(0, at).split(":")[0].split(".")[0];
+  return user + jid.slice(at);
+}
+
 export function isStatus(jid: string): boolean {
   return jid.startsWith("status@");
 }
