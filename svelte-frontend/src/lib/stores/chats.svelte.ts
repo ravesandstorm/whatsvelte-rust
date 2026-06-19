@@ -137,11 +137,24 @@ export function setChatName(jid: string, name: string) {
   }
 }
 
-/** Reactive when read in a component template (reads the SvelteMap). Pinned
- * chats float to the top; the rest sort by most-recent activity. */
+/** The active (non-archived) chat list. Pinned chats float to the top; muted
+ * chats sink below the unmuted ones so they never sit at the top; the rest sort
+ * by most-recent activity. */
 export function sortedChats(): Chat[] {
-  return [...chats.values()].sort((a, b) => {
-    const pin = Number(!!b.pinned) - Number(!!a.pinned);
-    return pin !== 0 ? pin : b.timestamp - a.timestamp;
-  });
+  return [...chats.values()]
+    .filter((c) => !c.archived)
+    .sort((a, b) => {
+      const pin = Number(!!b.pinned) - Number(!!a.pinned);
+      if (pin !== 0) return pin;
+      const mute = Number(!!a.muted) - Number(!!b.muted); // unmuted first
+      if (mute !== 0) return mute;
+      return b.timestamp - a.timestamp;
+    });
+}
+
+/** Archived chats, most-recent first, for the dedicated Archived section. */
+export function archivedChats(): Chat[] {
+  return [...chats.values()]
+    .filter((c) => c.archived)
+    .sort((a, b) => b.timestamp - a.timestamp);
 }
