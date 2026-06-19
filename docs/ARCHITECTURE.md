@@ -1,8 +1,9 @@
 # Whatsvelte-Rust — Architecture & Process
 
-> Status: **planning** (Phase 1, pre-implementation). This document is the source
-> of truth for *how* the project is structured and *why*. It supersedes the
-> original "axum server" framing — see [Architecture decision](#architecture-decision).
+> Status: **Phase 2A complete** (MVP texting client built; Phase 2B — rich object
+> model — planned). This document is the source of truth for *how* the project is
+> structured and *why*. It supersedes the original "axum server" framing — see
+> [Architecture decision](#architecture-decision).
 
 ## 1. Goal
 
@@ -142,7 +143,7 @@ Full method-by-method inventory and the command/event mapping live in
 The phases are revised for the Tauri-monolith model (Tauri is present from day
 one, not bolted on at the end).
 
-### Phase 1 — Backend integration & IPC contract  ← *we are here*
+### Phase 1 — Backend integration & IPC contract  ✅ done
 - Document the library API surface and map each operation to a **Tauri command**
   or **event** (this doc + `phase-1-api-surface.md`).
 - Scaffold `src-tauri/`: depend on `whatsapp-rust`, boot a `BotHandle` in app
@@ -152,7 +153,16 @@ one, not bolted on at the end).
   surfaces a QR code to pair, and round-trips a sent/received message — verified
   with a throwaway UI/log before the real frontend exists.
 
-### Phase 2 — Frontend  ✅ done
+### Phase 2 — Frontend
+
+Phase 2 is split into two parts. **Part A** (the MVP: a usable, persistent
+texting client) is **done**. **Part B** (the richer WhatsApp object model:
+media, stickers, receipts, settings, edits/deletes, …) is **planned** and
+tracked here so the data model added in Part A anticipates it.
+
+Full detail lives in [`phase-2-frontend.md`](./phase-2-frontend.md).
+
+#### Phase 2A — MVP / basic texting  ✅ done
 - Svelte 5 + Vite + TS SPA in `svelte-frontend/`, wired to Phase 1
   commands/events via `@tauri-apps/api`. `tauri dev` drives Vite via
   `beforeDevCommand` (devUrl `:5173`).
@@ -182,7 +192,42 @@ one, not bolted on at the end).
   scroll-up) to keep RAM flat on large chats; scroll regions get `min-height:0`
   so the composer stays on-screen and lists scroll internally with bottom-pinned
   auto-follow; chat previews track the newest message (preview + time move
-  together). Known gap: LID↔phone-number addressing for one contact isn't merged.
+  together).
+- **UI zoom** (`lib/zoom.ts`): `Ctrl/Cmd` + `+` / `-` / `0` scales the whole UI
+  via CSS `zoom` on `<html>`, clamped to 0.5–2.0× and persisted in
+  `localStorage`. Shortcuts are handled in-app (not via the webview's native
+  zoom) so behaviour and persistence are identical on every platform.
+
+#### Phase 2B — Rich object model  ⏳ planned
+Part A treats every payload as text-or-thumbnail. Part B fills in the real
+WhatsApp object types and the interactions around them. Grouped by area:
+
+- **Identity & addressing**
+  - **LID ↔ phone-number unification** — merge a contact's `@lid` and
+    `@s.whatsapp.net` identities into one conversation (needs the library's
+    LID↔PN mapping; today they stay separate — the one known Part-A gap).
+  - **Name addressing in chat** — resolve incoming messages to the saved contact
+    name (address book / pushName / verified business name) instead of the raw
+    JID, including group-participant names.
+- **Media & content types**
+  - **Full media download** (image/video/audio/document) beyond the inline
+    `jpegThumbnail`, with on-demand fetch + local cache.
+  - **Stickers** — render static/animated stickers; a **sticker bar** populated
+    from the user's sticker packs (synced from history/app-state objects).
+  - **Emoji bar** — picker in the composer; emoji reactions on messages.
+- **Message lifecycle**
+  - **Deleted messages** — render "this message was deleted" from revoke events.
+  - **Edited messages** — show edited content + an "edited" marker.
+  - **Read receipts (display)** — per-message sent/delivered/read ticks.
+  - **Read receipts (send)** — emit read events for messages actually rendered
+    on-screen (viewport-driven mark-read), not just on chat open.
+- **App surfaces**
+  - **Settings area** — account, notifications, privacy, theme.
+  - **Wallpapers** — per-chat / global conversation background.
+
+Each Part-B feature maps to existing library events/commands (receipts, app
+state, media download, contacts) re-emitted through the same `wa://` envelope;
+the IndexedDB schema gains stores/fields per object type as they land.
 
 ### Phase 3 — Testing
 - Rust: command-layer unit/integration tests; reuse the library's existing
