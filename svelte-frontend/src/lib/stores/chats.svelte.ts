@@ -10,6 +10,9 @@ export interface Chat {
   lastMessage: string | null;
   timestamp: number;
   unread: number;
+  muted?: boolean;
+  pinned?: boolean;
+  archived?: boolean;
 }
 
 export const chats = new SvelteMap<string, Chat>();
@@ -67,6 +70,56 @@ export function ensureChat(
   schedulePersistChats();
 }
 
+/** Apply a server-synced flag change (mute/pin/archive). */
+export function applyChatFlags(
+  jid: string,
+  flags: { muted?: boolean | null; pinned?: boolean | null; archived?: boolean | null },
+) {
+  const prev = chats.get(jid);
+  if (!prev) return; // flag for a chat we don't know about yet — ignore
+  chats.set(jid, {
+    ...prev,
+    muted: flags.muted ?? prev.muted,
+    pinned: flags.pinned ?? prev.pinned,
+    archived: flags.archived ?? prev.archived,
+  });
+  schedulePersistChats();
+}
+
+/** Optimistically set a flag locally (before/independent of the server echo). */
+export function setChatFlag(jid: string, flag: "muted" | "pinned" | "archived", value: boolean) {
+  const prev = chats.get(jid);
+  if (!prev) return;
+  chats.set(jid, { ...prev, [flag]: value });
+  schedulePersistChats();
+}
+
+/** Merge the `fromJid` chat row into `toJid` (LID→PN unification), preferring
+ * the newer row's preview and summing unread. Removes the source row. */
+export function mergeChats(fromJid: string, toJid: string) {
+  const from = chats.get(fromJid);
+  if (!from) return;
+  const to = chats.get(toJid);
+  if (to) {
+    const newer = from.timestamp >= to.timestamp ? from : to;
+    chats.set(toJid, {
+      jid: toJid,
+      name: to.name ?? from.name,
+      lastMessage: newer.lastMessage,
+      timestamp: Math.max(to.timestamp, from.timestamp),
+      unread: (to.unread ?? 0) + (from.unread ?? 0),
+      muted: to.muted ?? from.muted,
+      pinned: to.pinned ?? from.pinned,
+      archived: to.archived ?? from.archived,
+    });
+  } else {
+    chats.set(toJid, { ...from, jid: toJid });
+  }
+  chats.delete(fromJid);
+  if (chatUi.activeJid === fromJid) chatUi.activeJid = toJid;
+  schedulePersistChats();
+}
+
 export function selectChat(jid: string) {
   chatUi.activeJid = jid;
   const c = chats.get(jid);
@@ -84,7 +137,11 @@ export function setChatName(jid: string, name: string) {
   }
 }
 
-/** Reactive when read in a component template (reads the SvelteMap). */
+/** Reactive when read in a component template (reads the SvelteMap). Pinned
+ * chats float to the top; the rest sort by most-recent activity. */
 export function sortedChats(): Chat[] {
-  return [...chats.values()].sort((a, b) => b.timestamp - a.timestamp);
+  return [...chats.values()].sort((a, b) => {
+    const pin = Number(!!b.pinned) - Number(!!a.pinned);
+    return pin !== 0 ? pin : b.timestamp - a.timestamp;
+  });
 }

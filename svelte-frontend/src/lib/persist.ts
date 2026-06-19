@@ -99,6 +99,20 @@ export async function loadSnapshot(): Promise<Snapshot> {
   return { accountJid, chats: chatRows, messages };
 }
 
+/** Remove a single chat + its messages from the cache (used when merging the
+ * LID form of a conversation into its phone-number form). */
+export async function deletePersisted(jid: string): Promise<void> {
+  try {
+    const db = await openDb();
+    const t = db.transaction([STORE_CHATS, STORE_MESSAGES], "readwrite");
+    t.objectStore(STORE_CHATS).delete(jid);
+    t.objectStore(STORE_MESSAGES).delete(jid);
+    await txDone(t);
+  } catch (e) {
+    console.error("delete persisted failed", e);
+  }
+}
+
 /** Wipe the cache (logout, or a different account was linked). */
 export async function clearAll(): Promise<void> {
   const db = await openDb();

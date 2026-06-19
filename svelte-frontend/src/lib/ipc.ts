@@ -8,7 +8,9 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   ContactDto,
   Envelope,
+  MediaDescriptorDto,
   PairCodeDto,
+  ResolveJidDto,
   SendResultDto,
   StatusDto,
 } from "./types";
@@ -23,8 +25,33 @@ export const api = {
   logout: () => invoke<void>("auth_logout", {}),
   sendText: (jid: string, text: string) =>
     invoke<SendResultDto>("send_text", { jid, text }),
+  sendReply: (
+    jid: string,
+    text: string,
+    quotedId: string,
+    quotedSender: string,
+    quotedText: string | null,
+  ) => invoke<SendResultDto>("send_reply", { jid, text, quotedId, quotedSender, quotedText }),
+  sendReaction: (
+    jid: string,
+    targetId: string,
+    fromMe: boolean,
+    emoji: string,
+    participant: string | null,
+  ) => invoke<void>("send_reaction", { jid, targetId, fromMe, emoji, participant }),
   markRead: (jid: string) => invoke<void>("mark_read", { jid }),
+  markReadMessages: (jid: string, sender: string | null, messageIds: string[]) =>
+    invoke<void>("mark_read_messages", { jid, sender, messageIds }),
+  setChatMuted: (jid: string, muted: boolean) =>
+    invoke<void>("set_chat_muted", { jid, muted }),
+  setChatPinned: (jid: string, pinned: boolean) =>
+    invoke<void>("set_chat_pinned", { jid, pinned }),
+  setChatArchived: (jid: string, archived: boolean) =>
+    invoke<void>("set_chat_archived", { jid, archived }),
   getContact: (jid: string) => invoke<ContactDto>("get_contact", { jid }),
+  resolveJid: (jid: string) => invoke<ResolveJidDto>("resolve_jid", { jid }),
+  downloadMedia: (descriptor: MediaDescriptorDto, mimetype: string | null) =>
+    invoke<string>("download_media", { descriptor, mimetype }),
   getProfilePictureUrl: (jid: string, preview = true) =>
     invoke<string | null>("get_profile_picture_url", { jid, preview }),
 };

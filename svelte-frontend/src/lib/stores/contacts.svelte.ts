@@ -5,6 +5,8 @@ import { api } from "../ipc";
 
 export interface Contact {
   name: string | null;
+  verifiedName: string | null;
+  lid: string | null;
   pictureUrl: string | null;
 }
 
@@ -21,9 +23,14 @@ export async function ensureContact(jid: string) {
   inflight.add(jid);
   try {
     const c = await api.getContact(jid);
-    contacts.set(jid, { name: c.name, pictureUrl: c.pictureUrl });
+    contacts.set(jid, {
+      name: c.name,
+      verifiedName: c.verifiedName,
+      lid: c.lid,
+      pictureUrl: c.pictureUrl,
+    });
   } catch {
-    contacts.set(jid, { name: null, pictureUrl: null });
+    contacts.set(jid, { name: null, verifiedName: null, lid: null, pictureUrl: null });
   } finally {
     inflight.delete(jid);
   }

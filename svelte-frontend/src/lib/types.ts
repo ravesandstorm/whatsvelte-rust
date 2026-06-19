@@ -18,6 +18,33 @@ export interface SendResultDto {
   to: string;
 }
 
+export interface MediaDescriptorDto {
+  directPath: string;
+  mediaKey: string;
+  fileSha256: string;
+  fileEncSha256: string;
+  fileLength: number;
+  mediaType: string;
+}
+
+export interface MediaDto {
+  kind: string;
+  mimetype: string | null;
+  fileName: string | null;
+  width: number | null;
+  height: number | null;
+  durationSecs: number | null;
+  isAnimated: boolean | null;
+  descriptor: MediaDescriptorDto;
+}
+
+export interface QuotedDto {
+  id: string;
+  senderJid: string | null;
+  text: string | null;
+  kind: string;
+}
+
 export interface MessageDto {
   id: string;
   chatJid: string;
@@ -31,6 +58,10 @@ export interface MessageDto {
   kind: string;
   /** base64 JPEG thumbnail, when present. */
   thumbnail: string | null;
+  /** Download descriptor + display info for media messages (null for text). */
+  media: MediaDto | null;
+  /** The quoted message, when this is a reply. */
+  quoted: QuotedDto | null;
 }
 
 export interface ChatDto {
@@ -46,9 +77,43 @@ export interface HistoryDto {
   messages: MessageDto[];
 }
 
+export interface ChatFlagsDto {
+  jid: string;
+  muted: boolean | null;
+  pinned: boolean | null;
+  archived: boolean | null;
+}
+
+export interface ReceiptDto {
+  chatJid: string;
+  senderJid: string;
+  messageIds: string[];
+  /** "delivered" | "read" | "played" | "sent" */
+  status: string;
+  timestamp: number;
+}
+
+export interface MessageUpdateDto {
+  chatJid: string;
+  targetId: string;
+  /** "revoke" | "edit" | "reaction" */
+  kind: string;
+  text: string | null;
+  senderJid: string | null;
+  fromMe: boolean;
+  timestamp: number;
+}
+
+export interface ResolveJidDto {
+  pn: string | null;
+  lid: string | null;
+}
+
 export interface ContactDto {
   jid: string;
   name: string | null;
+  verifiedName: string | null;
+  lid: string | null;
   pictureUrl: string | null;
 }
 

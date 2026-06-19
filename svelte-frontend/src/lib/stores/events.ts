@@ -5,24 +5,43 @@
 import { api, on } from "../ipc";
 import { normalizeJid } from "../util/jid";
 import { session } from "./session.svelte";
-import { addHistoryMessages, addMessage, messagesByChat } from "./messages.svelte";
 import {
+  addHistoryMessages,
+  addMessage,
+  applyEdit,
+  applyReaction,
+  applyReceipt,
+  applyRevoke,
+  mergeMessages,
+  messagesByChat,
+  type MessageStatus,
+} from "./messages.svelte";
+import {
+  applyChatFlags,
   chatUi,
   chats,
   ensureChat,
+  mergeChats,
   setChatName,
   touchChat,
   upsertChatFromDto,
 } from "./chats.svelte";
 import {
   clearAll,
+  deletePersisted,
   enablePersistence,
   loadSnapshot,
   schedulePersistChats,
   schedulePersistMessages,
   setAccount,
 } from "../persist";
-import type { HistoryDto, MessageDto } from "../types";
+import type {
+  ChatFlagsDto,
+  HistoryDto,
+  MessageDto,
+  MessageUpdateDto,
+  ReceiptDto,
+} from "../types";
 
 let started = false;
 
@@ -62,11 +81,37 @@ export async function startEventBridge() {
     addMessage(m);
     touchChat(m.chatJid, m.text, m.timestamp, !m.fromMe);
     if (m.pushName && !m.fromMe) setChatName(m.chatJid, m.pushName);
+    void unifyLid(m.chatJid);
   });
 
   await on<HistoryDto>("wa://history", (h) => {
-    for (const c of h.chats) upsertChatFromDto(c);
+    for (const c of h.chats) {
+      upsertChatFromDto(c);
+      void unifyLid(c.jid);
+    }
     addHistoryMessages(h.messages);
+  });
+
+  await on<ReceiptDto>("wa://receipt", (r) => {
+    applyReceipt(r.chatJid, r.messageIds, r.status as MessageStatus);
+  });
+
+  await on<ChatFlagsDto>("wa://chat/flags", (f) => {
+    applyChatFlags(f.jid, { muted: f.muted, pinned: f.pinned, archived: f.archived });
+  });
+
+  await on<MessageUpdateDto>("wa://message/update", (u) => {
+    if (u.kind === "revoke") {
+      applyRevoke(u.chatJid, u.targetId, {
+        senderJid: u.senderJid ?? "",
+        fromMe: u.fromMe,
+        timestamp: u.timestamp,
+      });
+    } else if (u.kind === "edit") {
+      applyEdit(u.chatJid, u.targetId, u.text, u.timestamp);
+    } else if (u.kind === "reaction") {
+      applyReaction(u.chatJid, u.targetId, normalizeJid(u.senderJid ?? ""), u.text ?? "");
+    }
   });
 
   // 2. Find out who we are. NOTE: on a plain restart the backend boots/loads the
@@ -108,6 +153,9 @@ export async function startEventBridge() {
       // immediately instead of flashing the pairing screen while the backend
       // finishes connecting (LoggedOut/Connected events still correct this).
       if (chats.size > 0) session.loggedIn = true;
+
+      // Try to unify any cached LID conversations into their phone-number form.
+      for (const jid of [...chats.keys()]) void unifyLid(jid);
     }
   } catch (e) {
     console.error("hydrate from cache failed", e);
@@ -119,6 +167,27 @@ export async function startEventBridge() {
   enablePersistence();
   schedulePersistChats();
   for (const jid of messagesByChat.keys()) schedulePersistMessages(jid);
+}
+
+// JIDs we've already attempted to unify, so we don't re-query on every event.
+const lidAttempted = new Set<string>();
+
+/** If `jid` is a LID conversation with a known phone-number mapping, merge it
+ * (chat row + messages, in memory and in IndexedDB) into the PN conversation. */
+async function unifyLid(jid: string) {
+  if (!jid.endsWith("@lid") || lidAttempted.has(jid)) return;
+  lidAttempted.add(jid);
+  try {
+    const r = await api.resolveJid(jid);
+    if (!r.pn || r.pn === jid) return;
+    mergeMessages(jid, r.pn);
+    mergeChats(jid, r.pn);
+    await deletePersisted(jid);
+    schedulePersistChats();
+    schedulePersistMessages(r.pn);
+  } catch (e) {
+    console.error("lid unify failed", e);
+  }
 }
 
 export async function refreshStatus() {
