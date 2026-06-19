@@ -4,8 +4,10 @@
 
 mod auth;
 mod contacts;
+mod media;
 mod messaging;
 
 pub use auth::*;
 pub use contacts::*;
+pub use media::*;
 pub use messaging::*;

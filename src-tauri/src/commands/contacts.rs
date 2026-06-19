@@ -9,7 +9,7 @@ use std::sync::Arc;
 use tauri::State;
 use whatsapp_rust::Jid;
 
-use crate::dto::ContactDto;
+use crate::dto::{ContactDto, ResolveJidDto};
 use crate::error::{ApiError, ApiResult};
 use crate::session::SessionManager;
 
@@ -31,16 +31,18 @@ pub async fn get_contact(
 
     // Only verified businesses expose a name here; regular names come from the
     // event/history stream. Best-effort: don't fail the whole call on lookup error.
-    let name = session
+    let info = session
         .client
         .contacts()
         .get_user_info(std::slice::from_ref(&parsed))
         .await
         .ok()
-        .and_then(|m| {
-            m.get(&parsed)
-                .and_then(|u| u.verified_name.as_ref().and_then(|vn| vn.name.clone()))
-        });
+        .and_then(|mut m| m.remove(&parsed));
+
+    let verified_name = info
+        .as_ref()
+        .and_then(|u| u.verified_name.as_ref().and_then(|vn| vn.name.clone()));
+    let lid = info.as_ref().and_then(|u| u.lid.as_ref().map(|l| l.to_string()));
 
     let picture_url = session
         .client
@@ -53,8 +55,34 @@ pub async fn get_contact(
 
     Ok(ContactDto {
         jid,
-        name,
+        name: verified_name.clone(),
+        verified_name,
+        lid,
         picture_url,
+    })
+}
+
+/// Resolve a JID's LID ↔ phone-number identities so the UI can unify the two
+/// addressing forms of one contact into a single conversation.
+#[tauri::command]
+pub async fn resolve_jid(
+    jid: String,
+    session_id: Option<String>,
+    mgr: Mgr<'_>,
+) -> ApiResult<ResolveJidDto> {
+    let (_, session) = mgr.session(session_id).await?;
+    let parsed = parse_jid(&jid)?;
+    let entry = session
+        .client
+        .get_lid_pn_entry(&parsed)
+        .await
+        .map_err(ApiError::library)?;
+    Ok(match entry {
+        Some(e) => ResolveJidDto {
+            pn: Some(format!("{}@s.whatsapp.net", e.phone_number)),
+            lid: Some(format!("{}@lid", e.lid)),
+        },
+        None => ResolveJidDto { pn: None, lid: None },
     })
 }
 

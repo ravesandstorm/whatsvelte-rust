@@ -17,7 +17,10 @@ use whatsapp_rust::prelude::{Event, EventKind, MessageInfo};
 use whatsapp_rust::wacore::proto_helpers::MessageExt;
 use whatsapp_rust::waproto::whatsapp as wa;
 
-use crate::dto::{ChatDto, HistoryDto, MessageDto};
+use crate::dto::{
+    ChatDto, ChatFlagsDto, HistoryDto, MediaDescriptorDto, MediaDto, MessageDto, MessageUpdateDto,
+    QuotedDto, ReceiptDto,
+};
 
 /// Catch-all topic every event (except the noisy/streamed ones) is also emitted on.
 const GLOBAL_TOPIC: &str = "wa://event";
@@ -29,12 +32,42 @@ pub async fn pump(app: AppHandle, session_id: String, rx: Receiver<Arc<Event>>) 
 
         let payload: Value = match event.as_ref() {
             Event::Message(msg, info) => {
+                // Control messages (revoke/edit/reaction) patch an existing
+                // bubble rather than adding one — route them to a separate topic.
+                if let Some(update) = message_update_dto(msg, info) {
+                    let envelope = json!({
+                        "sessionId": session_id,
+                        "kind": "MessageUpdate",
+                        "payload": serde_json::to_value(update).unwrap_or(Value::Null),
+                    });
+                    let _ = app.emit("wa://message/update", envelope.clone());
+                    let _ = app.emit(GLOBAL_TOPIC, envelope);
+                    continue;
+                }
                 serde_json::to_value(message_dto_live(msg, info)).unwrap_or(Value::Null)
             }
             // History sync is large and lazy; decode it off-thread and emit
             // per-conversation chunks on wa://history, then move on.
             Event::HistorySync(lazy) => {
                 spawn_history_decode(&app, &session_id, lazy);
+                continue;
+            }
+            // Normalize delivery/read/played receipts; skip the protocol-internal
+            // ones (retry, sender, server-error, …) the UI has no use for.
+            Event::Receipt(r) => match receipt_dto(r) {
+                Some(dto) => serde_json::to_value(dto).unwrap_or(Value::Null),
+                None => continue,
+            },
+            // Server-synced chat flags → one unified shape on wa://chat/flags.
+            Event::MuteUpdate(_) | Event::PinUpdate(_) | Event::ArchiveUpdate(_) => {
+                let dto = chat_flags_dto(event.as_ref());
+                let envelope = json!({
+                    "sessionId": session_id,
+                    "kind": "ChatFlags",
+                    "payload": serde_json::to_value(dto).unwrap_or(Value::Null),
+                });
+                let _ = app.emit("wa://chat/flags", envelope.clone());
+                let _ = app.emit(GLOBAL_TOPIC, envelope);
                 continue;
             }
             // Flatten pairing events to the documented {code, timeoutSecs} shape
@@ -145,6 +178,88 @@ fn convert_conversation(conv: wa::Conversation) -> HistoryDto {
     }
 }
 
+/// Normalize a mute/pin/archive update into the unified `ChatFlagsDto`.
+fn chat_flags_dto(event: &Event) -> ChatFlagsDto {
+    let mut dto = ChatFlagsDto {
+        jid: String::new(),
+        muted: None,
+        pinned: None,
+        archived: None,
+    };
+    match event {
+        Event::MuteUpdate(u) => {
+            dto.jid = normalize_chat_jid(&u.jid.to_string());
+            dto.muted = u.action.muted;
+        }
+        Event::PinUpdate(u) => {
+            dto.jid = normalize_chat_jid(&u.jid.to_string());
+            dto.pinned = u.action.pinned;
+        }
+        Event::ArchiveUpdate(u) => {
+            dto.jid = normalize_chat_jid(&u.jid.to_string());
+            dto.archived = u.action.archived;
+        }
+        _ => {}
+    }
+    dto
+}
+
+/// Normalize a `Receipt` to the UI shape, returning `None` for receipt types the
+/// frontend doesn't render (retry/sender/server-error/etc.).
+fn receipt_dto(r: &whatsapp_rust::wacore::types::events::Receipt) -> Option<ReceiptDto> {
+    use whatsapp_rust::wacore::types::presence::ReceiptType as RT;
+    let status = match &r.r#type {
+        RT::Delivered => "delivered",
+        RT::Sent => "sent",
+        RT::Read | RT::ReadSelf => "read",
+        RT::Played | RT::PlayedSelf => "played",
+        _ => return None,
+    };
+    Some(ReceiptDto {
+        chat_jid: normalize_chat_jid(&r.source.chat.to_string()),
+        sender_jid: r.source.sender.to_string(),
+        message_ids: r.message_ids.iter().map(|id| id.to_string()).collect(),
+        status: status.to_string(),
+        timestamp: r.timestamp.timestamp(),
+    })
+}
+
+/// Detect a control message (revoke / edit / reaction) that patches an existing
+/// bubble. Returns `None` for ordinary content messages.
+fn message_update_dto(msg: &wa::Message, info: &MessageInfo) -> Option<MessageUpdateDto> {
+    use wa::message::protocol_message::Type as PmType;
+    let base = msg.get_base_message();
+
+    let make = |kind: &str, target_id: String, text: Option<String>| MessageUpdateDto {
+        chat_jid: normalize_chat_jid(&info.source.chat.to_string()),
+        target_id,
+        kind: kind.to_string(),
+        text,
+        sender_jid: Some(info.source.sender.to_string()),
+        from_me: info.source.is_from_me,
+        timestamp: info.timestamp.timestamp(),
+    };
+
+    if let Some(pm) = base.protocol_message.as_ref() {
+        let target_id = pm.key.as_ref().and_then(|k| k.id.clone()).unwrap_or_default();
+        if pm.r#type == Some(PmType::Revoke as i32) {
+            return Some(make("revoke", target_id, None));
+        }
+        if pm.r#type == Some(PmType::MessageEdit as i32) {
+            let text = pm.edited_message.as_deref().and_then(text_of);
+            return Some(make("edit", target_id, text));
+        }
+    }
+
+    if let Some(rm) = base.reaction_message.as_ref() {
+        let target_id = rm.key.as_ref().and_then(|k| k.id.clone()).unwrap_or_default();
+        // An empty/absent emoji means the reaction was removed.
+        return Some(make("reaction", target_id, Some(rm.text.clone().unwrap_or_default())));
+    }
+
+    None
+}
+
 fn message_dto_live(msg: &wa::Message, info: &MessageInfo) -> MessageDto {
     let push_name = (!info.push_name.is_empty()).then(|| info.push_name.clone());
     MessageDto {
@@ -157,6 +272,8 @@ fn message_dto_live(msg: &wa::Message, info: &MessageInfo) -> MessageDto {
         text: text_of(msg),
         kind: classify(msg),
         thumbnail: thumbnail_b64(msg),
+        media: media_dto(msg),
+        quoted: quoted_dto(msg),
     }
 }
 
@@ -169,9 +286,15 @@ fn message_dto_history(chat_jid: &str, wmi: &wa::WebMessageInfo) -> MessageDto {
         .or_else(|| key.participant.clone())
         .unwrap_or_else(|| if from_me { String::new() } else { chat_jid.to_string() });
 
-    let (text, kind, thumbnail) = match wmi.message.as_deref() {
-        Some(m) => (text_of(m), classify(m), thumbnail_b64(m)),
-        None => (None, "other".to_string(), None),
+    let (text, kind, thumbnail, media, quoted) = match wmi.message.as_deref() {
+        Some(m) => (
+            text_of(m),
+            classify(m),
+            thumbnail_b64(m),
+            media_dto(m),
+            quoted_dto(m),
+        ),
+        None => (None, "other".to_string(), None, None, None),
     };
 
     MessageDto {
@@ -184,6 +307,8 @@ fn message_dto_history(chat_jid: &str, wmi: &wa::WebMessageInfo) -> MessageDto {
         text,
         kind,
         thumbnail,
+        media,
+        quoted,
     }
 }
 
@@ -233,6 +358,137 @@ fn classify(msg: &wa::Message) -> String {
         "other"
     };
     k.to_string()
+}
+
+/// Build a downloadable media descriptor + display info from a message's media
+/// payload. Returns `None` for non-media or media missing the keys needed to
+/// decrypt (in which case the inline thumbnail still renders).
+fn media_dto(msg: &wa::Message) -> Option<MediaDto> {
+    let b = msg.get_base_message();
+    let b64 = |bytes: &[u8]| base64::engine::general_purpose::STANDARD.encode(bytes);
+
+    let descriptor = |direct_path: &Option<String>,
+                      media_key: &Option<Vec<u8>>,
+                      file_sha256: &Option<Vec<u8>>,
+                      file_enc_sha256: &Option<Vec<u8>>,
+                      file_length: Option<u64>,
+                      media_type: &str|
+     -> Option<MediaDescriptorDto> {
+        Some(MediaDescriptorDto {
+            direct_path: direct_path.clone()?,
+            media_key: b64(media_key.as_ref()?),
+            file_sha256: b64(file_sha256.as_ref()?),
+            file_enc_sha256: b64(file_enc_sha256.as_ref()?),
+            file_length: file_length.unwrap_or(0),
+            media_type: media_type.to_string(),
+        })
+    };
+
+    if let Some(m) = b.image_message.as_ref() {
+        let d = descriptor(&m.direct_path, &m.media_key, &m.file_sha256, &m.file_enc_sha256, m.file_length, "image")?;
+        return Some(MediaDto {
+            kind: "image".into(),
+            mimetype: m.mimetype.clone(),
+            file_name: None,
+            width: m.width,
+            height: m.height,
+            duration_secs: None,
+            is_animated: None,
+            descriptor: d,
+        });
+    }
+    if let Some(m) = b.video_message.as_ref() {
+        let d = descriptor(&m.direct_path, &m.media_key, &m.file_sha256, &m.file_enc_sha256, m.file_length, "video")?;
+        return Some(MediaDto {
+            kind: "video".into(),
+            mimetype: m.mimetype.clone(),
+            file_name: None,
+            width: m.width,
+            height: m.height,
+            duration_secs: m.seconds,
+            is_animated: m.gif_playback,
+            descriptor: d,
+        });
+    }
+    if let Some(m) = b.audio_message.as_ref() {
+        let d = descriptor(&m.direct_path, &m.media_key, &m.file_sha256, &m.file_enc_sha256, m.file_length, "audio")?;
+        return Some(MediaDto {
+            kind: "audio".into(),
+            mimetype: m.mimetype.clone(),
+            file_name: None,
+            width: None,
+            height: None,
+            duration_secs: m.seconds,
+            is_animated: None,
+            descriptor: d,
+        });
+    }
+    if let Some(m) = b.document_message.as_ref() {
+        let d = descriptor(&m.direct_path, &m.media_key, &m.file_sha256, &m.file_enc_sha256, m.file_length, "document")?;
+        return Some(MediaDto {
+            kind: "document".into(),
+            mimetype: m.mimetype.clone(),
+            file_name: m.file_name.clone(),
+            width: None,
+            height: None,
+            duration_secs: None,
+            is_animated: None,
+            descriptor: d,
+        });
+    }
+    if let Some(m) = b.sticker_message.as_ref() {
+        let d = descriptor(&m.direct_path, &m.media_key, &m.file_sha256, &m.file_enc_sha256, m.file_length, "sticker")?;
+        return Some(MediaDto {
+            kind: "sticker".into(),
+            mimetype: m.mimetype.clone(),
+            file_name: None,
+            width: m.width,
+            height: m.height,
+            duration_secs: None,
+            is_animated: m.is_animated,
+            descriptor: d,
+        });
+    }
+    None
+}
+
+/// Find the `ContextInfo` carried by whichever message variant has one.
+fn context_info_of(base: &wa::Message) -> Option<&wa::ContextInfo> {
+    macro_rules! first_ci {
+        ($($f:ident),+ $(,)?) => {
+            $(
+                if let Some(c) = base.$f.as_ref().and_then(|m| m.context_info.as_deref()) {
+                    return Some(c);
+                }
+            )+
+        };
+    }
+    first_ci!(
+        extended_text_message,
+        image_message,
+        video_message,
+        audio_message,
+        document_message,
+        sticker_message,
+    );
+    None
+}
+
+/// Extract the quoted message for a reply (`ContextInfo` with a `stanza_id`).
+fn quoted_dto(msg: &wa::Message) -> Option<QuotedDto> {
+    let ci = context_info_of(msg.get_base_message())?;
+    let id = ci.stanza_id.clone()?; // a real reply always references a stanza
+    let qm = ci.quoted_message.as_deref();
+    let (text, kind) = match qm {
+        Some(m) => (text_of(m), classify(m)),
+        None => (None, "other".to_string()),
+    };
+    Some(QuotedDto {
+        id,
+        sender_jid: ci.participant.clone(),
+        text,
+        kind,
+    })
 }
 
 fn thumbnail_b64(msg: &wa::Message) -> Option<String> {

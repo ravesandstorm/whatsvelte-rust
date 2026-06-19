@@ -55,9 +55,17 @@ pub fn run() {
             commands::disconnect,
             commands::auth_logout,
             commands::send_text,
+            commands::send_reply,
+            commands::send_reaction,
             commands::mark_read,
+            commands::mark_read_messages,
             commands::get_contact,
             commands::get_profile_picture_url,
+            commands::resolve_jid,
+            commands::download_media,
+            commands::set_chat_muted,
+            commands::set_chat_pinned,
+            commands::set_chat_archived,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
