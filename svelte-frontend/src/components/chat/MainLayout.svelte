@@ -1,8 +1,14 @@
 <script lang="ts">
   import { chatUi } from "../../lib/stores/chats.svelte";
+  import { ui } from "../../lib/stores/ui.svelte";
   import ChatList from "./ChatList.svelte";
   import Conversation from "./Conversation.svelte";
+  import SettingsPanel from "../settings/SettingsPanel.svelte";
 </script>
+
+{#if ui.settingsOpen}
+  <SettingsPanel />
+{/if}
 
 <div class="layout">
   <aside class="pane"><ChatList /></aside>

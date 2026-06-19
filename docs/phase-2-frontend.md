@@ -151,9 +151,10 @@ library events/commands re-emitted through the same `wa://` envelope. Built in
 milestones M1–M11, ordered easiest → hardest.
 
 New IPC added in Part B:
-- Commands: `send_reaction`, `mark_read_messages`, `resolve_jid`,
+- Commands: `send_reply`, `send_reaction`, `mark_read_messages`, `resolve_jid`,
   `download_media`, `set_chat_muted` / `set_chat_pinned` / `set_chat_archived`;
-  `get_contact` extended with `verifiedName` + `lid`.
+  `get_contact` extended with `verifiedName` + `lid`; `MessageDto` extended with
+  `media` + `quoted`.
 - Events: `wa://receipt` (normalized `ReceiptDto`), `wa://message/update`
   (`MessageUpdateDto` — revoke / edit / reaction), `wa://chat/flags`
   (`ChatFlagsDto` — mute / pin / archive).
@@ -192,6 +193,13 @@ New IPC added in Part B:
   per-bubble hover button (`send_reaction`, optimistic).
 
 ### Message lifecycle
+- **Replies / quotes** (M12) — reply to a message from a per-bubble action; the
+  composer shows a reply banner and `send_reply` attaches a quote `ContextInfo`
+  (`build_quote_context` + `set_context_info`). Incoming/history replies carry
+  the quoted preview in `MessageDto.quoted` (extracted from `ContextInfo`) and
+  render as a quoted block inside the bubble (WhatsApp-style). The quoted preview
+  is a best-effort text snapshot — the backend keeps no message store to
+  reconstruct the original media proto.
 - **Deleted messages** (M6) — `protocol_message` REVOKE → tombstone
   ("🚫 This message was deleted").
 - **Edited messages** (M7) — `protocol_message` MESSAGE_EDIT → content replaced
@@ -212,6 +220,8 @@ New IPC added in Part B:
   sort to the top.
 - **Wallpapers** (M2) — per-chat + global conversation background (CSS color /
   gradient / image), applied on `Conversation` with a transparent `MessageList`.
+- **Chat search** (M12) — a search box in the chat-list header filters chats by
+  resolved name / JID / last-message preview (client-side over `sortedChats`).
 
 ### Implementation Module Summary Table
 

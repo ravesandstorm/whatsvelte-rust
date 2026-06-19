@@ -65,7 +65,9 @@
     min-height: 0;
     overflow-y: auto;
     padding: 14px 8%;
-    background: var(--wa-chat-bg);
+    /* Transparent so the conversation wallpaper (set on the parent) shows
+       through; the parent defaults to var(--wa-chat-bg) when no wallpaper. */
+    background: transparent;
     display: flex;
     flex-direction: column;
   }

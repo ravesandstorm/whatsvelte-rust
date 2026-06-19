@@ -2,6 +2,7 @@
   import { messagesFor } from "../../lib/stores/messages.svelte";
   import { chats } from "../../lib/stores/chats.svelte";
   import { contactFor } from "../../lib/stores/contacts.svelte";
+  import { wallpaperCss, wallpaperFor } from "../../lib/stores/settings.svelte";
   import { displayName, isGroup } from "../../lib/util/jid";
   import Avatar from "../common/Avatar.svelte";
   import MessageList from "./MessageList.svelte";
@@ -10,9 +11,10 @@
   let { jid }: { jid: string } = $props();
   const msgs = $derived(messagesFor(jid));
   const name = $derived(displayName(jid, chats.get(jid)?.name ?? contactFor(jid)?.name));
+  const wallpaper = $derived(wallpaperCss(wallpaperFor(jid)));
 </script>
 
-<div class="conversation">
+<div class="conversation" style:background={wallpaper}>
   <header>
     <Avatar label={name} jid={jid} group={isGroup(jid)} size={40} />
     <div class="title">{name}</div>
