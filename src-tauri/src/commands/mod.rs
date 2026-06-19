@@ -3,11 +3,13 @@
 //! (defaults to "default") and return `Result<_, ApiError>`.
 
 mod auth;
+mod chat_settings;
 mod contacts;
 mod media;
 mod messaging;
 
 pub use auth::*;
+pub use chat_settings::*;
 pub use contacts::*;
 pub use media::*;
 pub use messaging::*;
