@@ -1,0 +1,56 @@
+:root {
+  /* WhatsApp-ish palette */
+  --wa-green: #00a884;
+  --wa-green-dark: #008069;
+  --wa-bg: #111b21;
+  --wa-panel: #202c33;
+  --wa-panel-2: #2a3942;
+  --wa-hover: #2a3942;
+  --wa-border: #2f3b43;
+  --wa-text: #e9edef;
+  --wa-text-muted: #8696a0;
+  --wa-bubble-out: #005c4b;
+  --wa-bubble-in: #202c33;
+  --wa-unread: #00a884;
+  --wa-chat-bg: #0b141a;
+
+  color-scheme: dark;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  color: var(--wa-text);
+  background: var(--wa-bg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  overflow: hidden;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #374248;
+  border-radius: 4px;
+}
