@@ -38,6 +38,9 @@
   }
   .chats {
     flex: 1;
+    /* Without this a flex child defaults to min-height:auto and grows to fit its
+       content instead of scrolling, so the list overflows the panel. */
+    min-height: 0;
     overflow-y: auto;
   }
   .empty {

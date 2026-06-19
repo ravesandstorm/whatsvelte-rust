@@ -17,10 +17,13 @@ export const chatUi = $state({ activeJid: null as string | null });
 /** Upsert from a history-sync chat row (keeps the higher timestamp / existing name). */
 export function upsertChatFromDto(d: ChatDto) {
   const prev = chats.get(d.jid);
+  // Only let the newer row drive the preview, so the list never shows an older
+  // message's text next to a newer message's time (chunks can arrive any order).
+  const isNewer = !prev || d.timestamp >= prev.timestamp;
   chats.set(d.jid, {
     jid: d.jid,
     name: d.name ?? prev?.name ?? null,
-    lastMessage: d.lastMessage ?? prev?.lastMessage ?? null,
+    lastMessage: isNewer ? (d.lastMessage ?? prev?.lastMessage ?? null) : prev?.lastMessage ?? null,
     timestamp: Math.max(d.timestamp, prev?.timestamp ?? 0),
     unread: d.unread || prev?.unread || 0,
   });
@@ -35,10 +38,11 @@ export function touchChat(
 ) {
   const prev = chats.get(jid);
   const isActive = chatUi.activeJid === jid;
+  const isNewer = !prev || timestamp >= prev.timestamp;
   chats.set(jid, {
     jid,
     name: prev?.name ?? null,
-    lastMessage: lastMessage ?? prev?.lastMessage ?? null,
+    lastMessage: isNewer ? (lastMessage ?? prev?.lastMessage ?? null) : prev?.lastMessage ?? null,
     timestamp: Math.max(timestamp, prev?.timestamp ?? 0),
     unread: incoming && !isActive ? (prev?.unread ?? 0) + 1 : (prev?.unread ?? 0),
   });

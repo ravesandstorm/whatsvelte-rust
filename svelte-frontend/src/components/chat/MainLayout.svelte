@@ -5,8 +5,8 @@
 </script>
 
 <div class="layout">
-  <aside><ChatList /></aside>
-  <section>
+  <aside class="pane"><ChatList /></aside>
+  <section class="pane">
     {#if chatUi.activeJid}
       {#key chatUi.activeJid}
         <Conversation jid={chatUi.activeJid} />
@@ -25,9 +25,18 @@
     height: 100%;
     display: grid;
     grid-template-columns: 360px 1fr;
+    /* Pin the single row to the viewport so panes get a definite height to
+       scroll within, instead of growing with their content. */
+    grid-template-rows: 100%;
+  }
+  /* Both grid cells must clip + allow shrinking so their inner scroll regions
+     (chat list, message list) actually scroll rather than overflow the window. */
+  .pane {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
   }
   section {
-    min-width: 0;
     background: var(--wa-chat-bg);
   }
   .empty {

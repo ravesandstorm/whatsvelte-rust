@@ -114,7 +114,7 @@ fn decode_history(compressed: &[u8], size: usize) -> Vec<HistoryDto> {
 }
 
 fn convert_conversation(conv: wa::Conversation) -> HistoryDto {
-    let chat_jid = conv.id;
+    let chat_jid = normalize_chat_jid(&conv.id);
     let mut messages: Vec<MessageDto> = conv
         .messages
         .into_iter()
@@ -149,7 +149,7 @@ fn message_dto_live(msg: &wa::Message, info: &MessageInfo) -> MessageDto {
     let push_name = (!info.push_name.is_empty()).then(|| info.push_name.clone());
     MessageDto {
         id: info.id.clone(),
-        chat_jid: info.source.chat.to_string(),
+        chat_jid: normalize_chat_jid(&info.source.chat.to_string()),
         sender_jid: info.source.sender.to_string(),
         from_me: info.source.is_from_me,
         timestamp: info.timestamp.timestamp(),
@@ -184,6 +184,28 @@ fn message_dto_history(chat_jid: &str, wmi: &wa::WebMessageInfo) -> MessageDto {
         text,
         kind,
         thumbnail,
+    }
+}
+
+/// Canonical chat key for a JID.
+///
+/// Live message events carry a device/agent suffix on the chat JID
+/// (`12345.0:7@s.whatsapp.net`), while history-sync conversation ids do not
+/// (`12345@s.whatsapp.net`). Keying the chat map on the raw string would split
+/// the same conversation in two — incoming history under one key, your own
+/// phone-sent messages under another. Stripping the agent (`.N`) and device
+/// (`:N`) parts unifies them on `user@server`.
+///
+/// Limitation: this does not bridge LID (`@lid`) and phone-number
+/// (`@s.whatsapp.net`) addressing for the same contact — those have different
+/// servers and would need the library's LID↔PN map to merge.
+fn normalize_chat_jid(jid: &str) -> String {
+    match jid.split_once('@') {
+        Some((user, server)) => {
+            let base = user.split([':', '.']).next().unwrap_or(user);
+            format!("{base}@{server}")
+        }
+        None => jid.to_string(),
     }
 }
 

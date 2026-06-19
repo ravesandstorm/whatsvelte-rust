@@ -166,6 +166,13 @@ one, not bolted on at the end).
   event. Restart without re-pairing starts empty (documented limitation).
 - Backend glue added: normalized `MessageDto` on `wa://message`, per-conversation
   `wa://history` decode, and `get_contact`/`get_profile_picture_url` commands.
+- MVP hardening: chat JIDs are normalized (`normalize_chat_jid` strips the
+  device/agent suffix) so phone-originated and history messages land in one
+  conversation; the message list is windowed to the latest ~40 (loads older on
+  scroll-up) to keep RAM flat on large chats; scroll regions get `min-height:0`
+  so the composer stays on-screen and lists scroll internally with bottom-pinned
+  auto-follow; chat previews track the newest message (preview + time move
+  together). Known gap: LID↔phone-number addressing for one contact isn't merged.
 
 ### Phase 3 — Testing
 - Rust: command-layer unit/integration tests; reuse the library's existing
