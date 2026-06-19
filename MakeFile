@@ -16,6 +16,7 @@ help:
 
 setup:
 	npm install
+	npm --prefix svelte-frontend install
 
 # The "continuously running for development" loop: compiles the Rust backend,
 # loads the frontend, and hot-reconnects on change.
@@ -28,8 +29,7 @@ build:
 	npm run tauri build
 
 frontend:
-	@echo "Phase 1 uses a static placeholder served by Tauri (svelte-frontend/index.html)."
-	@echo "Phase 2 will run a Vite dev server here."
+	npm --prefix svelte-frontend run dev
 
 fmt:
 	cd src-tauri && cargo fmt

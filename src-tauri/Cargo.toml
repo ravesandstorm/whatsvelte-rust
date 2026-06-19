@@ -26,6 +26,8 @@ tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros"] }
 # Must match the major version whatsapp-rust uses, so the Receiver<Arc<Event>>
 # type from ChannelEventHandler lines up across the crate boundary.
 async-channel = "2"
+# Inline media thumbnails (jpeg_thumbnail bytes) are base64'd for the UI.
+base64 = "0.22"
 
 # The vendored protocol library, pulled in by path. Default features bring the
 # SQLite store, Tokio WebSocket transport, ureq HTTP client and Tokio runtime.

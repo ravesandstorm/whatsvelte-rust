@@ -29,3 +29,50 @@ pub struct SendResultDto {
     pub message_id: String,
     pub to: String,
 }
+
+/// One rendered message. Built in `bridge.rs` from either a live
+/// `Event::Message` or a history-sync `WebMessageInfo`.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MessageDto {
+    pub id: String,
+    pub chat_jid: String,
+    pub sender_jid: String,
+    pub from_me: bool,
+    /// Unix epoch seconds.
+    pub timestamp: i64,
+    pub push_name: Option<String>,
+    pub text: Option<String>,
+    /// "text" | "image" | "video" | "audio" | "document" | "sticker" | "other".
+    pub kind: String,
+    /// base64 JPEG (image/video thumbnail), when present inline in the proto.
+    pub thumbnail: Option<String>,
+}
+
+/// One chat row for the sidebar.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatDto {
+    pub jid: String,
+    pub name: Option<String>,
+    pub last_message: Option<String>,
+    /// Unix epoch seconds.
+    pub timestamp: i64,
+    pub unread: u32,
+}
+
+/// A history-sync chunk (emitted per conversation on `wa://history`).
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryDto {
+    pub chats: Vec<ChatDto>,
+    pub messages: Vec<MessageDto>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContactDto {
+    pub jid: String,
+    pub name: Option<String>,
+    pub picture_url: Option<String>,
+}

@@ -56,6 +56,8 @@ pub fn run() {
             commands::auth_logout,
             commands::send_text,
             commands::mark_read,
+            commands::get_contact,
+            commands::get_profile_picture_url,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

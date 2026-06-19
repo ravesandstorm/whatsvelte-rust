@@ -20,8 +20,13 @@ link a device (WhatsApp → Linked Devices), or use the pair-code field.
 
 ## Status
 - **Phase 1 (backend integration & IPC) — done.** Session manager, event bridge,
-  auth/messaging commands, dev harness UI. Builds and runs.
-- Phase 2: real Svelte UI · Phase 3: testing · Phase 4: `tauri build` packaging.
+  auth/messaging commands. Builds and runs.
+- **Phase 2 (Svelte frontend) — done.** Svelte 5 + Vite + TS app: offline-QR
+  pairing screen, two-pane chat UI (chat list, conversation, composer), live
+  event-driven state, optimistic send, contact names/avatars, inline image
+  thumbnails. Chat history is in-memory (rebuilt from history-sync at pairing +
+  live events); restart without re-pairing starts empty.
+- Phase 3: testing · Phase 4: `tauri build` packaging.
 
 ## Attribution
 Backend: [whatsapp-rust](https://github.com/oxidezap/whatsapp-rust)

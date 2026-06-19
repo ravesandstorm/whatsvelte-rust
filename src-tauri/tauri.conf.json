@@ -4,10 +4,13 @@
   "version": "0.1.0",
   "identifier": "com.ravesandstorm.whatsapp-integrate",
   "build": {
-    "frontendDist": "../svelte-frontend"
+    "beforeDevCommand": { "script": "npm run dev", "cwd": "../svelte-frontend" },
+    "beforeBuildCommand": { "script": "npm run build", "cwd": "../svelte-frontend" },
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../svelte-frontend/dist"
   },
   "app": {
-    "withGlobalTauri": true,
+    "withGlobalTauri": false,
     "windows": [
       {
         "label": "main",

@@ -152,12 +152,20 @@ one, not bolted on at the end).
   surfaces a QR code to pair, and round-trips a sent/received message — verified
   with a throwaway UI/log before the real frontend exists.
 
-### Phase 2 — Frontend
-- Build the WhatsApp-Web-style Svelte UI in `svelte-frontend/`: chat list,
-  conversation view, composer, QR pairing screen.
-- Wire it to the Phase 1 commands/events via `@tauri-apps/api`.
-- Expand the command/event surface as the UI needs more (groups, media,
-  presence, receipts, history).
+### Phase 2 — Frontend  ✅ done
+- Svelte 5 + Vite + TS SPA in `svelte-frontend/`, wired to Phase 1
+  commands/events via `@tauri-apps/api`. `tauri dev` drives Vite via
+  `beforeDevCommand` (devUrl `:5173`).
+- Pairing screen with **offline** QR (the `qrcode` lib on a canvas) + pair-code
+  form; two-pane WhatsApp layout (chat list, conversation, composer); message
+  bubbles with fromMe distinction and inline image thumbnails; lazy contact
+  names/avatars.
+- Data is event-driven and **in-memory**: the backend has no message DB, so the
+  chat list/messages are rebuilt from `wa://history` (decoded from history-sync
+  at pairing) + live `wa://message`. Optimistic send reconciles with the echoed
+  event. Restart without re-pairing starts empty (documented limitation).
+- Backend glue added: normalized `MessageDto` on `wa://message`, per-conversation
+  `wa://history` decode, and `get_contact`/`get_profile_picture_url` commands.
 
 ### Phase 3 — Testing
 - Rust: command-layer unit/integration tests; reuse the library's existing

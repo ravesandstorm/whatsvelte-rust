@@ -3,7 +3,9 @@
 //! (defaults to "default") and return `Result<_, ApiError>`.
 
 mod auth;
+mod contacts;
 mod messaging;
 
 pub use auth::*;
+pub use contacts::*;
 pub use messaging::*;
