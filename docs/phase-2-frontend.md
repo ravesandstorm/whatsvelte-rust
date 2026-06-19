@@ -143,38 +143,91 @@ conversations. Tracked under Part B "Identity & addressing".
 
 ---
 
-## Part B — Rich object model  ⏳ planned
+## Part B — Rich object model  ✅ delivered
 
-Part A treats every payload as text-or-thumbnail. Part B implements the real
+Part A treated every payload as text-or-thumbnail. Part B implements the real
 WhatsApp object types and the interactions around them. Each maps to existing
-library events/commands re-emitted through the same `wa://` envelope; the
-IndexedDB schema gains stores/fields per object type as they land.
+library events/commands re-emitted through the same `wa://` envelope. Built in
+milestones M1–M11, ordered easiest → hardest.
+
+New IPC added in Part B:
+- Commands: `send_reaction`, `mark_read_messages`, `resolve_jid`,
+  `download_media`, `set_chat_muted` / `set_chat_pinned` / `set_chat_archived`;
+  `get_contact` extended with `verifiedName` + `lid`.
+- Events: `wa://receipt` (normalized `ReceiptDto`), `wa://message/update`
+  (`MessageUpdateDto` — revoke / edit / reaction), `wa://chat/flags`
+  (`ChatFlagsDto` — mute / pin / archive).
+- The `Event::Message` arm in `bridge.rs` now classifies **control messages**
+  first (revoke / edit / reaction) and routes them to `wa://message/update`
+  instead of adding a bubble; the message store exposes `applyReceipt` /
+  `applyRevoke` / `applyEdit` / `applyReaction` patch fns.
 
 ### Identity & addressing
-- **LID ↔ phone-number unification** — merge a contact's `@lid` and
-  `@s.whatsapp.net` identities into one conversation using the library's LID↔PN
-  mapping. (Resolves the A.10 gap.)
-- **Name addressing in chat** — show the saved contact / business / pushName for
-  incoming messages and group participants instead of the raw JID.
+- **LID ↔ phone-number unification** (M10) — `resolve_jid` maps a contact's
+  `@lid` identity to its `@s.whatsapp.net` form via the library's
+  `get_lid_pn_entry`; the frontend then **merges** the two conversations (chat
+  row + messages, in memory and in IndexedDB via `mergeChats`/`mergeMessages` +
+  `deletePersisted`). Resolves the A.10 gap. Merge runs on new LID chats and on
+  boot for cached ones.
+- **Name addressing in chat** (M3) — display name resolves verified-business
+  name → pushName → history `conv.name` → JID user; group participant names are
+  resolved lazily through the contacts store in `MessageBubble`. **Library
+  limitation:** there is no server getter for *saved* (address-book) contact
+  names, so a contact saved only on the phone shows as pushName/number.
 
 ### Media & content types
-- **Full media download** — image / video / audio / document beyond the inline
-  `jpegThumbnail`, fetched on demand and cached locally.
-- **Stickers** — render static & animated stickers; a **sticker bar** in the
-  composer populated from the user's sticker packs (synced from
-  history / app-state objects).
-- **Emoji bar** — emoji picker in the composer; emoji **reactions** on messages.
+- **Full media download** (M11) — image / video / audio / document fetched +
+  decrypted by the backend (`download_media`, `client.download_from_params`) to a
+  **content-addressed file** in `app_data_dir/media/`, returned as a path and
+  rendered via Tauri's **asset protocol** (`convertFileSrc`) so bytes never cross
+  the IPC/JS boundary. Images/stickers load eagerly; video/audio/docs are
+  click-to-load. Requires the `protocol-asset` Cargo feature + an
+  `assetProtocol` scope in `tauri.conf.json`.
+- **Stickers** (M11) — received static & animated stickers render through the
+  same media path. **Library limitation:** no API enumerates the user's
+  *installed* sticker packs (only `fetch_sticker_pack(pack_id)` + received
+  stickers), so a synced **sticker bar** is deferred.
+- **Emoji** (M1, M8) — a dependency-free `EmojiPicker` in the composer
+  (recent-emoji in `localStorage`); the same picker drives **reactions** from a
+  per-bubble hover button (`send_reaction`, optimistic).
 
 ### Message lifecycle
-- **Deleted messages** — render "this message was deleted" from revoke events.
-- **Edited messages** — show edited content with an "edited" marker.
-- **Read receipts (display)** — per-message sent / delivered / read ticks.
-- **Read receipts (send)** — emit read events for messages actually **rendered
-  on-screen** (viewport-driven), not merely on chat open.
+- **Deleted messages** (M6) — `protocol_message` REVOKE → tombstone
+  ("🚫 This message was deleted").
+- **Edited messages** (M7) — `protocol_message` MESSAGE_EDIT → content replaced
+  + an "edited" marker. **Follow-up:** the newer encrypted
+  `secret_encrypted_message` edit path is not yet decoded.
+- **Read receipts — display** (M4) — `Event::Receipt` normalized to
+  `delivered`/`read`/`played`; per-message ticks (✓ / ✓✓ / blue ✓✓).
+- **Read receipts — send** (M5) — an `IntersectionObserver` (`lib/receipts.ts`)
+  acks incoming messages once actually scrolled into view, batched/debounced via
+  `mark_read_messages`; gated on the Settings privacy toggle.
 
 ### App surfaces
-- **Settings area** — account, notifications, privacy, theme.
-- **Wallpapers** — per-chat / global conversation background.
+- **Settings area** (M2) — `SettingsPanel` with Account (logout), Appearance
+  (zoom, wallpaper), Chats (enter-to-send), Privacy (read-receipt toggle);
+  device-local prefs in `localStorage` (`lib/stores/settings.svelte.ts`).
+- **Server-synced chat settings** (M9) — mute / pin / archive via a chat
+  context menu, optimistic with server echo on `wa://chat/flags`; pinned chats
+  sort to the top.
+- **Wallpapers** (M2) — per-chat + global conversation background (CSS color /
+  gradient / image), applied on `Conversation` with a transparent `MessageList`.
+
+### Implementation Module Summary Table
+
+| # | Feature | Backend | Frontend |
+| --- | --- | --- | --- |
+| M1 | Emoji picker | — | EmojiPicker.svelte, lib/emoji.ts, composer caret-insert + recents |
+| M2 | Settings + wallpapers | — | SettingsPanel.svelte, settings.svelte.ts, per-chat/global wallpaper, enter-to-send, privacy toggle |
+| M3 | Name addressing | ContactDto + verifiedName/lid | group-participant name resolution via contacts store |
+| M4 | Read receipts (display) | normalize Event::Receipt → wa://receipt | UiMessage.status, applyReceipt, ✓/✓✓/blue ticks |
+| M5 | Read receipts (send) | mark_read_messages (per-message) | lib/receipts.ts IntersectionObserver, privacy-gated |
+| M6 | Deleted messages | REVOKE → wa://message/update | applyRevoke tombstone |
+| M7 | Edited messages | MESSAGE_EDIT → update | applyEdit + "edited" marker |
+| M8 | Reactions | detect reaction_message + send_reaction | reaction chips + hover-to-react picker |
+| M9 | Chat settings (mute/pin/archive) | chat_settings.rs + wa://chat/flags | context menu, pinned-first sort, badges |
+| M10 | LID↔PN unification | resolve_jid via get_lid_pn_entry | mergeChats/mergeMessages + IndexedDB migration |
+| M11 | Media + stickers | download_media → app-data file (asset protocol) | MessageMedia.svelte, lib/media.ts via convertFileSrc |
 
 ---
 

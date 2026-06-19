@@ -1,8 +1,9 @@
 # Whatsvelte-Rust — Architecture & Process
 
-> Status: **Phase 2A complete** (MVP texting client built; Phase 2B — rich object
-> model — planned). This document is the source of truth for *how* the project is
-> structured and *why*. It supersedes the original "axum server" framing — see
+> Status: **Phase 2 complete** (2A — MVP texting client; 2B — rich object model:
+> media, stickers, reactions, edits/deletes, receipts, settings, LID↔PN). This
+> document is the source of truth for *how* the project is structured and *why*.
+> It supersedes the original "axum server" framing — see
 > [Architecture decision](#architecture-decision).
 
 ## 1. Goal
@@ -198,36 +199,32 @@ Full detail lives in [`phase-2-frontend.md`](./phase-2-frontend.md).
   `localStorage`. Shortcuts are handled in-app (not via the webview's native
   zoom) so behaviour and persistence are identical on every platform.
 
-#### Phase 2B — Rich object model  ⏳ planned
-Part A treats every payload as text-or-thumbnail. Part B fills in the real
-WhatsApp object types and the interactions around them. Grouped by area:
+#### Phase 2B — Rich object model  ✅ done
+Built in milestones M1–M11 (easiest → hardest). Each maps to existing library
+events/commands re-emitted through the same `wa://` envelope. Full detail and
+known limitations are in [`phase-2-frontend.md`](./phase-2-frontend.md) §"Part B".
 
-- **Identity & addressing**
-  - **LID ↔ phone-number unification** — merge a contact's `@lid` and
-    `@s.whatsapp.net` identities into one conversation (needs the library's
-    LID↔PN mapping; today they stay separate — the one known Part-A gap).
-  - **Name addressing in chat** — resolve incoming messages to the saved contact
-    name (address book / pushName / verified business name) instead of the raw
-    JID, including group-participant names.
-- **Media & content types**
-  - **Full media download** (image/video/audio/document) beyond the inline
-    `jpegThumbnail`, with on-demand fetch + local cache.
-  - **Stickers** — render static/animated stickers; a **sticker bar** populated
-    from the user's sticker packs (synced from history/app-state objects).
-  - **Emoji bar** — picker in the composer; emoji reactions on messages.
-- **Message lifecycle**
-  - **Deleted messages** — render "this message was deleted" from revoke events.
-  - **Edited messages** — show edited content + an "edited" marker.
-  - **Read receipts (display)** — per-message sent/delivered/read ticks.
-  - **Read receipts (send)** — emit read events for messages actually rendered
-    on-screen (viewport-driven mark-read), not just on chat open.
-- **App surfaces**
-  - **Settings area** — account, notifications, privacy, theme.
-  - **Wallpapers** — per-chat / global conversation background.
+- **Identity & addressing** — LID↔phone-number unification (`resolve_jid` +
+  frontend chat/message merge, resolving the old Part-A gap); name addressing
+  (verified-business → pushName → history name → JID; group participants). Gap:
+  the library has no *saved* contact-name getter.
+- **Media & content** — full image/video/audio/document download
+  (`download_media` → app-data file → asset protocol via `convertFileSrc`, bytes
+  never cross IPC); received static/animated stickers. Gap: no installed-pack
+  enumeration, so the synced **sticker bar** is deferred. Emoji picker in the
+  composer + emoji reactions (`send_reaction`).
+- **Message lifecycle** — deleted (REVOKE tombstone), edited (MESSAGE_EDIT +
+  marker; encrypted-edit path is a follow-up), receipt **display** (normalized
+  `Event::Receipt` → ticks), receipt **send** (viewport `IntersectionObserver` →
+  `mark_read_messages`, privacy-gated). Revoke/edit/reaction all arrive inside
+  `Event::Message` and are routed to `wa://message/update`.
+- **App surfaces** — settings panel (account, zoom, wallpaper, enter-to-send,
+  read-receipt toggle); server-synced mute/pin/archive (`wa://chat/flags`,
+  pinned-first sort); per-chat/global wallpapers.
 
-Each Part-B feature maps to existing library events/commands (receipts, app
-state, media download, contacts) re-emitted through the same `wa://` envelope;
-the IndexedDB schema gains stores/fields per object type as they land.
+The asset protocol needs the `protocol-asset` Cargo feature + an `assetProtocol`
+scope in `tauri.conf.json`; new event-derived fields persist automatically since
+IndexedDB stores the whole chat/message objects.
 
 ### Phase 3 — Testing
 - Rust: command-layer unit/integration tests; reuse the library's existing
