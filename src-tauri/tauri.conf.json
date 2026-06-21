@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2.0.0",
-  "productName": "whatsapp-integrate",
+  "productName": "whatsvelte-rust",
   "version": "0.1.0",
-  "identifier": "com.ravesandstorm.whatsapp-integrate",
+  "identifier": "com.ravesandstorm.whatsvelte-rust",
   "build": {
     "beforeDevCommand": { "script": "npm run dev", "cwd": "../svelte-frontend" },
     "beforeBuildCommand": { "script": "npm run build", "cwd": "../svelte-frontend" },

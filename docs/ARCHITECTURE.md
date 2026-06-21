@@ -1,4 +1,4 @@
-# WhatsApp-Integrate — Architecture & Process
+# Whatsvelte-Rust — Architecture & Process
 
 > Status: **planning** (Phase 1, pre-implementation). This document is the source
 > of truth for *how* the project is structured and *why*. It supersedes the
@@ -71,7 +71,7 @@ one `Cargo.toml` + `tauri.conf.json` to drive the build.
 ## 3. Target repository layout
 
 ```text
-whatsapp-integrate/
+whatsvelte-rust/
 ├── docs/                       # this document + per-phase specs
 ├── rust-backend/               # vendored whatsapp-rust library workspace (unchanged)
 ├── src-tauri/                  # NEW — Tauri backend (the "monolith")

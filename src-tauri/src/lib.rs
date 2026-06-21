@@ -1,4 +1,4 @@
-//! WhatsApp-Integrate — Tauri backend (the "monolith").
+//! Whatsvelte-Rust — Tauri backend (the "monolith").
 //!
 //! Owns long-lived whatsapp-rust `Client`s (one per session), exposes their
 //! operations as Tauri commands, and forwards the library event stream to the

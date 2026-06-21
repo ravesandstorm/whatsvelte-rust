@@ -1,5 +1,5 @@
 [package]
-name = "whatsapp-integrate"
+name = "whatsvelte-rust"
 version = "0.1.0"
 description = "Tauri desktop app wrapping the whatsapp-rust library"
 edition = "2021"

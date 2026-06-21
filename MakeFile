@@ -1,4 +1,4 @@
-# Common dev commands for whatsapp-integrate (Tauri monolith).
+# Common dev commands for whatsvelte-rust (Tauri monolith).
 # Note: `make server` runs the whole app (Rust backend + WebView) via tauri dev.
 
 .PHONY: help setup server dev build frontend fmt clippy clean

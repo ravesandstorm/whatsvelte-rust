@@ -5089,7 +5089,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "whatsapp-integrate"
+name = "whatsvelte-rust"
 version = "0.1.0"
 dependencies = [
  "anyhow",

@@ -1,5 +1,5 @@
 {
-  "name": "whatsapp-integrate",
+  "name": "whatsvelte-rust",
   "version": "0.1.0",
   "private": true,
   "description": "Tauri desktop app wrapping the whatsapp-rust library",
