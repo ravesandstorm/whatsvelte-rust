@@ -64,16 +64,9 @@ export async function startEventBridge() {
     if (session.jid) await setAccount(session.jid);
   });
   await on("wa://auth/logged-out", async () => {
-    session.loggedIn = false;
-    session.connected = false;
-    session.jid = null;
-    // Drop the local cache so a different account can't see stale chats.
-    chats.clear();
-    messagesByChat.clear();
-    chatUi.activeJid = null;
-    clearLidMap();
-    clearNameCache();
-    await clearAll();
+    // Manual or server-initiated logout — do a full reset so no stale state
+    // (cache or device key) can survive into a re-pair.
+    await resetAll();
   });
   await on("wa://conn/state", () => {
     void refreshStatus();
@@ -142,67 +135,76 @@ export async function startEventBridge() {
     void unifyLid(u.chatJid);
   });
 
-  // 2. Find out who we are. NOTE: on a plain restart the backend boots/loads the
-  //    session asynchronously, so auth_status can momentarily report
-  //    loggedIn:false; a Connected event corrects it shortly after. Hydration
-  //    below must NOT depend on this transient flag.
+  // 2. Determine login state. The ONLY source of truth is the handshake type
+  //    (reported as `registered`): IK ⇒ logged in, XX ⇒ logged out. It's a local
+  //    DB read, so it's known even offline — we never log out a registered user
+  //    just because the connection hasn't come up yet.
   await refreshStatus();
 
-  // 2b. Load this account's learned LID→PN map before hydration so persisted
-  //     LID chats canonicalize/merge correctly on boot.
-  loadLidMap(session.jid);
-  loadNameCache(session.jid);
-
-  // 3. Rehydrate the previous run's chats/messages from IndexedDB. This is the
-  //    fix for "empty UI on restart": the backend only emits HistorySync once
-  //    (at pairing), so a normal relaunch has no events to rebuild from.
+  // 3. Reconcile IndexedDB against the handshake truth.
   try {
-    const snap = await loadSnapshot();
-    const differentAccount =
-      !!snap.accountJid &&
-      !!session.jid &&
-      normalizeJid(snap.accountJid) !== normalizeJid(session.jid);
-
-    if (differentAccount) {
-      // A different account is linked now — the cached chats aren't ours.
-      clearLidMap();
-      clearNameCache();
-      await clearAll();
+    if (!session.registered) {
+      // XX = logged out. Any IndexedDB data here is stale (e.g. a prior install
+      // or a dead on-disk key that blocks QR generation). Wipe it and reset the
+      // device key so a clean QR can be generated.
+      const snap = await loadSnapshot();
+      const hasData =
+        snap.chats.length > 0 || Object.keys(snap.messages).length > 0 || !!snap.accountJid;
+      if (hasData) {
+        clearLidMap();
+        clearNameCache();
+        await clearAll();
+        try {
+          await api.resetSession();
+        } catch (e) {
+          console.error("reset session failed", e);
+        }
+        await refreshStatus();
+      }
+      // else: a clean unpaired boot — the QR will arrive shortly.
     } else {
-      // Hydrate regardless of the (racy) loggedIn flag — cached data belongs to
-      // this account. Merge semantics (upsert/addHistory dedupe) so anything a
-      // live event added between step 1 and now isn't lost.
-      // Canonicalize on the way in so a persisted LID chat with a known mapping
-      // rehydrates straight into its PN conversation.
-      for (const c of snap.chats) {
-        const jid = canonicalJid(c.jid);
-        if (jid !== c.jid) void deletePersisted(c.jid); // drop the stale LID row
-        upsertChatFromDto(jid === c.jid ? c : { ...c, jid });
+      // IK = logged in. Rehydrate the previous run's chats/messages so the UI
+      // isn't empty on restart (the backend only emits HistorySync at pairing).
+      loadLidMap(session.jid);
+      loadNameCache(session.jid);
+      const snap = await loadSnapshot();
+      const differentAccount =
+        !!snap.accountJid &&
+        !!session.jid &&
+        normalizeJid(snap.accountJid) !== normalizeJid(session.jid);
+
+      if (differentAccount) {
+        // A different account is linked now — the cached chats aren't ours.
+        clearLidMap();
+        clearNameCache();
+        await clearAll();
+      } else {
+        // Canonicalize on the way in so a persisted LID chat with a known
+        // mapping rehydrates straight into its PN conversation.
+        for (const c of snap.chats) {
+          const jid = canonicalJid(c.jid);
+          if (jid !== c.jid) void deletePersisted(c.jid); // drop the stale LID row
+          upsertChatFromDto(jid === c.jid ? c : { ...c, jid });
+        }
+        const all = Object.values(snap.messages)
+          .flat()
+          .map((m) => {
+            const jid = canonicalJid(m.chatJid);
+            return jid === m.chatJid ? m : { ...m, chatJid: jid };
+          });
+        if (all.length) addHistoryMessages(all);
+
+        // Safety net: reconstruct any chat that has messages but no chat row.
+        for (const [rawJid, items] of Object.entries(snap.messages)) {
+          const jid = canonicalJid(rawJid);
+          if (!items.length || chats.has(jid)) continue;
+          const last = items[items.length - 1];
+          ensureChat(jid, last.text ?? null, last.timestamp, last.pushName ?? null);
+        }
+
+        // Try to unify any cached LID conversations into their phone-number form.
+        for (const jid of [...chats.keys()]) void unifyLid(jid);
       }
-      const all = Object.values(snap.messages)
-        .flat()
-        .map((m) => {
-          const jid = canonicalJid(m.chatJid);
-          return jid === m.chatJid ? m : { ...m, chatJid: jid };
-        });
-      if (all.length) addHistoryMessages(all);
-
-      // Safety net: reconstruct any chat that has messages but no chat row, so
-      // the list never depends on the chats store alone surviving.
-      for (const [rawJid, items] of Object.entries(snap.messages)) {
-        const jid = canonicalJid(rawJid);
-        if (!items.length || chats.has(jid)) continue;
-        const last = items[items.length - 1];
-        ensureChat(jid, last.text ?? null, last.timestamp, last.pushName ?? null);
-      }
-
-      // We have cached chats → we were logged in. Show the chat view
-      // immediately instead of flashing the pairing screen while the backend
-      // finishes connecting (LoggedOut/Connected events still correct this).
-      if (chats.size > 0) session.loggedIn = true;
-
-      // Try to unify any cached LID conversations into their phone-number form.
-      for (const jid of [...chats.keys()]) void unifyLid(jid);
     }
   } catch (e) {
     console.error("hydrate from cache failed", e);
@@ -226,5 +228,27 @@ export async function refreshStatus() {
     session.pushName = s.pushName;
   } catch (e) {
     console.error("auth_status failed", e);
+  }
+}
+
+/** Full client-side reset: clear in-memory + persisted state and regenerate the
+ * device key (so a clean QR can be generated). Used on logout and as the manual
+ * recovery from a stuck/stale session. */
+export async function resetAll() {
+  session.loggedIn = false;
+  session.connected = false;
+  session.registered = false;
+  session.jid = null;
+  session.pushName = null;
+  chats.clear();
+  messagesByChat.clear();
+  chatUi.activeJid = null;
+  clearLidMap();
+  clearNameCache();
+  await clearAll();
+  try {
+    await api.resetSession();
+  } catch (e) {
+    console.error("reset session failed", e);
   }
 }

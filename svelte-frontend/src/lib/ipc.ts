@@ -23,6 +23,7 @@ export const api = {
   connect: () => invoke<void>("connect", {}),
   disconnect: () => invoke<void>("disconnect", {}),
   logout: () => invoke<void>("auth_logout", {}),
+  resetSession: () => invoke<void>("reset_session", {}),
   sendText: (jid: string, text: string) =>
     invoke<SendResultDto>("send_text", { jid, text }),
   sendReply: (

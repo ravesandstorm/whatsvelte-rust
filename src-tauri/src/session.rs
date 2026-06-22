@@ -71,6 +71,37 @@ impl SessionManager {
         Ok((id, session))
     }
 
+    /// Hard-reset a session: drop the live client, delete its SQLite files so
+    /// the device key is regenerated, then boot a fresh (unregistered) session
+    /// that will emit a new QR. Used by logout and by stale-data recovery — if
+    /// the on-disk key is stale the QR never generates, so we wipe and recreate.
+    pub async fn reset(&self, session_id: &str) -> ApiResult<Arc<Session>> {
+        {
+            let mut map = self.sessions.lock().await;
+            if let Some(old) = map.remove(session_id) {
+                old.client.disconnect().await;
+                // Dropping the map's strong ref aborts the run loop (BotHandle in
+                // Session), releasing the SQLite handle before we delete the file.
+                drop(old);
+            }
+        }
+        // Delete the db plus its WAL/SHM sidecars; a missing file is not an error.
+        for suffix in ["", "-shm", "-wal"] {
+            let path = self.base_dir.join(format!("whatsapp-{session_id}.db{suffix}"));
+            if let Err(e) = std::fs::remove_file(&path) {
+                if e.kind() != std::io::ErrorKind::NotFound {
+                    log::warn!("[{session_id}] failed to delete {}: {e}", path.display());
+                }
+            }
+        }
+        let session = self.boot(session_id).await?;
+        self.sessions
+            .lock()
+            .await
+            .insert(session_id.to_string(), session.clone());
+        Ok(session)
+    }
+
     async fn boot(&self, session_id: &str) -> ApiResult<Arc<Session>> {
         let db_path = self.base_dir.join(format!("whatsapp-{session_id}.db"));
         let db_str = db_path.to_string_lossy().to_string();

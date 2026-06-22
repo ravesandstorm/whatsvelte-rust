@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { session } from "./lib/stores/session.svelte";
+  import { chats } from "./lib/stores/chats.svelte";
   import { startEventBridge } from "./lib/stores/events";
   import PairingScreen from "./components/pairing/PairingScreen.svelte";
   import LoadingScreen from "./components/pairing/LoadingScreen.svelte";
@@ -9,13 +10,17 @@
   onMount(() => {
     void startEventBridge();
   });
+
+  const hasChats = $derived(chats.size > 0);
 </script>
 
-{#if session.loggedIn}
-  <MainLayout />
-{:else if session.registered}
-  <!-- Already paired, just reconnecting — don't flash the QR. -->
-  <LoadingScreen />
-{:else}
+<!-- Source of truth is the handshake type: registered (IK) = logged in,
+     unregistered (XX) = logged out. Show cached chats immediately (offline-ok);
+     only show the loading screen while a fresh, cache-less session connects. -->
+{#if !session.registered}
   <PairingScreen />
+{:else if session.connected || hasChats}
+  <MainLayout />
+{:else}
+  <LoadingScreen />
 {/if}

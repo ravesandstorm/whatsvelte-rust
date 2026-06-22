@@ -87,3 +87,13 @@ pub async fn auth_logout(session_id: Option<String>, mgr: Mgr<'_>) -> ApiResult<
     let (_, session) = mgr.session(session_id).await?;
     session.client.logout().await.map_err(ApiError::library)
 }
+
+/// Hard-reset the on-disk session: delete the SQLite db (regenerating the device
+/// key) and boot a fresh session so a clean QR can be generated. The frontend
+/// calls this after a logout event and on stale-data recovery.
+#[tauri::command]
+pub async fn reset_session(session_id: Option<String>, mgr: Mgr<'_>) -> ApiResult<()> {
+    let id = SessionManager::resolve_id(session_id);
+    mgr.reset(&id).await?;
+    Ok(())
+}

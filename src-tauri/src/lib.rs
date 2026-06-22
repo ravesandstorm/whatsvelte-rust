@@ -54,6 +54,7 @@ pub fn run() {
             commands::connect,
             commands::disconnect,
             commands::auth_logout,
+            commands::reset_session,
             commands::send_text,
             commands::send_reply,
             commands::edit_message,
