@@ -2,13 +2,50 @@
   import type { Chat } from "../../lib/stores/chats.svelte";
   import { chatUi, selectChat, setChatFlag } from "../../lib/stores/chats.svelte";
   import { contactFor } from "../../lib/stores/contacts.svelte";
+  import { messagesFor, type MessageStatus } from "../../lib/stores/messages.svelte";
   import { api } from "../../lib/ipc";
-  import { displayName, isGroup } from "../../lib/util/jid";
+  import { displayName, formatPhone, isGroup } from "../../lib/util/jid";
+  import { mediaLabel } from "../../lib/util/preview";
   import { formatChatTime } from "../../lib/util/time";
   import Avatar from "../common/Avatar.svelte";
 
   let { chat }: { chat: Chat } = $props();
+  const group = $derived(isGroup(chat.jid));
   const name = $derived(displayName(chat.jid, chat.name ?? contactFor(chat.jid)?.name));
+
+  // Derive the preview from the chat's latest message (it already carries
+  // sender/fromMe/kind/status) so we get ticks, a "You:"/sender prefix and media
+  // labels for free; fall back to the chat row's stored text when no message is
+  // loaded.
+  const last = $derived.by(() => {
+    const arr = messagesFor(chat.jid);
+    return arr.length ? arr[arr.length - 1] : null;
+  });
+  const preview = $derived.by(() => {
+    const m = last;
+    if (!m)
+      return {
+        status: null as MessageStatus | null,
+        prefix: "",
+        body: chat.lastMessage ?? "",
+        full: chat.lastMessage ?? "",
+      };
+    const body = m.deleted ? "🚫 This message was deleted" : (m.text ?? mediaLabel(m.kind));
+    let prefix = "";
+    if (m.fromMe) prefix = group ? "You: " : "";
+    else if (group) {
+      const sn = contactFor(m.senderJid)?.name ?? m.pushName ?? formatPhone(m.senderJid);
+      prefix = sn ? `${sn}: ` : "";
+    }
+    return {
+      status: m.fromMe ? (m.status ?? "sent") : null,
+      prefix,
+      body,
+      full: m.text ?? body,
+    };
+  });
+  const tickGlyph = $derived(preview.status === "sending" ? "🕓" : preview.status === "sent" ? "✓" : "✓✓");
+  const tickRead = $derived(preview.status === "read" || preview.status === "played");
 
   let menu = $state<{ x: number; y: number } | null>(null);
 
@@ -39,7 +76,7 @@
   onclick={() => selectChat(chat.jid)}
   oncontextmenu={openMenu}
 >
-  <Avatar label={name} jid={chat.jid} group={isGroup(chat.jid)} />
+  <Avatar label={name} jid={chat.jid} group={group} />
   <div class="mid">
     <div class="top">
       <span class="name">{name}</span>
@@ -50,7 +87,9 @@
       <span class="time">{formatChatTime(chat.timestamp)}</span>
     </div>
     <div class="bottom">
-      <span class="preview">{chat.archived ? "🗄 " : ""}{chat.lastMessage ?? ""}</span>
+      <span class="preview" title={preview.full}>
+        {#if preview.status}<span class="tick" class:read={tickRead}>{tickGlyph}</span> {/if}{preview.prefix}{preview.body}
+      </span>
       {#if chat.unread}<span class="badge">{chat.unread}</span>{/if}
     </div>
   </div>
@@ -161,6 +200,12 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .tick {
+    font-size: 12px;
+  }
+  .tick.read {
+    color: #53bdeb;
   }
   .badge {
     background: var(--wa-unread);

@@ -1,23 +1,54 @@
 <script lang="ts">
-  import { archivedChats, sortedChats } from "../../lib/stores/chats.svelte";
+  import {
+    archivedChats,
+    channelChats,
+    sortedChats,
+    statusChats,
+  } from "../../lib/stores/chats.svelte";
   import { contactFor } from "../../lib/stores/contacts.svelte";
   import { session } from "../../lib/stores/session.svelte";
   import { ui } from "../../lib/stores/ui.svelte";
-  import { displayName, jidUser } from "../../lib/util/jid";
+  import { displayName, formatPhone, jidUser } from "../../lib/util/jid";
   import ChatListItem from "./ChatListItem.svelte";
 
+  type View = "main" | "archived" | "channels" | "status";
+
   let query = $state("");
-  let viewingArchived = $state(false);
+  let view = $state<View>("main");
 
   const archived = $derived(archivedChats());
+  const channels = $derived(channelChats());
+  const statuses = $derived(statusChats());
 
-  // Bounce back to the main list if the last archived chat gets unarchived.
+  const sections: { view: View; icon: string; label: string; count: number }[] = $derived([
+    { view: "channels", icon: "📢", label: "Channels", count: channels.length },
+    { view: "status", icon: "⭕", label: "Status", count: statuses.length },
+    { view: "archived", icon: "🗄", label: "Archived", count: archived.length },
+  ]);
+
+  const titles: Record<View, string> = {
+    main: "",
+    archived: "Archived",
+    channels: "Channels",
+    status: "Status",
+  };
+
+  // Bounce back to the main list if the section we're viewing becomes empty.
   $effect(() => {
-    if (viewingArchived && archived.length === 0) viewingArchived = false;
+    if (view === "archived" && archived.length === 0) view = "main";
+    if (view === "channels" && channels.length === 0) view = "main";
+    if (view === "status" && statuses.length === 0) view = "main";
   });
 
   const list = $derived.by(() => {
-    const base = viewingArchived ? archived : sortedChats();
+    const base =
+      view === "archived"
+        ? archived
+        : view === "channels"
+          ? channels
+          : view === "status"
+            ? statuses
+            : sortedChats();
     const q = query.trim().toLowerCase();
     if (!q) return base;
     return base.filter((c) => {
@@ -33,11 +64,11 @@
 
 <div class="sidebar">
   <header>
-    {#if viewingArchived}
-      <button class="back" aria-label="Back" onclick={() => (viewingArchived = false)}>←</button>
-      <span class="me">Archived</span>
+    {#if view !== "main"}
+      <button class="back" aria-label="Back" onclick={() => (view = "main")}>←</button>
+      <span class="me">{titles[view]}</span>
     {:else}
-      <span class="me">{session.jid ? jidUser(session.jid) : "WhatsApp"}</span>
+      <span class="me">{session.pushName ?? (session.jid ? formatPhone(session.jid) : "WhatsApp")}</span>
       <button class="settings" aria-label="Settings" onclick={() => (ui.settingsOpen = true)}
         >⚙</button
       >
@@ -46,17 +77,21 @@
   <div class="search">
     <input
       type="search"
-      placeholder={viewingArchived ? "Search archived" : "Search chats"}
+      placeholder={view === "main" ? "Search chats" : `Search ${titles[view].toLowerCase()}`}
       bind:value={query}
     />
   </div>
   <div class="chats">
-    {#if !viewingArchived && !query.trim() && archived.length}
-      <button class="archived-entry" onclick={() => (viewingArchived = true)}>
-        <span class="arch-icon">🗄</span>
-        <span class="arch-label">Archived</span>
-        <span class="arch-count">{archived.length}</span>
-      </button>
+    {#if view === "main" && !query.trim()}
+      {#each sections as s (s.view)}
+        {#if s.count}
+          <button class="archived-entry" onclick={() => (view = s.view)}>
+            <span class="arch-icon">{s.icon}</span>
+            <span class="arch-label">{s.label}</span>
+            <span class="arch-count">{s.count}</span>
+          </button>
+        {/if}
+      {/each}
     {/if}
     {#each list as chat (chat.jid)}
       <ChatListItem {chat} />
@@ -65,8 +100,8 @@
       <p class="empty">
         {#if query.trim()}
           No chats match your search.
-        {:else if viewingArchived}
-          No archived chats.
+        {:else if view !== "main"}
+          No {titles[view].toLowerCase()} yet.
         {:else}
           No chats yet. History loads after pairing; new messages appear live.
         {/if}

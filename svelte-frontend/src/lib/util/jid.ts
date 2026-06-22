@@ -18,12 +18,46 @@ export function isStatus(jid: string): boolean {
   return jid.startsWith("status@");
 }
 
+/** The single status-broadcast feed JID. */
+export function isStatusBroadcast(jid: string): boolean {
+  return jid === "status@broadcast";
+}
+
+/** Channels / newsletters (non-phone broadcast chats). */
+export function isNewsletter(jid: string): boolean {
+  return jid.endsWith("@newsletter");
+}
+
+/** A real phone-number JID (vs group/newsletter/status/lid). */
+export function isPhone(jid: string): boolean {
+  return jid.endsWith("@s.whatsapp.net") || (!jid.includes("@") && /^\d+$/.test(jid));
+}
+
+/** True when `jid` is the logged-in account. */
+export function isSelf(jid: string, selfJid: string | null | undefined): boolean {
+  return !!selfJid && normalizeJid(jid) === normalizeJid(selfJid);
+}
+
+/** Format a phone JID as `+<code> <first5> <last5>` (e.g. +91 98765 43210).
+ * The national part is the last 10 digits; anything before it is the country
+ * code. Falls back to the raw user part when there aren't enough digits. */
+export function formatPhone(jid: string): string {
+  const digits = jidUser(jid).replace(/\D/g, "");
+  if (digits.length < 10) return digits ? `+${digits}` : jidUser(jid);
+  const national = digits.slice(-10);
+  const code = digits.slice(0, -10);
+  const grouped = `${national.slice(0, 5)} ${national.slice(5)}`;
+  return code ? `+${code} ${grouped}` : grouped;
+}
+
 export function displayName(
   jid: string,
   name?: string | null,
   pushName?: string | null,
 ): string {
-  return name || pushName || jidUser(jid);
+  if (name) return name;
+  if (pushName) return pushName;
+  return isPhone(jid) ? formatPhone(jid) : jidUser(jid);
 }
 
 export function initials(label: string): string {

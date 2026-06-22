@@ -3,6 +3,7 @@
 import { SvelteMap } from "svelte/reactivity";
 import type { ChatDto } from "../types";
 import { schedulePersistChats } from "../persist";
+import { isNewsletter, isStatus, isStatusBroadcast } from "../util/jid";
 
 export interface Chat {
   jid: string;
@@ -30,6 +31,11 @@ export function upsertChatFromDto(d: ChatDto) {
     lastMessage: isNewer ? (d.lastMessage ?? prev?.lastMessage ?? null) : prev?.lastMessage ?? null,
     timestamp: Math.max(d.timestamp, prev?.timestamp ?? 0),
     unread: d.unread || prev?.unread || 0,
+    // Preserve server-synced flags — a history/message upsert must never wipe
+    // an existing pin/mute/archive state.
+    muted: prev?.muted,
+    pinned: prev?.pinned,
+    archived: prev?.archived,
   });
   schedulePersistChats();
 }
@@ -50,6 +56,10 @@ export function touchChat(
     lastMessage: isNewer ? (lastMessage ?? prev?.lastMessage ?? null) : prev?.lastMessage ?? null,
     timestamp: Math.max(timestamp, prev?.timestamp ?? 0),
     unread: incoming && !isActive ? (prev?.unread ?? 0) + 1 : (prev?.unread ?? 0),
+    // A new message must not unpin/unmute/unarchive the chat.
+    muted: prev?.muted,
+    pinned: prev?.pinned,
+    archived: prev?.archived,
   });
   schedulePersistChats();
 }
@@ -137,17 +147,21 @@ export function setChatName(jid: string, name: string) {
   }
 }
 
-/** The active (non-archived) chat list. Pinned chats float to the top; muted
- * chats sink below the unmuted ones so they never sit at the top; the rest sort
- * by most-recent activity. */
+/** A regular 1:1/group conversation — excludes channels (newsletters) and the
+ * status feed, which live in their own sections. */
+function isRegular(c: Chat): boolean {
+  return !isNewsletter(c.jid) && !isStatusBroadcast(c.jid) && !isStatus(c.jid);
+}
+
+/** The active (non-archived) chat list. Pinned chats float to the top; everyone
+ * else sorts by most-recent activity (WhatsApp behaviour — muting does NOT
+ * reorder a chat). Channels and status updates are sectioned out. */
 export function sortedChats(): Chat[] {
   return [...chats.values()]
-    .filter((c) => !c.archived)
+    .filter((c) => !c.archived && isRegular(c))
     .sort((a, b) => {
       const pin = Number(!!b.pinned) - Number(!!a.pinned);
       if (pin !== 0) return pin;
-      const mute = Number(!!a.muted) - Number(!!b.muted); // unmuted first
-      if (mute !== 0) return mute;
       return b.timestamp - a.timestamp;
     });
 }
@@ -156,5 +170,19 @@ export function sortedChats(): Chat[] {
 export function archivedChats(): Chat[] {
   return [...chats.values()]
     .filter((c) => c.archived)
+    .sort((a, b) => b.timestamp - a.timestamp);
+}
+
+/** Channels / newsletters, most-recent first, for the Channels section. */
+export function channelChats(): Chat[] {
+  return [...chats.values()]
+    .filter((c) => !c.archived && isNewsletter(c.jid))
+    .sort((a, b) => b.timestamp - a.timestamp);
+}
+
+/** Status-update feeds, most-recent first, for the Status section. */
+export function statusChats(): Chat[] {
+  return [...chats.values()]
+    .filter((c) => !c.archived && (isStatusBroadcast(c.jid) || isStatus(c.jid)))
     .sort((a, b) => b.timestamp - a.timestamp);
 }

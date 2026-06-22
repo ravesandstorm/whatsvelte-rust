@@ -25,6 +25,7 @@ import {
   upsertChatFromDto,
 } from "./chats.svelte";
 import { canonicalJid, clearLidMap, loadLidMap, unifyLid } from "./lid";
+import { clearNameCache, learnName, loadNameCache } from "./contacts.svelte";
 import {
   clearAll,
   deletePersisted,
@@ -71,6 +72,7 @@ export async function startEventBridge() {
     messagesByChat.clear();
     chatUi.activeJid = null;
     clearLidMap();
+    clearNameCache();
     await clearAll();
   });
   await on("wa://conn/state", () => {
@@ -84,7 +86,12 @@ export async function startEventBridge() {
     const cm = jid === m.chatJid ? m : { ...m, chatJid: jid };
     addMessage(cm);
     touchChat(jid, cm.text, cm.timestamp, !cm.fromMe);
-    if (cm.pushName && !cm.fromMe) setChatName(jid, cm.pushName);
+    if (cm.pushName && !cm.fromMe) {
+      setChatName(jid, cm.pushName);
+      // Learn the *sender's* name too (matters for group participants, where the
+      // sender JID differs from the chat JID) and persist it across restarts.
+      learnName(cm.senderJid || jid, cm.pushName);
+    }
     // Learn the mapping (and merge any pre-existing split) for next time.
     void unifyLid(m.chatJid);
   });
@@ -93,11 +100,13 @@ export async function startEventBridge() {
     for (const c of h.chats) {
       const jid = canonicalJid(c.jid);
       upsertChatFromDto(jid === c.jid ? c : { ...c, jid });
+      if (c.name) learnName(jid, c.name);
       void unifyLid(c.jid);
     }
     addHistoryMessages(
       h.messages.map((m) => {
         const jid = canonicalJid(m.chatJid);
+        if (m.pushName && !m.fromMe) learnName(m.senderJid || jid, m.pushName);
         return jid === m.chatJid ? m : { ...m, chatJid: jid };
       }),
     );
@@ -142,6 +151,7 @@ export async function startEventBridge() {
   // 2b. Load this account's learned LID→PN map before hydration so persisted
   //     LID chats canonicalize/merge correctly on boot.
   loadLidMap(session.jid);
+  loadNameCache(session.jid);
 
   // 3. Rehydrate the previous run's chats/messages from IndexedDB. This is the
   //    fix for "empty UI on restart": the backend only emits HistorySync once
@@ -156,6 +166,7 @@ export async function startEventBridge() {
     if (differentAccount) {
       // A different account is linked now — the cached chats aren't ours.
       clearLidMap();
+      clearNameCache();
       await clearAll();
     } else {
       // Hydrate regardless of the (racy) loggedIn flag — cached data belongs to
@@ -211,6 +222,8 @@ export async function refreshStatus() {
     session.loggedIn = s.loggedIn;
     session.connected = s.connected;
     session.jid = s.jid;
+    session.registered = s.registered;
+    session.pushName = s.pushName;
   } catch (e) {
     console.error("auth_status failed", e);
   }

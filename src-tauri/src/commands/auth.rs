@@ -16,12 +16,17 @@ type Mgr<'a> = State<'a, Arc<SessionManager>>;
 #[tauri::command]
 pub async fn auth_status(session_id: Option<String>, mgr: Mgr<'_>) -> ApiResult<StatusDto> {
     let (id, session) = mgr.session(session_id).await?;
+    let device = session.client.persistence_manager().get_device_snapshot();
+    let push_name = device.push_name.clone();
     Ok(StatusDto {
         session_id: id,
         logged_in: session.client.is_logged_in(),
         connected: session.client.is_connected(),
         jid: session.client.get_pn().map(|j| j.to_string()),
+        registered: device.is_registered(),
+        push_name: if push_name.is_empty() { None } else { Some(push_name) },
     })
+
 }
 
 /// Ensure the session is running so QR pairing starts. Idempotent. The code is

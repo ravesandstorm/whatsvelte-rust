@@ -81,6 +81,33 @@ pub async fn send_reply(
     })
 }
 
+/// Edit one of our own text messages in place (legacy protocolMessage path).
+#[tauri::command]
+pub async fn edit_message(
+    jid: String,
+    original_id: String,
+    new_text: String,
+    session_id: Option<String>,
+    mgr: Mgr<'_>,
+) -> ApiResult<SendResultDto> {
+    let (id, session) = mgr.session(session_id).await?;
+    let to = parse_jid(&jid)?;
+    let new_content = wa::Message {
+        conversation: Some(new_text),
+        ..Default::default()
+    };
+    let message_id = session
+        .client
+        .edit_message(to.clone(), original_id, new_content)
+        .await
+        .map_err(ApiError::library)?;
+    Ok(SendResultDto {
+        session_id: id,
+        message_id,
+        to: to.to_string(),
+    })
+}
+
 /// React to a message with an emoji (empty string removes our reaction). For a
 /// group message, pass the target's sender as `participant`.
 #[tauri::command]

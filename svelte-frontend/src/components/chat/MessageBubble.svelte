@@ -1,14 +1,14 @@
 <script lang="ts">
   import type { UiMessage } from "../../lib/stores/messages.svelte";
   import { formatTime } from "../../lib/util/time";
-  import { isGroup, jidUser, normalizeJid } from "../../lib/util/jid";
+  import { formatPhone, isGroup, normalizeJid } from "../../lib/util/jid";
   import { contactFor, ensureContact } from "../../lib/stores/contacts.svelte";
   import { applyReaction } from "../../lib/stores/messages.svelte";
-  import { startReply } from "../../lib/stores/compose.svelte";
+  import { startEdit, startReply } from "../../lib/stores/compose.svelte";
   import { session } from "../../lib/stores/session.svelte";
   import { api } from "../../lib/ipc";
   import { trackRead } from "../../lib/receipts";
-  import EmojiPicker from "./EmojiPicker.svelte";
+  import ReactionPicker from "./ReactionPicker.svelte";
   import MessageMedia from "./MessageMedia.svelte";
 
   let { message, group }: { message: UiMessage; group: boolean } = $props();
@@ -38,9 +38,14 @@
   // pushName → JID user. Trigger a lazy contact fetch the first time we render.
   $effect(() => {
     if (group && !message.fromMe && message.senderJid) void ensureContact(message.senderJid);
+    // Resolve the quoted message's sender too, so the reply preview shows a name
+    // rather than a bare number.
+    const qs = message.quoted?.senderJid;
+    if (qs && !(session.jid && normalizeJid(qs) === normalizeJid(session.jid)))
+      void ensureContact(qs);
   });
   const senderName = $derived(
-    contactFor(message.senderJid)?.name ?? message.pushName ?? jidUser(message.senderJid),
+    contactFor(message.senderJid)?.name ?? message.pushName ?? formatPhone(message.senderJid),
   );
 
   // Who the quoted message is from, for the reply preview header.
@@ -48,7 +53,7 @@
     const q = message.quoted;
     if (!q || !q.senderJid) return "";
     if (session.jid && normalizeJid(q.senderJid) === normalizeJid(session.jid)) return "You";
-    return contactFor(q.senderJid)?.name ?? jidUser(q.senderJid);
+    return contactFor(q.senderJid)?.name ?? formatPhone(q.senderJid);
   });
 
   // Summarize reactions into [emoji, count] pairs for the chip row.
@@ -105,13 +110,20 @@
     {#if !message.deleted}
       <div class="actions">
         <button class="react-btn" aria-label="Reply" onclick={() => startReply(message)}>↩</button>
+        {#if message.fromMe && message.text && !message.media}
+          <button class="react-btn" aria-label="Edit" onclick={() => startEdit(message)}>✏</button>
+        {/if}
         <div class="react-wrap">
           <button class="react-btn" aria-label="React" onclick={() => (showReact = !showReact)}
             >🙂</button
           >
           {#if showReact}
             <div class="react-pop" class:me={message.fromMe}>
-              <EmojiPicker onpick={react} onclose={() => (showReact = false)} />
+              <ReactionPicker
+                onpick={react}
+                onclose={() => (showReact = false)}
+                current={message.reactions?.[normalizeJid(session.jid ?? "")]}
+              />
             </div>
           {/if}
         </div>

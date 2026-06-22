@@ -56,6 +56,7 @@ pub fn run() {
             commands::auth_logout,
             commands::send_text,
             commands::send_reply,
+            commands::edit_message,
             commands::send_reaction,
             commands::mark_read,
             commands::mark_read_messages,

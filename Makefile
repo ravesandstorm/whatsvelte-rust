@@ -5,14 +5,14 @@
 
 help:
 	@echo "Targets:"
-	@echo "  setup     Install the Tauri CLI + JS deps (run once)"
-	@echo "  server    Run the app in dev mode (tauri dev) — the continuous dev loop"
-	@echo "  dev       Alias for 'server'"
-	@echo "  build     Build the single-executable bundle (tauri build, Phase 4)"
-	@echo "  frontend  Phase 1: static placeholder (no dev server). Phase 2: vite dev"
-	@echo "  fmt       cargo fmt for the Tauri backend"
-	@echo "  clippy    cargo clippy for the Tauri backend"
-	@echo "  clean     Remove the Tauri target dir"
+	@echo "make setup	 - Install the Tauri CLI + JS deps (run once)"
+	@echo "make server    	- Run the app in dev mode (tauri dev) — the continuous dev loop"
+	@echo "make dev       	- Alias for 'server'"
+	@echo "make build     	- Build the single-executable bundle (tauri build, Phase 4)"
+	@echo "make frontend  	- Phase 1: static placeholder (no dev server). Phase 2: vite dev"
+	@echo "make fmt       	- cargo fmt for the Tauri backend"
+	@echo "make clippy    	- cargo clippy for the Tauri backend"
+	@echo "make clean     	- Remove the Tauri target dir"
 
 setup:
 	npm install

@@ -32,6 +32,8 @@ export const api = {
     quotedSender: string,
     quotedText: string | null,
   ) => invoke<SendResultDto>("send_reply", { jid, text, quotedId, quotedSender, quotedText }),
+  editMessage: (jid: string, originalId: string, newText: string) =>
+    invoke<SendResultDto>("edit_message", { jid, originalId, newText }),
   sendReaction: (
     jid: string,
     targetId: string,

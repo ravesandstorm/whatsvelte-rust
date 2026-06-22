@@ -1,25 +1,72 @@
 <script lang="ts">
   import { api } from "../../lib/ipc";
-  import { addOptimistic, confirmOptimistic } from "../../lib/stores/messages.svelte";
+  import { addOptimistic, applyEdit, confirmOptimistic } from "../../lib/stores/messages.svelte";
   import { touchChat } from "../../lib/stores/chats.svelte";
   import { settings } from "../../lib/stores/settings.svelte";
-  import { compose, cancelReply } from "../../lib/stores/compose.svelte";
+  import { compose, cancelReply, cancelEdit } from "../../lib/stores/compose.svelte";
   import { session } from "../../lib/stores/session.svelte";
-  import { normalizeJid, jidUser } from "../../lib/util/jid";
+  import { normalizeJid, formatPhone } from "../../lib/util/jid";
   import { contactFor } from "../../lib/stores/contacts.svelte";
   import type { QuotedDto } from "../../lib/types";
+  import { searchEmojiShortcodes } from "../../lib/emoji";
   import EmojiPicker from "./EmojiPicker.svelte";
 
   let { jid }: { jid: string } = $props();
   let text = $state("");
   let showEmoji = $state(false);
   let ta: HTMLTextAreaElement | undefined = $state();
+  let lastEditId: string | null = $state(null);
+  // `:shortcode` autocomplete state.
+  let suggest = $state<{ code: string; emoji: string }[]>([]);
+  let suggestIdx = $state(0);
+
+  const TOKEN_RE = /(?:^|\s):([a-zA-Z0-9_+-]+)$/;
+
+  // Recompute the `:`-suggestion list from the text just before the caret.
+  function updateSuggest() {
+    const el = ta;
+    if (!el) return;
+    const before = text.slice(0, el.selectionStart ?? text.length);
+    const m = before.match(TOKEN_RE);
+    suggest = m ? searchEmojiShortcodes(m[1]) : [];
+    suggestIdx = 0;
+  }
+
+  function acceptSuggest(item: { code: string; emoji: string }) {
+    const el = ta;
+    const caret = el?.selectionStart ?? text.length;
+    const before = text.slice(0, caret);
+    const m = before.match(/:([a-zA-Z0-9_+-]+)$/);
+    if (!m) return;
+    const start = caret - m[0].length;
+    text = text.slice(0, start) + item.emoji + text.slice(caret);
+    suggest = [];
+    queueMicrotask(() => {
+      el?.focus();
+      const pos = start + item.emoji.length;
+      el?.setSelectionRange(pos, pos);
+    });
+  }
 
   const reply = $derived(compose.replyTarget);
+  const editing = $derived(compose.editTarget);
 
-  // A reply target belongs to one chat; drop it if we've switched conversations.
+  // A reply/edit target belongs to one chat; drop it if we've switched chats.
   $effect(() => {
     if (compose.replyTarget && compose.replyTarget.chatJid !== jid) cancelReply();
+    if (compose.editTarget && compose.editTarget.chatJid !== jid) cancelEdit();
+  });
+
+  // Prefill the box with the message being edited (once per new edit target).
+  $effect(() => {
+    const e = compose.editTarget;
+    if (e && e.chatJid === jid && e.id !== lastEditId) {
+      text = e.text ?? "";
+      lastEditId = e.id;
+      queueMicrotask(() => ta?.focus());
+    } else if (!e) {
+      lastEditId = null;
+    }
   });
 
   const replyName = $derived.by(() => {
@@ -27,16 +74,32 @@
     if (!r) return "";
     if (r.fromMe) return "You";
     if (session.jid && normalizeJid(r.senderJid) === normalizeJid(session.jid)) return "You";
-    return contactFor(r.senderJid)?.name ?? jidUser(r.senderJid);
+    return contactFor(r.senderJid)?.name ?? formatPhone(r.senderJid);
   });
 
   async function send() {
     const body = text.trim();
     if (!body) return;
-    text = "";
     showEmoji = false;
-    const target = compose.replyTarget;
+    suggest = [];
     const now = Math.floor(Date.now() / 1000);
+
+    // Edit takes priority over reply/new-message.
+    const edit = compose.editTarget;
+    if (edit) {
+      text = "";
+      cancelEdit();
+      applyEdit(edit.chatJid, edit.id, body, now); // optimistic
+      try {
+        await api.editMessage(jid, edit.id, body);
+      } catch (e) {
+        console.error("edit failed", e);
+      }
+      return;
+    }
+
+    text = "";
+    const target = compose.replyTarget;
 
     if (target) {
       const quotedSender = target.fromMe ? (session.jid ?? "") : target.senderJid;
@@ -69,6 +132,29 @@
   }
 
   function onKey(e: KeyboardEvent) {
+    // When the suggestion popover is open, arrows/enter/tab drive it.
+    if (suggest.length) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        suggestIdx = (suggestIdx + 1) % suggest.length;
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        suggestIdx = (suggestIdx - 1 + suggest.length) % suggest.length;
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        acceptSuggest(suggest[suggestIdx]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        suggest = [];
+        return;
+      }
+    }
     // Enter-to-send (Shift+Enter = newline) when enabled; otherwise Ctrl/Cmd+
     // Enter sends and a bare Enter inserts a newline.
     const plainEnter = e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey;
@@ -97,7 +183,16 @@
   }
 </script>
 
-{#if reply}
+{#if editing}
+  <div class="reply-banner">
+    <div class="reply-bar"></div>
+    <div class="reply-body">
+      <div class="reply-name">Editing message</div>
+      <div class="reply-text">{editing.text ?? `[${editing.kind}]`}</div>
+    </div>
+    <button class="reply-cancel" aria-label="Cancel edit" onclick={cancelEdit}>✕</button>
+  </div>
+{:else if reply}
   <div class="reply-banner">
     <div class="reply-bar"></div>
     <div class="reply-body">
@@ -122,13 +217,31 @@
       onclick={() => (showEmoji = !showEmoji)}>😊</button
     >
   </div>
-  <textarea
-    bind:this={ta}
-    rows="1"
-    placeholder="Type a message"
-    bind:value={text}
-    onkeydown={onKey}
-  ></textarea>
+  <div class="ta-wrap">
+    {#if suggest.length}
+      <div class="suggest">
+        {#each suggest as s, i (s.code)}
+          <button
+            class="suggest-item"
+            class:active={i === suggestIdx}
+            onclick={() => acceptSuggest(s)}
+          >
+            <span class="suggest-emoji">{s.emoji}</span>
+            <span class="suggest-code">:{s.code}:</span>
+          </button>
+        {/each}
+      </div>
+    {/if}
+    <textarea
+      bind:this={ta}
+      rows="1"
+      placeholder="Type a message"
+      bind:value={text}
+      onkeydown={onKey}
+      oninput={updateSuggest}
+      onclick={updateSuggest}
+    ></textarea>
+  </div>
   <button class="send" onclick={send} disabled={!text.trim()} aria-label="Send">➤</button>
 </div>
 
@@ -201,6 +314,48 @@
   .icon.active {
     background: var(--wa-panel-2);
     color: var(--wa-text);
+  }
+  .ta-wrap {
+    flex: 1;
+    position: relative;
+    display: flex;
+  }
+  .suggest {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    z-index: 20;
+    min-width: 200px;
+    max-height: 220px;
+    overflow-y: auto;
+    background: var(--wa-panel-2);
+    border: 1px solid var(--wa-border);
+    border-radius: 8px;
+    padding: 4px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+  .suggest-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: var(--wa-text);
+    padding: 6px 8px;
+    border-radius: 6px;
+    text-align: left;
+  }
+  .suggest-item.active,
+  .suggest-item:hover {
+    background: var(--wa-hover);
+  }
+  .suggest-emoji {
+    font-size: 20px;
+  }
+  .suggest-code {
+    font-size: 13px;
+    color: var(--wa-text-muted);
   }
   textarea {
     flex: 1;
