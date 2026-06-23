@@ -10,6 +10,7 @@ import type {
   ContactDto,
   Envelope,
   MediaDescriptorDto,
+  MediaSendOptions,
   PairCodeDto,
   ResolveJidDto,
   SendResultDto,
@@ -58,6 +59,15 @@ export const api = {
   resolveJid: (jid: string) => invoke<ResolveJidDto>("resolve_jid", { jid }),
   downloadMedia: (descriptor: MediaDescriptorDto, mimetype: string | null) =>
     invoke<string>("download_media", { descriptor, mimetype }),
+  /** Upload a local file (by path) and send it as a media message. */
+  sendMedia: (jid: string, path: string, mediaType: string, options: MediaSendOptions) =>
+    invoke<SendResultDto>("send_media", { jid, path, mediaType, options }),
+  /** Copy a media item into the OS Downloads folder; returns the saved path. */
+  saveMediaToDownloads: (
+    descriptor: MediaDescriptorDto,
+    mimetype: string | null,
+    filename: string | null,
+  ) => invoke<string>("save_media_to_downloads", { descriptor, mimetype, filename }),
   getProfilePictureUrl: (jid: string, preview = true) =>
     invoke<string | null>("get_profile_picture_url", { jid, preview }),
 };

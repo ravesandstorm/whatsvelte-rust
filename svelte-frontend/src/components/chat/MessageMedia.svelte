@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { MediaDto } from "../../lib/types";
   import { formatDuration, mediaSrc } from "../../lib/media";
+  import { ui } from "../../lib/stores/ui.svelte";
 
   let { media, thumbnail }: { media: MediaDto; thumbnail: string | null } = $props();
 
@@ -34,10 +35,15 @@
     await load();
     if (src) window.open(src, "_blank");
   }
+
+  // Open the full-screen viewer (zoom/pan for images, playback for video).
+  function openLightbox() {
+    ui.lightboxMedia = media;
+  }
 </script>
 
 {#if media.kind === "image"}
-  <div class="image">
+  <button class="image" onclick={openLightbox} aria-label="Open image">
     {#if src}
       <img src={src} alt="" />
     {:else if thumbUrl}
@@ -45,7 +51,7 @@
     {:else}
       <div class="ph">🖼</div>
     {/if}
-  </div>
+  </button>
 {:else if media.kind === "sticker"}
   <div class="sticker">
     {#if src}
@@ -55,15 +61,10 @@
     {/if}
   </div>
 {:else if media.kind === "video"}
-  {#if src}
-    <!-- svelte-ignore a11y_media_has_caption -->
-    <video src={src} controls autoplay></video>
-  {:else}
-    <button class="poster" onclick={load}>
-      {#if thumbUrl}<img src={thumbUrl} alt="" />{/if}
-      <span class="play">{loading ? "…" : "▶"}</span>
-    </button>
-  {/if}
+  <button class="poster" onclick={openLightbox} aria-label="Play video">
+    {#if thumbUrl}<img src={thumbUrl} alt="" />{/if}
+    <span class="play">▶</span>
+  </button>
 {:else if media.kind === "audio"}
   {#if src}
     <audio src={src} controls autoplay></audio>
@@ -81,6 +82,14 @@
 {#if error}<div class="err">Couldn't load media</div>{/if}
 
 <style>
+  .image {
+    border: none;
+    padding: 0;
+    background: transparent;
+    display: block;
+    max-width: 100%;
+    cursor: zoom-in;
+  }
   .image img,
   .sticker img {
     max-width: 100%;
@@ -102,11 +111,6 @@
     background: var(--wa-panel);
     border-radius: 6px;
     font-size: 28px;
-  }
-  video {
-    max-width: 100%;
-    border-radius: 6px;
-    display: block;
   }
   audio {
     width: 240px;

@@ -3,11 +3,16 @@
   import { ui } from "../../lib/stores/ui.svelte";
   import ChatList from "./ChatList.svelte";
   import Conversation from "./Conversation.svelte";
+  import MediaLightbox from "./MediaLightbox.svelte";
   import SettingsPanel from "../settings/SettingsPanel.svelte";
 </script>
 
 {#if ui.settingsOpen}
   <SettingsPanel />
+{/if}
+
+{#if ui.lightboxMedia}
+  <MediaLightbox />
 {/if}
 
 <div class="layout">

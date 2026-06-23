@@ -34,6 +34,8 @@ pub fn run() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             let manager = Arc::new(SessionManager::new(app.handle().clone(), data_dir()));
             app.manage(manager.clone());
@@ -65,6 +67,8 @@ pub fn run() {
             commands::get_profile_picture_url,
             commands::resolve_jid,
             commands::download_media,
+            commands::save_media_to_downloads,
+            commands::send_media,
             commands::set_chat_muted,
             commands::set_chat_pinned,
             commands::set_chat_archived,

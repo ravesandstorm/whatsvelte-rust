@@ -27,6 +27,12 @@
     if (pinned && el) el.scrollTop = el.scrollHeight;
   });
 
+  function jumpToBottom() {
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    pinned = true;
+  }
+
   async function onScroll() {
     const node = el;
     if (!node) return;
@@ -44,20 +50,41 @@
   }
 </script>
 
-<div class="list" bind:this={el} onscroll={onScroll}>
-  {#if messages.length === 0}
-    <div class="loading">Loading messages…</div>
-  {:else}
-    {#if hasOlder}
-      <div class="older">Showing the latest messages — scroll up for more</div>
+<div class="wrap">
+  <div class="list" bind:this={el} onscroll={onScroll}>
+    {#if messages.length === 0}
+      <div class="loading">Loading messages…</div>
+    {:else}
+      {#if hasOlder}
+        <div class="older">Showing the latest messages — scroll up for more</div>
+      {/if}
+      {#each visible as m (m.id)}
+        <MessageBubble message={m} group={isGroup(chatJid)} />
+      {/each}
     {/if}
-    {#each visible as m (m.id)}
-      <MessageBubble message={m} group={isGroup(chatJid)} />
-    {/each}
+  </div>
+  {#if !pinned && messages.length > 0}
+    <button class="jump" onclick={jumpToBottom} aria-label="Scroll to latest messages">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+        <path
+          d="M12 16.5 4.5 9l1.4-1.4L12 13.7l6.1-6.1L19.5 9z"
+          fill="currentColor"
+        />
+      </svg>
+    </button>
   {/if}
 </div>
 
 <style>
+  .wrap {
+    /* Owns the flex sizing so the scroll-to-bottom button can float over the
+       list via absolute positioning without consuming scroll space. */
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
   .list {
     flex: 1;
     /* Pair with flex:1 so the list scrolls internally instead of overflowing
@@ -70,6 +97,26 @@
     background: transparent;
     display: flex;
     flex-direction: column;
+  }
+  .jump {
+    position: absolute;
+    right: 18px;
+    bottom: 16px;
+    width: 42px;
+    height: 42px;
+    border: none;
+    border-radius: 50%;
+    background: var(--wa-panel);
+    color: var(--wa-text-muted);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+    display: grid;
+    place-content: center;
+    cursor: pointer;
+    z-index: 2;
+  }
+  .jump:hover {
+    background: var(--wa-hover);
+    color: var(--wa-text);
   }
   .loading {
     margin: auto;

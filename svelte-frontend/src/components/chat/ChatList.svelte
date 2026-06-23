@@ -45,6 +45,17 @@
     if (view === "archived" && archived.length === 0) view = "main";
   });
 
+  // Let the mouse wheel scroll the (horizontal) filter pills. Trackpads already
+  // emit horizontal deltaX; a plain wheel only emits deltaY, so translate it.
+  function onPillsWheel(e: WheelEvent) {
+    const node = e.currentTarget as HTMLElement;
+    if (node.scrollWidth <= node.clientWidth) return; // nothing to scroll
+    const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+    if (delta === 0) return;
+    node.scrollLeft += delta;
+    e.preventDefault();
+  }
+
   const list = $derived.by(() => {
     const base =
       view === "archived"
@@ -86,7 +97,7 @@
       bind:value={query}
     />
   </div>
-  <div class="filters">
+  <div class="filters" onwheel={onPillsWheel}>
     <button class="pill" class:active={view === "main"} onclick={() => (view = "main")}>All</button>
     {#each sections as s (s.view)}
       {#if s.always || s.count}
