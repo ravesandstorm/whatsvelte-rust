@@ -241,6 +241,48 @@ New IPC added in Part B:
 
 ---
 
+## Part C — Sending media 📤 ⏳ planned
+Part B handled receiving/parsing media; the composer is still text-only. Part C
+adds the send path — a clean mirror of the download path, since `whatsapp-rust`
+already exposes `Client::upload()` + `media::*_message()` builders +
+`send_message()`. The backend gains one `send_media` command; the frontend does
+file selection, compression, thumbnailing, and recording. Built in three
+incremental stages (C.1 → C.3), each independently shippable.
+
+### C.1 Core send + images
+- `send_media(jid, path, mediaType, options)` mirrors `download_media`: it reads
+  bytes from a **path** (no base64-over-IPC bloat for large videos), `upload()`s,
+  builds the proto via the matching `media::*_message()` builder, then
+  `send_message()`s. Returns `SendResultDto`, exactly like `send_text`.
+- **Path-based transfer**: picked files/documents pass their path directly (the
+  dialog plugin returns paths); in-memory blobs (compressed images, clipboard
+  pastes, recordings) are written to a temp file via the fs plugin first, and the
+  frontend deletes that temp file once the send resolves.
+- Image **compression** is canvas-based (standard: max edge ~1600px, JPEG q≈0.75;
+  **HD** toggle keeps resolution at q≈0.9) — no heavy libraries. A small JPEG
+  `jpegThumbnail` is generated for the inline preview.
+- `AttachMenu` (📎) + `MediaPreview` (caption + HD toggle) in the composer, plus a
+  composer **paste handler** for clipboard images.
+
+### C.2 Recorder + audio/video
+- `Recorder` uses `getUserMedia`/`MediaRecorder` for voice notes, video, and
+  photo capture (camera frame → canvas snapshot); output flows through
+  `MediaPreview`.
+- **Video is sent as-is** + an auto-generated poster thumbnail (true transcoding
+  is deferred — ffmpeg.wasm is ~30 MB and memory-heavy). Audio is sent with the
+  recorder's actual mimetype and the `ptt` flag; opus transcode + waveform PCM
+  are deferred (WKWebView emits `audio/mp4`, not `ogg/opus`).
+- Needs webview camera/mic permission + macOS `Info.plist` usage strings
+  (`NSCameraUsageDescription`, `NSMicrophoneUsageDescription`).
+
+### C.3 Document viewing
+- Received documents (txt / pdf / word / excel) **open in the OS default app** via
+  the Tauri opener plugin — zero added bundle/footprint. In-app rendering of these
+  formats is intentionally **not** done (pdf.js / mammoth / SheetJS are
+  memory-heavy and would inflate the app's footprint).
+
+---
+
 ## Build & verify
 - `npm --prefix svelte-frontend run check` — svelte-check (0 errors).
 - `npm --prefix svelte-frontend run build` — Vite production build.
