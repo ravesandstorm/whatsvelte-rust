@@ -13,4 +13,12 @@ export const session = $state({
   qrCode: null as string | null,
   /** Latest phone-pairing code, if requested. */
   pairCode: null as string | null,
+
+  // --- Offline-sync progress (drives the "loading your chats…" bar) ---------
+  /** True while the server backlog is being drained after the handshake. */
+  syncActive: false,
+  /** Chat-message backlog announced by OfflineSyncPreview (the denominator). */
+  syncTotalMessages: 0,
+  /** Chat messages received so far during the active sync (the numerator). */
+  syncDoneMessages: 0,
 });

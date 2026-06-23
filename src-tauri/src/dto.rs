@@ -174,6 +174,25 @@ pub struct ResolveJidDto {
     pub lid: Option<String>,
 }
 
+/// Offline-sync progress, emitted on `wa://sync/progress` so the UI can show a
+/// "loading your chats…" bar after the handshake. `preview` fires once when the
+/// server announces the backlog size; `completed` fires once when it's drained.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncProgressDto {
+    /// "preview" | "completed".
+    pub phase: String,
+    /// Total backlog items (messages + notifications + receipts + app-data).
+    pub total: i32,
+    /// Of which, chat messages — the count the loading UI cares about most.
+    pub messages: i32,
+    pub notifications: i32,
+    pub receipts: i32,
+    pub app_data_changes: i32,
+    /// True once the offline sync is fully drained.
+    pub done: bool,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContactDto {

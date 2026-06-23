@@ -65,6 +65,35 @@ export function touchChat(
 }
 
 /**
+ * Rehydrate a full persisted chat (from the IndexedDB snapshot), preserving its
+ * mute/pin/archive flags. `upsertChatFromDto` must NOT be used for this: it only
+ * reads the bare `ChatDto` fields and re-derives flags from the in-memory `prev`
+ * (undefined on a cold restart), which silently drops a chat's archived/pinned/
+ * muted state every launch — so an archived chat would reappear unarchived and
+ * the Archived section would vanish on the second login.
+ */
+export function hydrateChat(c: Chat) {
+  const prev = chats.get(c.jid);
+  if (prev && prev.timestamp > c.timestamp) {
+    // A newer in-memory row already exists (e.g. a live event beat hydration);
+    // keep its preview/timestamp but backfill any flags it lacks.
+    chats.set(c.jid, {
+      ...prev,
+      muted: prev.muted ?? c.muted,
+      pinned: prev.pinned ?? c.pinned,
+      archived: prev.archived ?? c.archived,
+    });
+    return;
+  }
+  chats.set(c.jid, {
+    ...c,
+    muted: c.muted ?? prev?.muted,
+    pinned: c.pinned ?? prev?.pinned,
+    archived: c.archived ?? prev?.archived,
+  });
+}
+
+/**
  * Create a chat entry if one doesn't exist yet. Used to reconstruct the chat
  * list from persisted messages when the chats store wasn't restored (so the
  * list never depends solely on the chats cache surviving).

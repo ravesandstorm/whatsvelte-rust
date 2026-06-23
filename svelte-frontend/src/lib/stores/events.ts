@@ -20,6 +20,7 @@ import {
   chatUi,
   chats,
   ensureChat,
+  hydrateChat,
   setChatName,
   touchChat,
   upsertChatFromDto,
@@ -41,6 +42,7 @@ import type {
   MessageDto,
   MessageUpdateDto,
   ReceiptDto,
+  SyncProgressDto,
 } from "../types";
 
 let started = false;
@@ -72,6 +74,22 @@ export async function startEventBridge() {
     void refreshStatus();
   });
 
+  // Offline-sync progress: the server announces the backlog size at connect
+  // (`preview`) and signals when it's drained (`completed`). Drives the loading
+  // screen's progress bar so a slow post-handshake sync isn't a blank wait.
+  await on<SyncProgressDto>("wa://sync/progress", (p) => {
+    if (p.done || p.phase === "completed") {
+      session.syncDoneMessages = session.syncTotalMessages;
+      session.syncActive = false;
+    } else {
+      // `messages` is the chat-message backlog we can actually count as
+      // wa://message events arrive; only show the bar when there's a real one.
+      session.syncTotalMessages = p.messages;
+      session.syncDoneMessages = 0;
+      session.syncActive = p.messages > 0;
+    }
+  });
+
   await on<MessageDto>("wa://message", (m) => {
     // Canonicalize the chat key AND the sender key (LID→PN) so a contact that
     // switched addressing form lands in the one existing conversation, and group
@@ -81,6 +99,10 @@ export async function startEventBridge() {
     const cm =
       jid === m.chatJid && senderJid === m.senderJid ? m : { ...m, chatJid: jid, senderJid };
     addMessage(cm);
+    // Advance the offline-sync bar as backlog messages stream in.
+    if (session.syncActive && session.syncDoneMessages < session.syncTotalMessages) {
+      session.syncDoneMessages += 1;
+    }
     touchChat(jid, cm.text, cm.timestamp, !cm.fromMe);
     if (cm.pushName && !cm.fromMe) {
       setChatName(jid, cm.pushName);
@@ -191,11 +213,13 @@ export async function startEventBridge() {
         await clearAll();
       } else {
         // Canonicalize on the way in so a persisted LID chat with a known
-        // mapping rehydrates straight into its PN conversation.
+        // mapping rehydrates straight into its PN conversation. Use hydrateChat
+        // (not upsertChatFromDto) so the persisted mute/pin/archive flags are
+        // preserved — otherwise the Archived/etc. sections vanish on restart.
         for (const c of snap.chats) {
           const jid = canonicalJid(c.jid);
           if (jid !== c.jid) void deletePersisted(c.jid); // drop the stale LID row
-          upsertChatFromDto(jid === c.jid ? c : { ...c, jid });
+          hydrateChat(jid === c.jid ? c : { ...c, jid });
         }
         const all = Object.values(snap.messages)
           .flat()
@@ -251,6 +275,9 @@ export async function resetAll() {
   session.registered = false;
   session.jid = null;
   session.pushName = null;
+  session.syncActive = false;
+  session.syncTotalMessages = 0;
+  session.syncDoneMessages = 0;
   chats.clear();
   messagesByChat.clear();
   chatUi.activeJid = null;

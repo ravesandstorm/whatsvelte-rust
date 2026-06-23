@@ -20,11 +20,16 @@
   const channels = $derived(channelChats());
   const statuses = $derived(statusChats());
 
-  const sections: { view: View; icon: string; label: string; count: number }[] = $derived([
-    { view: "channels", icon: "📢", label: "Channels", count: channels.length },
-    { view: "status", icon: "⭕", label: "Status", count: statuses.length },
-    { view: "archived", icon: "🗄", label: "Archived", count: archived.length },
-  ]);
+  // `always` sections (Channels, Status) are top-level navigation and stay
+  // visible even when empty — otherwise the buttons flicker/vanish as counts
+  // settle during async hydration, and the user has no way to reach the section.
+  // Archived only appears when there's something archived (WhatsApp behaviour).
+  const sections: { view: View; icon: string; label: string; count: number; always: boolean }[] =
+    $derived([
+      { view: "channels", icon: "📢", label: "Channels", count: channels.length, always: true },
+      { view: "status", icon: "⭕", label: "Status", count: statuses.length, always: true },
+      { view: "archived", icon: "🗄", label: "Archived", count: archived.length, always: false },
+    ]);
 
   const titles: Record<View, string> = {
     main: "",
@@ -33,11 +38,11 @@
     status: "Status",
   };
 
-  // Bounce back to the main list if the section we're viewing becomes empty.
+  // Bounce back to the main list only if the Archived section (the one that can
+  // disappear) becomes empty while open. Channels/Status stay reachable even
+  // when empty, so they show their own empty state instead of bouncing.
   $effect(() => {
     if (view === "archived" && archived.length === 0) view = "main";
-    if (view === "channels" && channels.length === 0) view = "main";
-    if (view === "status" && statuses.length === 0) view = "main";
   });
 
   const list = $derived.by(() => {
@@ -77,9 +82,9 @@
   <div class="filters">
     <button class="pill" class:active={view === "main"} onclick={() => (view = "main")}>All</button>
     {#each sections as s (s.view)}
-      {#if s.count}
+      {#if s.always || s.count}
         <button class="pill" class:active={view === s.view} onclick={() => (view = s.view)}>
-          <span class="picon">{s.icon}</span>{s.label}<span class="pcount">{s.count}</span>
+          <span class="picon">{s.icon}</span>{s.label}{#if s.count}<span class="pcount">{s.count}</span>{/if}
         </button>
       {/if}
     {/each}
