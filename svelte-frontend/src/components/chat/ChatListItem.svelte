@@ -44,8 +44,9 @@
       full: m.text ?? body,
     };
   });
-  const tickGlyph = $derived(preview.status === "sending" ? "🕓" : preview.status === "sent" ? "✓" : "✓✓");
   const tickRead = $derived(preview.status === "read" || preview.status === "played");
+  // Double tick for delivered/read/played; single for sent; clock for sending.
+  const tickDouble = $derived(preview.status !== "sending" && preview.status !== "sent");
 
   let menu = $state<{ x: number; y: number } | null>(null);
 
@@ -70,6 +71,23 @@
   }
 </script>
 
+{#snippet tickIcon()}
+  {#if preview.status === "sending"}
+    <span class="tick">🕓</span>
+  {:else if tickDouble}
+    <svg class="tick-svg" class:read={tickRead} viewBox="0 0 100 100" aria-hidden="true"
+      ><path
+        fill="currentColor"
+        d="m10 55 20 20 35-45-5-5-30.625 39.375L15 50zm77-25L52 75l-8.687-8.687 4.374-5.626 3.688 3.688L82 25z"
+      /></svg
+    >
+  {:else}
+    <svg class="tick-svg" viewBox="0 0 100 100" aria-hidden="true"
+      ><path fill="currentColor" d="m22.5 52.5 20 20 35-45-5-5-30.625 39.375L27.5 47.5z" /></svg
+    >
+  {/if}
+{/snippet}
+
 <button
   class="item"
   class:active={chatUi.activeJid === chat.jid}
@@ -88,7 +106,7 @@
     </div>
     <div class="bottom">
       <span class="preview" title={preview.full}>
-        {#if preview.status}<span class="tick" class:read={tickRead}>{tickGlyph}</span> {/if}{preview.prefix}{preview.body}
+        {#if preview.status}{@render tickIcon()} {/if}{preview.prefix}{preview.body}
       </span>
       {#if chat.unread}<span class="badge">{chat.unread}</span>{/if}
     </div>
@@ -203,9 +221,6 @@
   }
   .tick {
     font-size: 12px;
-  }
-  .tick.read {
-    color: #53bdeb;
   }
   .badge {
     background: var(--wa-unread);

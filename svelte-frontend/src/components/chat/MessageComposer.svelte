@@ -206,9 +206,7 @@
 <div class="composer">
   <div class="emoji-wrap">
     {#if showEmoji}
-      <div class="popover">
-        <EmojiPicker onpick={insertEmoji} onclose={() => (showEmoji = false)} />
-      </div>
+      <EmojiPicker overlay onpick={insertEmoji} onclose={() => (showEmoji = false)} />
     {/if}
     <button
       class="icon"
@@ -295,12 +293,6 @@
     position: relative;
     flex-shrink: 0;
   }
-  .popover {
-    position: absolute;
-    bottom: calc(100% + 10px);
-    left: 0;
-    z-index: 20;
-  }
   .icon {
     width: 40px;
     height: 40px;
@@ -324,7 +316,7 @@
     position: absolute;
     bottom: calc(100% + 8px);
     left: 0;
-    z-index: 20;
+    z-index: 1000;
     min-width: 200px;
     max-height: 220px;
     overflow-y: auto;

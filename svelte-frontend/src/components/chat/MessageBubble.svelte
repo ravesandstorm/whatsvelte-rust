@@ -3,6 +3,7 @@
   import { formatTime } from "../../lib/util/time";
   import { formatPhone, isGroup, normalizeJid } from "../../lib/util/jid";
   import { contactFor, ensureContact } from "../../lib/stores/contacts.svelte";
+  import { canonicalJid } from "../../lib/stores/lid";
   import { applyReaction } from "../../lib/stores/messages.svelte";
   import { startEdit, startReply } from "../../lib/stores/compose.svelte";
   import { session } from "../../lib/stores/session.svelte";
@@ -34,27 +35,48 @@
     }
   }
 
+  // Group participants may be addressed by a `@lid`; resolve to the canonical
+  // (PN) form so contact/name lookups and phone formatting work.
+  const resolvedSender = $derived(canonicalJid(message.senderJid));
+
   // In groups, resolve the sender to a display name: verified/contact name →
-  // pushName → JID user. Trigger a lazy contact fetch the first time we render.
+  // pushName → formatted phone. Trigger a lazy contact fetch the first time we
+  // render.
   $effect(() => {
-    if (group && !message.fromMe && message.senderJid) void ensureContact(message.senderJid);
+    if (group && !message.fromMe && message.senderJid) void ensureContact(resolvedSender);
     // Resolve the quoted message's sender too, so the reply preview shows a name
     // rather than a bare number.
     const qs = message.quoted?.senderJid;
     if (qs && !(session.jid && normalizeJid(qs) === normalizeJid(session.jid)))
-      void ensureContact(qs);
+      void ensureContact(canonicalJid(qs));
   });
   const senderName = $derived(
-    contactFor(message.senderJid)?.name ?? message.pushName ?? formatPhone(message.senderJid),
+    contactFor(resolvedSender)?.name ?? message.pushName ?? formatPhone(resolvedSender),
   );
 
   // Who the quoted message is from, for the reply preview header.
   const quotedSender = $derived.by(() => {
     const q = message.quoted;
     if (!q || !q.senderJid) return "";
-    if (session.jid && normalizeJid(q.senderJid) === normalizeJid(session.jid)) return "You";
-    return contactFor(q.senderJid)?.name ?? formatPhone(q.senderJid);
+    const qs = canonicalJid(q.senderJid);
+    if (session.jid && normalizeJid(qs) === normalizeJid(session.jid)) return "You";
+    return contactFor(qs)?.name ?? formatPhone(qs);
   });
+
+  // Interactive / business message kinds get a small "type" label so the user
+  // knows the bubble is more than plain text (rendered read-only).
+  const STRUCTURED_LABELS: Record<string, string> = {
+    buttons: "Interactive",
+    list: "Interactive",
+    interactive: "Interactive",
+    template: "Interactive",
+    poll: "Poll",
+    order: "Order",
+    product: "Product",
+    contact: "Contact",
+    location: "Location",
+  };
+  const typeLabel = $derived(STRUCTURED_LABELS[message.kind] ?? null);
 
   // Summarize reactions into [emoji, count] pairs for the chip row.
   const reactionSummary = $derived.by(() => {
@@ -97,7 +119,10 @@
       {#if message.text}
         <div class="text">{message.text}</div>
       {:else if !message.thumbnail && !message.media}
-        <div class="text muted">[{message.kind}]</div>
+        <div class="text muted">{typeLabel ? `〔${typeLabel}〕` : `[${message.kind}]`}</div>
+      {/if}
+      {#if typeLabel && message.text && !message.media}
+        <div class="type-label">〔{typeLabel}〕</div>
       {/if}
     {/if}
     {#if reactionSummary.length}
@@ -136,11 +161,32 @@
         {#if message.status === "sending"}
           <span class="tick">🕓</span>
         {:else if message.status === "read" || message.status === "played"}
-          <span class="tick read">✓✓</span>
+          <span class="tick read">
+            <svg viewBox="0 0 100 100" class="tick-svg"
+              ><path
+                fill="currentColor"
+                d="m10 55 20 20 35-45-5-5-30.625 39.375L15 50zm77-25L52 75l-8.687-8.687 4.374-5.626 3.688 3.688L82 25z"
+              /></svg
+            >
+          </span>
         {:else if message.status === "delivered"}
-          <span class="tick">✓✓</span>
+          <span class="tick">
+            <svg viewBox="0 0 100 100" class="tick-svg"
+              ><path
+                fill="currentColor"
+                d="m10 55 20 20 35-45-5-5-30.625 39.375L15 50zm77-25L52 75l-8.687-8.687 4.374-5.626 3.688 3.688L82 25z"
+              /></svg
+            >
+          </span>
         {:else}
-          <span class="tick">✓</span>
+          <span class="tick">
+            <svg viewBox="0 0 100 100" class="tick-svg"
+              ><path
+                fill="currentColor"
+                d="m22.5 52.5 20 20 35-45-5-5-30.625 39.375L27.5 47.5z"
+              /></svg
+            >
+          </span>
         {/if}
       {/if}
     </div>
@@ -269,15 +315,35 @@
   .edited {
     font-style: italic;
   }
+  .type-label {
+    font-size: 11px;
+    color: var(--wa-text-muted);
+    font-style: italic;
+    margin-top: 2px;
+  }
   .meta {
     display: flex;
+    align-items: center;
     justify-content: flex-end;
     gap: 4px;
     font-size: 11px;
     color: var(--wa-text-muted);
     margin-top: 2px;
   }
-  .tick.read {
-    color: #53bdeb;
+  .tick {
+    display: inline-flex;
+    align-items: center;
+  }
+  /* Tick SVGs read their colour from `color` (fill=currentColor). The vars are
+     defined by the theme (app.css); fall back to sensible defaults so this works
+     standalone. */
+  .tick-svg {
+    width: 15px;
+    height: 15px;
+    display: inline-block;
+    color: var(--wa-tick, #8696a0);
+  }
+  .tick.read .tick-svg {
+    color: var(--wa-tick-read, #53bdeb);
   }
 </style>

@@ -10,6 +10,7 @@
 import { SvelteMap } from "svelte/reactivity";
 import { api } from "../ipc";
 import { normalizeJid } from "../util/jid";
+import { canonicalJid } from "./lid";
 
 export interface Contact {
   name: string | null;
@@ -28,7 +29,15 @@ let lsKey: string | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function contactFor(jid: string): Contact | undefined {
-  return contacts.get(jid) ?? contacts.get(normalizeJid(jid));
+  // Also try the canonical (PN) form so a participant addressed by a `@lid`
+  // resolves to its phone-number-keyed contact / learned name.
+  const canon = canonicalJid(jid);
+  return (
+    contacts.get(jid) ??
+    contacts.get(normalizeJid(jid)) ??
+    contacts.get(canon) ??
+    contacts.get(normalizeJid(canon))
+  );
 }
 
 /** Load the persisted name cache for an account and seed the reactive map.
@@ -106,22 +115,25 @@ export function learnName(jid: string | null | undefined, name: string | null | 
 /** Fetch once per JID; cache success and failure to avoid repeat lookups.
  * Preserves any already-learned name when the backend has none. */
 export async function ensureContact(jid: string) {
-  if (contacts.has(jid) || inflight.has(jid)) return;
-  inflight.add(jid);
-  const learned = contactFor(jid)?.name ?? null;
+  // Resolve to the canonical (PN) form first so a `@lid` participant is fetched
+  // and cached under the same key contactFor / the name cache use.
+  const key = canonicalJid(jid);
+  if (contacts.has(key) || inflight.has(key)) return;
+  inflight.add(key);
+  const learned = contactFor(key)?.name ?? null;
   try {
-    const c = await api.getContact(jid);
+    const c = await api.getContact(key);
     const name = c.name ?? learned;
-    contacts.set(jid, {
+    contacts.set(key, {
       name,
       verifiedName: c.verifiedName,
       lid: c.lid,
       pictureUrl: c.pictureUrl,
     });
-    if (c.name) learnName(jid, c.name);
+    if (c.name) learnName(key, c.name);
   } catch {
-    contacts.set(jid, { name: learned, verifiedName: null, lid: null, pictureUrl: null });
+    contacts.set(key, { name: learned, verifiedName: null, lid: null, pictureUrl: null });
   } finally {
-    inflight.delete(jid);
+    inflight.delete(key);
   }
 }

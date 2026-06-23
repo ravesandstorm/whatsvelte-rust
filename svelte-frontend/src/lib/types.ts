@@ -56,7 +56,9 @@ export interface MessageDto {
   timestamp: number;
   pushName: string | null;
   text: string | null;
-  /** "text" | "image" | "video" | "audio" | "document" | "sticker" | "other" */
+  /** "text" | "image" | "video" | "audio" | "document" | "sticker"
+   * | "buttons" | "list" | "interactive" | "template" | "poll" | "order"
+   * | "product" | "contact" | "location" | "other" */
   kind: string;
   /** base64 JPEG thumbnail, when present. */
   thumbnail: string | null;

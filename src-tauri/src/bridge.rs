@@ -338,6 +338,10 @@ fn text_of(msg: &wa::Message) -> Option<String> {
     msg.text_content()
         .or_else(|| msg.get_caption())
         .map(str::to_string)
+        // Business / interactive variants (buttons, lists, templates, polls, …)
+        // aren't covered by text_content/caption — extract their readable text so
+        // they never render as a bare "[other]" placeholder.
+        .or_else(|| structured_text(msg.get_base_message()))
 }
 
 fn classify(msg: &wa::Message) -> String {
@@ -354,10 +358,203 @@ fn classify(msg: &wa::Message) -> String {
         "document"
     } else if b.sticker_message.is_some() {
         "sticker"
+    } else if b.buttons_message.is_some() || b.buttons_response_message.is_some() {
+        "buttons"
+    } else if b.list_message.is_some() || b.list_response_message.is_some() {
+        "list"
+    } else if b.interactive_message.is_some() || b.interactive_response_message.is_some() {
+        "interactive"
+    } else if b.template_message.is_some()
+        || b.template_button_reply_message.is_some()
+        || b.highly_structured_message.is_some()
+    {
+        "template"
+    } else if b.poll_creation_message.is_some()
+        || b.poll_creation_message_v2.is_some()
+        || b.poll_creation_message_v3.is_some()
+    {
+        "poll"
+    } else if b.order_message.is_some() {
+        "order"
+    } else if b.product_message.is_some() {
+        "product"
+    } else if b.contact_message.is_some() {
+        "contact"
+    } else if b.location_message.is_some() {
+        "location"
     } else {
         "other"
     };
     k.to_string()
+}
+
+/// Best-effort human-readable text for interactive / business message variants
+/// that `text_content()` doesn't cover. Choices (list rows, poll options) are
+/// encoded as `•` bullet lines so the bubble can render them verbatim.
+fn structured_text(b: &wa::Message) -> Option<String> {
+    // Buttons: prompt (+ footer).
+    if let Some(m) = b.buttons_message.as_ref() {
+        let mut parts: Vec<String> = Vec::new();
+        if let Some(t) = m.content_text.clone() {
+            parts.push(t);
+        }
+        if let Some(t) = m.footer_text.clone() {
+            parts.push(t);
+        }
+        if !parts.is_empty() {
+            return Some(parts.join("\n"));
+        }
+    }
+    if let Some(m) = b.buttons_response_message.as_ref() {
+        match &m.response {
+            Some(wa::message::buttons_response_message::Response::SelectedDisplayText(t)) => {
+                return Some(t.clone());
+            }
+            _ => {
+                if let Some(t) = m.selected_button_id.clone() {
+                    return Some(t);
+                }
+            }
+        }
+    }
+    // List: title / description + row choices.
+    if let Some(m) = b.list_message.as_ref() {
+        let mut parts: Vec<String> = Vec::new();
+        if let Some(t) = m.title.clone() {
+            parts.push(t);
+        }
+        if let Some(t) = m.description.clone() {
+            parts.push(t);
+        }
+        for row in m.sections.iter().flat_map(|s| s.rows.iter()) {
+            if let Some(t) = row.title.clone() {
+                parts.push(format!("• {t}"));
+            }
+        }
+        if !parts.is_empty() {
+            return Some(parts.join("\n"));
+        }
+    }
+    if let Some(m) = b.list_response_message.as_ref() {
+        if let Some(t) = m.title.clone() {
+            return Some(t);
+        }
+    }
+    // Interactive (native flow / carousel): header title + body + footer.
+    if let Some(m) = b.interactive_message.as_ref() {
+        let mut parts: Vec<String> = Vec::new();
+        if let Some(t) = m.header.as_deref().and_then(|h| h.title.clone()) {
+            parts.push(t);
+        }
+        if let Some(t) = m.body.as_ref().and_then(|x| x.text.clone()) {
+            parts.push(t);
+        }
+        if let Some(t) = m.footer.as_deref().and_then(|f| f.text.clone()) {
+            parts.push(t);
+        }
+        if !parts.is_empty() {
+            return Some(parts.join("\n"));
+        }
+    }
+    if let Some(m) = b.interactive_response_message.as_ref() {
+        if let Some(t) = m.body.as_ref().and_then(|x| x.text.clone()) {
+            return Some(t);
+        }
+    }
+    // Template (pre-approved business): hydrated title + content + footer.
+    if let Some(ht) = b
+        .template_message
+        .as_ref()
+        .and_then(|m| m.hydrated_template.as_deref())
+    {
+        let mut parts: Vec<String> = Vec::new();
+        if let Some(wa::message::template_message::hydrated_four_row_template::Title::HydratedTitleText(t)) =
+            &ht.title
+        {
+            parts.push(t.clone());
+        }
+        if let Some(t) = ht.hydrated_content_text.clone() {
+            parts.push(t);
+        }
+        if let Some(t) = ht.hydrated_footer_text.clone() {
+            parts.push(t);
+        }
+        if !parts.is_empty() {
+            return Some(parts.join("\n"));
+        }
+    }
+    if let Some(m) = b.template_button_reply_message.as_ref() {
+        if let Some(t) = m.selected_display_text.clone() {
+            return Some(t);
+        }
+    }
+    if let Some(m) = b.highly_structured_message.as_ref() {
+        if let Some(t) = m
+            .hydrated_hsm
+            .as_deref()
+            .and_then(|t| t.hydrated_template.as_deref())
+            .and_then(|ht| ht.hydrated_content_text.clone())
+        {
+            return Some(t);
+        }
+        if let Some(t) = m.element_name.clone() {
+            return Some(t);
+        }
+    }
+    // Poll: question + options (any protocol version).
+    let poll = b
+        .poll_creation_message
+        .as_deref()
+        .or(b.poll_creation_message_v2.as_deref())
+        .or(b.poll_creation_message_v3.as_deref());
+    if let Some(p) = poll {
+        let mut parts: Vec<String> = Vec::new();
+        if let Some(t) = p.name.clone() {
+            parts.push(t);
+        }
+        for o in p.options.iter() {
+            if let Some(t) = o.option_name.clone() {
+                parts.push(format!("• {t}"));
+            }
+        }
+        if !parts.is_empty() {
+            return Some(parts.join("\n"));
+        }
+    }
+    // Order.
+    if let Some(m) = b.order_message.as_ref() {
+        if let Some(t) = m.order_title.clone().or_else(|| m.message.clone()) {
+            return Some(t);
+        }
+    }
+    // Product catalog item.
+    if let Some(m) = b.product_message.as_ref() {
+        if let Some(t) = m
+            .product
+            .as_deref()
+            .and_then(|p| p.title.clone())
+            .or_else(|| m.body.clone())
+        {
+            return Some(t);
+        }
+    }
+    // Shared contact.
+    if let Some(m) = b.contact_message.as_ref() {
+        if let Some(t) = m.display_name.clone() {
+            return Some(t);
+        }
+    }
+    // Location.
+    if let Some(m) = b.location_message.as_ref() {
+        return Some(m.name.clone().or_else(|| m.address.clone()).unwrap_or_else(|| {
+            format!(
+                "{:.5}, {:.5}",
+                m.degrees_latitude.unwrap_or(0.0),
+                m.degrees_longitude.unwrap_or(0.0)
+            )
+        }));
+    }
+    None
 }
 
 /// Build a downloadable media descriptor + display info from a message's media

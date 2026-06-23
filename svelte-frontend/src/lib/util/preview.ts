@@ -13,6 +13,21 @@ export function mediaLabel(kind: string): string {
       return "📄 Document";
     case "sticker":
       return "🃏 Sticker";
+    case "buttons":
+    case "list":
+    case "interactive":
+    case "template":
+      return "📋 Interactive";
+    case "poll":
+      return "📊 Poll";
+    case "order":
+      return "🛒 Order";
+    case "product":
+      return "🛍 Product";
+    case "contact":
+      return "👤 Contact";
+    case "location":
+      return "📍 Location";
     default:
       return "Message";
   }

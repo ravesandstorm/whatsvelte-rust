@@ -73,20 +73,25 @@ export async function startEventBridge() {
   });
 
   await on<MessageDto>("wa://message", (m) => {
-    // Canonicalize the chat key (LID→PN) so a contact that switched addressing
-    // form lands in the one existing conversation instead of a split twin.
+    // Canonicalize the chat key AND the sender key (LID→PN) so a contact that
+    // switched addressing form lands in the one existing conversation, and group
+    // participants resolve to a real phone/name instead of a raw `@lid`.
     const jid = canonicalJid(m.chatJid);
-    const cm = jid === m.chatJid ? m : { ...m, chatJid: jid };
+    const senderJid = canonicalJid(m.senderJid);
+    const cm =
+      jid === m.chatJid && senderJid === m.senderJid ? m : { ...m, chatJid: jid, senderJid };
     addMessage(cm);
     touchChat(jid, cm.text, cm.timestamp, !cm.fromMe);
     if (cm.pushName && !cm.fromMe) {
       setChatName(jid, cm.pushName);
       // Learn the *sender's* name too (matters for group participants, where the
       // sender JID differs from the chat JID) and persist it across restarts.
-      learnName(cm.senderJid || jid, cm.pushName);
+      learnName(senderJid || jid, cm.pushName);
     }
-    // Learn the mapping (and merge any pre-existing split) for next time.
+    // Learn the mapping (and merge any pre-existing split) for next time — for
+    // both the chat JID and the participant sender JID.
     void unifyLid(m.chatJid);
+    if (m.senderJid && m.senderJid !== m.chatJid) void unifyLid(m.senderJid);
   });
 
   await on<HistoryDto>("wa://history", (h) => {
@@ -99,8 +104,12 @@ export async function startEventBridge() {
     addHistoryMessages(
       h.messages.map((m) => {
         const jid = canonicalJid(m.chatJid);
-        if (m.pushName && !m.fromMe) learnName(m.senderJid || jid, m.pushName);
-        return jid === m.chatJid ? m : { ...m, chatJid: jid };
+        const senderJid = canonicalJid(m.senderJid);
+        if (m.pushName && !m.fromMe) learnName(senderJid || jid, m.pushName);
+        if (m.senderJid && m.senderJid !== m.chatJid) void unifyLid(m.senderJid);
+        return jid === m.chatJid && senderJid === m.senderJid
+          ? m
+          : { ...m, chatJid: jid, senderJid };
       }),
     );
   });
@@ -121,18 +130,20 @@ export async function startEventBridge() {
 
   await on<MessageUpdateDto>("wa://message/update", (u) => {
     const jid = canonicalJid(u.chatJid);
+    const senderJid = canonicalJid(u.senderJid ?? "");
     if (u.kind === "revoke") {
       applyRevoke(jid, u.targetId, {
-        senderJid: u.senderJid ?? "",
+        senderJid,
         fromMe: u.fromMe,
         timestamp: u.timestamp,
       });
     } else if (u.kind === "edit") {
       applyEdit(jid, u.targetId, u.text, u.timestamp);
     } else if (u.kind === "reaction") {
-      applyReaction(jid, u.targetId, normalizeJid(u.senderJid ?? ""), u.text ?? "");
+      applyReaction(jid, u.targetId, normalizeJid(senderJid), u.text ?? "");
     }
     void unifyLid(u.chatJid);
+    if (u.senderJid && u.senderJid !== u.chatJid) void unifyLid(u.senderJid);
   });
 
   // 2. Determine login state. The ONLY source of truth is the handshake type

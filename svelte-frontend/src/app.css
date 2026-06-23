@@ -1,5 +1,5 @@
 :root {
-  /* WhatsApp-ish palette */
+  /* WhatsApp-ish palette — dark (default; also applied when no data-theme set) */
   --wa-green: #00a884;
   --wa-green-dark: #008069;
   --wa-bg: #111b21;
@@ -9,15 +9,53 @@
   --wa-border: #2f3b43;
   --wa-text: #e9edef;
   --wa-text-muted: #8696a0;
-  --wa-bubble-out: #005c4b;
+  --wa-bubble-out: #134d37;
   --wa-bubble-in: #202c33;
   --wa-unread: #00a884;
   --wa-chat-bg: #0b141a;
+  --wa-tick: #7b9c8f;
+  --wa-tick-read: #44a0b8;
+  --wa-scrollbar: #374248;
 
   color-scheme: dark;
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
   color: var(--wa-text);
   background: var(--wa-bg);
+}
+
+[data-theme="light"] {
+  --wa-green: #008069;
+  --wa-green-dark: #006a55;
+  --wa-bg: #ffffff;
+  --wa-panel: #f0f2f5;
+  --wa-panel-2: #f0f2f5;
+  --wa-hover: #f5f6f6;
+  --wa-border: #e9edef;
+  --wa-text: #111b21;
+  --wa-text-muted: #667781;
+  --wa-bubble-out: #d8fdd2;
+  --wa-bubble-in: #ffffff;
+  --wa-unread: #25d366;
+  --wa-chat-bg: #efeae2;
+  --wa-tick: #708775;
+  --wa-tick-read: #3c9ce7;
+  --wa-scrollbar: #c4ccd1;
+
+  color-scheme: light;
+}
+
+/* Shared message-tick SVGs (rendered inline in MessageBubble & ChatListItem).
+   The SVG paths use fill="currentColor"; color comes from these theme vars. */
+.tick-svg {
+  width: 15px;
+  height: 15px;
+  display: inline-block;
+  vertical-align: -2px;
+  color: var(--wa-tick);
+}
+.tick.read .tick-svg,
+.tick-svg.read {
+  color: var(--wa-tick-read);
 }
 
 * {
@@ -51,6 +89,6 @@ textarea {
   width: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #374248;
+  background: var(--wa-scrollbar);
   border-radius: 4px;
 }

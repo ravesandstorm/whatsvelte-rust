@@ -3,9 +3,13 @@
   import { session } from "./lib/stores/session.svelte";
   import { chats } from "./lib/stores/chats.svelte";
   import { startEventBridge } from "./lib/stores/events";
+  import { initTheme } from "./lib/stores/theme.svelte";
   import PairingScreen from "./components/pairing/PairingScreen.svelte";
   import LoadingScreen from "./components/pairing/LoadingScreen.svelte";
   import MainLayout from "./components/chat/MainLayout.svelte";
+
+  // Apply the saved theme before first paint so the UI doesn't flash.
+  initTheme();
 
   onMount(() => {
     void startEventBridge();

@@ -10,6 +10,7 @@
   } from "../../lib/stores/settings.svelte";
   import { jidUser } from "../../lib/util/jid";
   import { zoomIn, zoomOut, zoomReset } from "../../lib/zoom";
+  import { themeState, setTheme } from "../../lib/stores/theme.svelte";
 
   // A few preset wallpaper colors/gradients plus "none" and a custom image.
   const PRESETS: { id: string; label: string; value: string | null }[] = [
@@ -57,6 +58,17 @@
 
     <section>
       <h3>Appearance</h3>
+      <label class="row">
+        <span>Theme</span>
+        <span class="seg">
+          <button class:active={themeState.theme === "light"} onclick={() => setTheme("light")}
+            >Light</button
+          >
+          <button class:active={themeState.theme === "dark"} onclick={() => setTheme("dark")}
+            >Dark</button
+          >
+        </span>
+      </label>
       <label class="row">
         <span>Zoom</span>
         <span class="zoom">
@@ -202,6 +214,24 @@
     color: var(--wa-text);
     border-radius: 6px;
     padding: 4px 10px;
+  }
+  .seg {
+    display: inline-flex;
+    border: 1px solid var(--wa-border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .seg button {
+    border: none;
+    background: var(--wa-panel-2);
+    color: var(--wa-text-muted);
+    padding: 5px 14px;
+    font-size: 13px;
+  }
+  .seg button.active {
+    background: var(--wa-green);
+    color: #04221c;
+    font-weight: 600;
   }
   .wallpaper {
     display: flex;

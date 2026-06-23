@@ -1,8 +1,14 @@
 <script lang="ts">
   import { EMOJI_CATEGORIES, getRecentEmojis, pushRecentEmoji } from "../../lib/emoji";
 
-  let { onpick, onclose }: { onpick: (emoji: string) => void; onclose?: () => void } =
-    $props();
+  // `overlay`: render as a fixed, top-most layer with a click-outside backdrop and
+  // Escape-to-close (used by the composer). When false (default) the picker is
+  // bare so a parent like ReactionPicker can own the overlay/layout.
+  let {
+    onpick,
+    onclose,
+    overlay = false,
+  }: { onpick: (emoji: string) => void; onclose?: () => void; overlay?: boolean } = $props();
 
   const initialRecents = getRecentEmojis();
   let recents = $state(initialRecents);
@@ -23,32 +29,64 @@
     recents = getRecentEmojis();
     onpick(emoji);
   }
+
+  function onKey(e: KeyboardEvent) {
+    // Only the overlay instance owns Escape; the bare instance is closed by its
+    // parent (ReactionPicker) so we don't double-handle.
+    if (!overlay) return;
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onclose?.();
+    }
+  }
 </script>
 
-<div class="picker">
-  <div class="tabs">
-    {#each tabs as t (t.key)}
-      <button
-        class="tab"
-        class:active={activeKey === t.key}
-        title={t.label}
-        onclick={() => (activeKey = t.key)}>{t.icon}</button
-      >
-    {/each}
-    {#if onclose}
-      <button class="tab close" title="Close" onclick={onclose}>✕</button>
-    {/if}
+<svelte:window onkeydown={onKey} />
+
+{#snippet body()}
+  <div class="picker">
+    <div class="tabs">
+      {#each tabs as t (t.key)}
+        <button
+          class="tab"
+          class:active={activeKey === t.key}
+          title={t.label}
+          onclick={() => (activeKey = t.key)}>{t.icon}</button
+        >
+      {/each}
+      {#if onclose}
+        <button class="tab close" title="Close" onclick={onclose}>✕</button>
+      {/if}
+    </div>
+    <div class="grid">
+      {#each emojisFor(activeKey) as e (e)}
+        <button class="emoji" onclick={() => choose(e)}>{e}</button>
+      {:else}
+        <p class="empty">No emoji yet</p>
+      {/each}
+    </div>
   </div>
-  <div class="grid">
-    {#each emojisFor(activeKey) as e (e)}
-      <button class="emoji" onclick={() => choose(e)}>{e}</button>
-    {:else}
-      <p class="empty">No emoji yet</p>
-    {/each}
+{/snippet}
+
+{#if overlay}
+  <div class="emoji-overlay" onclick={() => onclose?.()} role="presentation">
+    <div class="anchor" onclick={(e) => e.stopPropagation()} role="presentation">
+      {@render body()}
+    </div>
   </div>
-</div>
+{:else}
+  {@render body()}
+{/if}
 
 <style>
+  .emoji-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
   .picker {
     display: flex;
     flex-direction: column;

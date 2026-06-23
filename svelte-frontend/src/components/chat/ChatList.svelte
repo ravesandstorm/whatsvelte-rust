@@ -64,15 +64,8 @@
 
 <div class="sidebar">
   <header>
-    {#if view !== "main"}
-      <button class="back" aria-label="Back" onclick={() => (view = "main")}>←</button>
-      <span class="me">{titles[view]}</span>
-    {:else}
-      <span class="me">{session.pushName ?? (session.jid ? formatPhone(session.jid) : "WhatsApp")}</span>
-      <button class="settings" aria-label="Settings" onclick={() => (ui.settingsOpen = true)}
-        >⚙</button
-      >
-    {/if}
+    <span class="me">{session.pushName ?? (session.jid ? formatPhone(session.jid) : "WhatsApp")}</span>
+    <button class="settings" aria-label="Settings" onclick={() => (ui.settingsOpen = true)}>⚙</button>
   </header>
   <div class="search">
     <input
@@ -81,18 +74,17 @@
       bind:value={query}
     />
   </div>
+  <div class="filters">
+    <button class="pill" class:active={view === "main"} onclick={() => (view = "main")}>All</button>
+    {#each sections as s (s.view)}
+      {#if s.count}
+        <button class="pill" class:active={view === s.view} onclick={() => (view = s.view)}>
+          <span class="picon">{s.icon}</span>{s.label}<span class="pcount">{s.count}</span>
+        </button>
+      {/if}
+    {/each}
+  </div>
   <div class="chats">
-    {#if view === "main" && !query.trim()}
-      {#each sections as s (s.view)}
-        {#if s.count}
-          <button class="archived-entry" onclick={() => (view = s.view)}>
-            <span class="arch-icon">{s.icon}</span>
-            <span class="arch-label">{s.label}</span>
-            <span class="arch-count">{s.count}</span>
-          </button>
-        {/if}
-      {/each}
-    {/if}
     {#each list as chat (chat.jid)}
       <ChatListItem {chat} />
     {/each}
@@ -130,47 +122,65 @@
     flex: 1;
     min-width: 0;
   }
-  .settings,
-  .back {
+  .settings {
     border: none;
     background: transparent;
     color: var(--wa-text-muted);
     font-size: 20px;
     line-height: 1;
   }
-  .settings:hover,
-  .back:hover {
+  .settings:hover {
     color: var(--wa-text);
   }
-  .back {
-    margin-right: 12px;
-  }
-  .archived-entry {
+  .filters {
     display: flex;
-    align-items: center;
-    gap: 14px;
-    width: 100%;
-    padding: 12px 18px;
-    background: none;
-    border: none;
+    gap: 8px;
+    padding: 8px 12px;
+    overflow-x: auto;
+    background: var(--wa-bg);
     border-bottom: 1px solid var(--wa-border);
-    color: var(--wa-text);
-    text-align: left;
-    font-size: 15px;
+    flex-shrink: 0;
   }
-  .archived-entry:hover {
+  .filters::-webkit-scrollbar {
+    height: 0;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    border: 1px solid var(--wa-border);
+    background: var(--wa-panel-2);
+    color: var(--wa-text-muted);
+    padding: 5px 12px;
+    border-radius: 16px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .pill:hover {
     background: var(--wa-hover);
   }
-  .arch-icon {
-    font-size: 16px;
-    color: var(--wa-text-muted);
+  .pill.active {
+    background: var(--wa-green);
+    border-color: var(--wa-green);
+    color: #04221c;
   }
-  .arch-label {
-    flex: 1;
-  }
-  .arch-count {
-    color: var(--wa-text-muted);
+  .picon {
     font-size: 13px;
+  }
+  .pcount {
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--wa-panel);
+    color: var(--wa-text-muted);
+    border-radius: 9px;
+    padding: 0 6px;
+    min-width: 16px;
+    text-align: center;
+  }
+  .pill.active .pcount {
+    background: rgba(0, 0, 0, 0.22);
+    color: #04221c;
   }
   .search {
     padding: 8px 12px;

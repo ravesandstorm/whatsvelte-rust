@@ -42,6 +42,14 @@ export function isSelf(jid: string, selfJid: string | null | undefined): boolean
  * The national part is the last 10 digits; anything before it is the country
  * code. Falls back to the raw user part when there aren't enough digits. */
 export function formatPhone(jid: string): string {
+  // A privacy LID (`<16-digit-id>@lid`) is NOT a phone number — never format its
+  // id as one (that produces a misleading fake `+code …`). Show a short neutral
+  // token instead; once the LID→PN mapping is learned the caller passes a real
+  // PN and this branch isn't hit.
+  if (jid.endsWith("@lid")) {
+    const u = jidUser(jid);
+    return u.length > 4 ? `~${u.slice(-4)}` : `~${u}`;
+  }
   const digits = jidUser(jid).replace(/\D/g, "");
   if (digits.length < 10) return digits ? `+${digits}` : jidUser(jid);
   const national = digits.slice(-10);
