@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { openPath } from "@tauri-apps/plugin-opener";
   import type { MediaDto } from "../../lib/types";
+  import { api } from "../../lib/ipc";
   import { formatDuration, mediaSrc } from "../../lib/media";
   import { ui } from "../../lib/stores/ui.svelte";
 
@@ -31,9 +33,20 @@
     if (auto) void load();
   });
 
+  // Documents open in the OS default app (no in-app renderer): download to the
+  // local cache, then hand the real path to the opener plugin.
   async function openDoc() {
-    await load();
-    if (src) window.open(src, "_blank");
+    loading = true;
+    error = false;
+    try {
+      const path = await api.downloadMedia(media.descriptor, media.mimetype);
+      await openPath(path);
+    } catch (e) {
+      console.error("open document failed", e);
+      error = true;
+    } finally {
+      loading = false;
+    }
   }
 
   // Open the full-screen viewer (zoom/pan for images, playback for video).

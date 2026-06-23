@@ -40,6 +40,20 @@ export interface MediaDto {
   descriptor: MediaDescriptorDto;
 }
 
+/** Per-type options for an outgoing media send (mirrors `MediaSendOptionsIn`). */
+export interface MediaSendOptions {
+  caption?: string | null;
+  mimetype?: string | null;
+  /** Document display name. */
+  fileName?: string | null;
+  /** Audio/video length. */
+  durationSecs?: number | null;
+  /** Voice-note flag. */
+  ptt?: boolean | null;
+  /** base64 JPEG inline thumbnail (image/video). */
+  jpegThumbnail?: string | null;
+}
+
 export interface QuotedDto {
   id: string;
   senderJid: string | null;

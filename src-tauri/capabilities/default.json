@@ -3,5 +3,20 @@
   "identifier": "default",
   "description": "Core IPC + event permissions for the main window. App-defined commands are always callable; this enables core:event so the frontend can listen() for the wa:// event stream.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+    "dialog:default",
+    "fs:allow-write-file",
+    "fs:allow-read-file",
+    "fs:allow-remove",
+    {
+      "identifier": "fs:scope",
+      "allow": [{ "path": "$HOME/**" }, { "path": "$TEMP/**" }, { "path": "$APPCACHE/**" }]
+    },
+    "opener:default",
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [{ "path": "$APPDATA/**" }, { "path": "$APPCACHE/**" }]
+    }
+  ]
 }

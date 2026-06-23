@@ -91,6 +91,33 @@ export function addOptimistic(jid: string, text: string, quoted: QuotedDto | nul
   return tempId;
 }
 
+/** Optimistic bubble for an outgoing media send. `thumbnail` (base64 JPEG) gives
+ * an instant preview for images/videos; `text` carries the caption or a label
+ * (e.g. "📄 file.pdf") for non-thumbnail kinds. Confirmed via `confirmOptimistic`. */
+export function addOptimisticMedia(
+  jid: string,
+  kind: string,
+  text: string | null,
+  thumbnail: string | null,
+): string {
+  const tempId = "tmp-" + Math.random().toString(36).slice(2);
+  addMessage({
+    id: tempId,
+    chatJid: jid,
+    senderJid: "",
+    fromMe: true,
+    timestamp: Math.floor(Date.now() / 1000),
+    pushName: null,
+    text,
+    kind,
+    thumbnail,
+    media: null,
+    quoted: null,
+    status: "sending",
+  });
+  return tempId;
+}
+
 export function confirmOptimistic(jid: string, tempId: string, realId: string) {
   const arr = messagesByChat.get(jid);
   if (!arr) return;

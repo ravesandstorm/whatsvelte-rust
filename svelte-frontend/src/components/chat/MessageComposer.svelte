@@ -10,10 +10,16 @@
   import type { QuotedDto } from "../../lib/types";
   import { searchEmojiShortcodes } from "../../lib/emoji";
   import EmojiPicker from "./EmojiPicker.svelte";
+  import AttachMenu from "./AttachMenu.svelte";
+  import MediaPreview from "./MediaPreview.svelte";
+  import Recorder from "./Recorder.svelte";
+  import type { PendingAttachment } from "../../lib/send-media";
 
   let { jid }: { jid: string } = $props();
   let text = $state("");
   let showEmoji = $state(false);
+  let pending = $state<PendingAttachment | null>(null);
+  let recordMode = $state<"voice" | "video" | "photo" | null>(null);
   let ta: HTMLTextAreaElement | undefined = $state();
   let lastEditId: string | null = $state(null);
   // `:shortcode` autocomplete state.
@@ -165,6 +171,32 @@
     }
   }
 
+  // Clipboard images → the same pre-send preview as the attach menu.
+  function onPaste(e: ClipboardEvent) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const it of items) {
+      if (it.kind === "file" && it.type.startsWith("image/")) {
+        const file = it.getAsFile();
+        if (file) {
+          e.preventDefault();
+          pending = {
+            kind: "image",
+            blob: file,
+            fileName: file.name || "pasted-image.png",
+            previewUrl: URL.createObjectURL(file),
+          };
+          return;
+        }
+      }
+    }
+  }
+
+  function closePreview() {
+    if (pending?.previewUrl) URL.revokeObjectURL(pending.previewUrl);
+    pending = null;
+  }
+
   function insertEmoji(emoji: string) {
     const el = ta;
     if (!el) {
@@ -215,6 +247,7 @@
       onclick={() => (showEmoji = !showEmoji)}>😊</button
     >
   </div>
+  <AttachMenu onpick={(a) => (pending = a)} onrecord={(m) => (recordMode = m)} />
   <div class="ta-wrap">
     {#if suggest.length}
       <div class="suggest">
@@ -238,10 +271,26 @@
       onkeydown={onKey}
       oninput={updateSuggest}
       onclick={updateSuggest}
+      onpaste={onPaste}
     ></textarea>
   </div>
   <button class="send" onclick={send} disabled={!text.trim()} aria-label="Send">➤</button>
 </div>
+
+{#if recordMode}
+  <Recorder
+    mode={recordMode}
+    onclose={() => (recordMode = null)}
+    oncapture={(a) => {
+      recordMode = null;
+      pending = a;
+    }}
+  />
+{/if}
+
+{#if pending}
+  <MediaPreview {jid} attachment={pending} onclose={closePreview} />
+{/if}
 
 <style>
   .composer {
