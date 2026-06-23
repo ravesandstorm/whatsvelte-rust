@@ -42,10 +42,44 @@ import type {
   MessageDto,
   MessageUpdateDto,
   ReceiptDto,
-  SyncProgressDto,
 } from "../types";
 
 let started = false;
+/** Channels are fetched once per connected session (not in history sync). */
+let newslettersLoaded = false;
+
+/** Pull the followed channels and seed them into the chat list so the Channels
+ * section isn't empty (newsletters never arrive via history sync, only live).
+ * Best-effort: requires an active connection, so failures are swallowed and a
+ * later reconnect retries. */
+async function fetchNewsletters() {
+  try {
+    const rows = await api.listNewsletters();
+    for (const c of rows) {
+      upsertChatFromDto(c);
+      if (c.name) learnName(c.jid, c.name);
+    }
+  } catch (e) {
+    newslettersLoaded = false; // allow a retry on the next connect
+    console.error("list newsletters failed", e);
+  }
+}
+
+/** Fetch channels the first time the session reports connected. */
+async function maybeFetchNewsletters() {
+  if (newslettersLoaded || !session.connected) return;
+  newslettersLoaded = true;
+  await fetchNewsletters();
+}
+
+/** Yield to the browser so the loading screen repaints between hydration chunks.
+ * Without a yield the whole IndexedDB fill runs in one synchronous burst and the
+ * progress bar never gets a frame to render (the old bug: the bar was instant). */
+const nextFrame = (): Promise<void> =>
+  new Promise((r) => {
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => r());
+    else setTimeout(r, 0);
+  });
 
 export async function startEventBridge() {
   if (started) return;
@@ -71,23 +105,10 @@ export async function startEventBridge() {
     await resetAll();
   });
   await on("wa://conn/state", () => {
-    void refreshStatus();
-  });
-
-  // Offline-sync progress: the server announces the backlog size at connect
-  // (`preview`) and signals when it's drained (`completed`). Drives the loading
-  // screen's progress bar so a slow post-handshake sync isn't a blank wait.
-  await on<SyncProgressDto>("wa://sync/progress", (p) => {
-    if (p.done || p.phase === "completed") {
-      session.syncDoneMessages = session.syncTotalMessages;
-      session.syncActive = false;
-    } else {
-      // `messages` is the chat-message backlog we can actually count as
-      // wa://message events arrive; only show the bar when there's a real one.
-      session.syncTotalMessages = p.messages;
-      session.syncDoneMessages = 0;
-      session.syncActive = p.messages > 0;
-    }
+    void (async () => {
+      await refreshStatus();
+      await maybeFetchNewsletters();
+    })();
   });
 
   await on<MessageDto>("wa://message", (m) => {
@@ -99,10 +120,6 @@ export async function startEventBridge() {
     const cm =
       jid === m.chatJid && senderJid === m.senderJid ? m : { ...m, chatJid: jid, senderJid };
     addMessage(cm);
-    // Advance the offline-sync bar as backlog messages stream in.
-    if (session.syncActive && session.syncDoneMessages < session.syncTotalMessages) {
-      session.syncDoneMessages += 1;
-    }
     touchChat(jid, cm.text, cm.timestamp, !cm.fromMe);
     if (cm.pushName && !cm.fromMe) {
       setChatName(jid, cm.pushName);
@@ -198,6 +215,13 @@ export async function startEventBridge() {
     } else {
       // IK = logged in. Rehydrate the previous run's chats/messages so the UI
       // isn't empty on restart (the backend only emits HistorySync at pairing).
+      // This read + store-fill is the real post-handshake wait, so drive the
+      // loading screen off it.
+      session.hydrating = true;
+      session.hydrateLabel = "Reading saved chats…";
+      session.hydrateTotal = 0;
+      session.hydrateDone = 0;
+      await nextFrame(); // let the loading screen paint before the blocking read
       loadLidMap(session.jid);
       loadNameCache(session.jid);
       const snap = await loadSnapshot();
@@ -211,6 +235,7 @@ export async function startEventBridge() {
         clearLidMap();
         clearNameCache();
         await clearAll();
+        session.hydrating = false;
       } else {
         // Canonicalize on the way in so a persisted LID chat with a known
         // mapping rehydrates straight into its PN conversation. Use hydrateChat
@@ -227,7 +252,18 @@ export async function startEventBridge() {
             const jid = canonicalJid(m.chatJid);
             return jid === m.chatJid ? m : { ...m, chatJid: jid };
           });
-        if (all.length) addHistoryMessages(all);
+        // Insert messages in chunks, yielding a frame between each so the
+        // progress bar actually advances on screen (a single addHistoryMessages
+        // call would block the main thread and finish before any repaint).
+        session.hydrateLabel = "Restoring messages…";
+        session.hydrateTotal = all.length;
+        session.hydrateDone = 0;
+        const CHUNK = 400;
+        for (let i = 0; i < all.length; i += CHUNK) {
+          addHistoryMessages(all.slice(i, i + CHUNK));
+          session.hydrateDone = Math.min(all.length, i + CHUNK);
+          await nextFrame();
+        }
 
         // Safety net: reconstruct any chat that has messages but no chat row.
         for (const [rawJid, items] of Object.entries(snap.messages)) {
@@ -239,9 +275,11 @@ export async function startEventBridge() {
 
         // Try to unify any cached LID conversations into their phone-number form.
         for (const jid of [...chats.keys()]) void unifyLid(jid);
+        session.hydrating = false;
       }
     }
   } catch (e) {
+    session.hydrating = false;
     console.error("hydrate from cache failed", e);
   }
 
@@ -251,6 +289,10 @@ export async function startEventBridge() {
   enablePersistence();
   schedulePersistChats();
   for (const jid of messagesByChat.keys()) schedulePersistMessages(jid);
+
+  // If we're already connected at boot, seed the Channels section now (a later
+  // wa://conn/state would also trigger this, but at startup it may not fire).
+  void maybeFetchNewsletters();
 }
 
 export async function refreshStatus() {
@@ -275,9 +317,10 @@ export async function resetAll() {
   session.registered = false;
   session.jid = null;
   session.pushName = null;
-  session.syncActive = false;
-  session.syncTotalMessages = 0;
-  session.syncDoneMessages = 0;
+  session.hydrating = false;
+  session.hydrateTotal = 0;
+  session.hydrateDone = 0;
+  newslettersLoaded = false;
   chats.clear();
   messagesByChat.clear();
   chatUi.activeJid = null;

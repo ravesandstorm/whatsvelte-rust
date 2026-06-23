@@ -3,7 +3,7 @@
 import { SvelteMap } from "svelte/reactivity";
 import type { ChatDto } from "../types";
 import { schedulePersistChats } from "../persist";
-import { isNewsletter, isStatus, isStatusBroadcast } from "../util/jid";
+import { isBroadcastList, isNewsletter, isStatus, isStatusBroadcast } from "../util/jid";
 
 export interface Chat {
   jid: string;
@@ -176,10 +176,18 @@ export function setChatName(jid: string, name: string) {
   }
 }
 
-/** A regular 1:1/group conversation — excludes channels (newsletters) and the
- * status feed, which live in their own sections. */
+/** A regular 1:1/group conversation — excludes channels (newsletters), the
+ * status feed, and broadcast lists, which aren't 1:1/group chats (the last has
+ * no section, so it's simply kept out of the list rather than shown as a raw
+ * `<digits>@broadcast` artifact). LID chats stay (they're real conversations —
+ * just displayed via the `~XXXX` fallback until resolved). */
 function isRegular(c: Chat): boolean {
-  return !isNewsletter(c.jid) && !isStatusBroadcast(c.jid) && !isStatus(c.jid);
+  return (
+    !isNewsletter(c.jid) &&
+    !isStatusBroadcast(c.jid) &&
+    !isStatus(c.jid) &&
+    !isBroadcastList(c.jid)
+  );
 }
 
 /** The active (non-archived) chat list. Pinned chats float to the top; everyone

@@ -6,6 +6,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
+  ChatDto,
   ContactDto,
   Envelope,
   MediaDescriptorDto,
@@ -22,6 +23,8 @@ export const api = {
     invoke<PairCodeDto>("auth_start_pair_code", { phone, customCode: customCode ?? null }),
   connect: () => invoke<void>("connect", {}),
   disconnect: () => invoke<void>("disconnect", {}),
+  /** Channels (newsletters) this account follows — for the Channels section. */
+  listNewsletters: () => invoke<ChatDto[]>("list_newsletters", {}),
   logout: () => invoke<void>("auth_logout", {}),
   resetSession: () => invoke<void>("reset_session", {}),
   sendText: (jid: string, text: string) =>

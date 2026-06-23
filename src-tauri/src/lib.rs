@@ -68,6 +68,7 @@ pub fn run() {
             commands::set_chat_muted,
             commands::set_chat_pinned,
             commands::set_chat_archived,
+            commands::list_newsletters,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -12,24 +12,25 @@
     resetting = false;
   }
 
-  // Drive a determinate bar off the offline-sync backlog when we have a total;
-  // otherwise the spinner alone conveys an indeterminate wait.
-  const total = $derived(session.syncTotalMessages);
+  // Determinate bar once we know how many messages we're restoring from the
+  // cache; before that (the IndexedDB read itself) it's an indeterminate wait.
+  const total = $derived(session.hydrateTotal);
+  const label = $derived(session.hydrateLabel || "Loading your chats…");
   const pct = $derived(
-    total > 0 ? Math.min(100, Math.round((session.syncDoneMessages / total) * 100)) : 0,
+    total > 0 ? Math.min(100, Math.round((session.hydrateDone / total) * 100)) : 0,
   );
 </script>
 
 <div class="loading">
   {#if total > 0}
-    <p class="title">Loading your chats…</p>
+    <p class="title">{label}</p>
     <div class="bar" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
       <div class="fill" style:width={`${pct}%`}></div>
     </div>
-    <p class="count">{session.syncDoneMessages} of {total} messages · {pct}%</p>
+    <p class="count">{session.hydrateDone} of {total} messages · {pct}%</p>
   {:else}
     <div class="spinner"></div>
-    <p class="title">Loading your chats…</p>
+    <p class="title">{label}</p>
   {/if}
   <ConnectionStatus />
   <button class="reset" onclick={reset} disabled={resetting}>

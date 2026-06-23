@@ -14,11 +14,17 @@ export const session = $state({
   /** Latest phone-pairing code, if requested. */
   pairCode: null as string | null,
 
-  // --- Offline-sync progress (drives the "loading your chats…" bar) ---------
-  /** True while the server backlog is being drained after the handshake. */
-  syncActive: false,
-  /** Chat-message backlog announced by OfflineSyncPreview (the denominator). */
-  syncTotalMessages: 0,
-  /** Chat messages received so far during the active sync (the numerator). */
-  syncDoneMessages: 0,
+  // --- Frontend hydration progress (loading cached chats from IndexedDB) ----
+  // The backend has no chat/message query API; on restart the UI is rebuilt
+  // from the webview's IndexedDB cache. That read + store-fill is the real
+  // post-handshake wait, so we drive the loading screen off it (not any backend
+  // sync signal, which never touches IndexedDB).
+  /** True while rehydrating the cache on boot. */
+  hydrating: false,
+  /** Current step label, e.g. "Reading saved chats…". */
+  hydrateLabel: "",
+  /** Determinate progress denominator (0 = indeterminate / unknown yet). */
+  hydrateTotal: 0,
+  /** Determinate progress numerator. */
+  hydrateDone: 0,
 });

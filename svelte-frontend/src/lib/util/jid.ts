@@ -28,6 +28,17 @@ export function isNewsletter(jid: string): boolean {
   return jid.endsWith("@newsletter");
 }
 
+/** A privacy LID address (`<15-16 digits>@lid`) — not a real phone number. */
+export function isLid(jid: string): boolean {
+  return jid.endsWith("@lid");
+}
+
+/** A broadcast *list* (`<digits>@broadcast`), excluding the status feed. These
+ * aren't 1:1 conversations and shouldn't clutter the main list as raw numbers. */
+export function isBroadcastList(jid: string): boolean {
+  return jid.endsWith("@broadcast") && jid !== "status@broadcast";
+}
+
 /** A real phone-number JID (vs group/newsletter/status/lid). */
 export function isPhone(jid: string): boolean {
   return jid.endsWith("@s.whatsapp.net") || (!jid.includes("@") && /^\d+$/.test(jid));
@@ -65,6 +76,9 @@ export function displayName(
 ): string {
   if (name) return name;
   if (pushName) return pushName;
+  // A LID has no human-meaningful number — show the short `~XXXX` token from
+  // formatPhone rather than the raw 15-16 digit id (which reads as an artifact).
+  if (isLid(jid)) return formatPhone(jid);
   return isPhone(jid) ? formatPhone(jid) : jidUser(jid);
 }
 

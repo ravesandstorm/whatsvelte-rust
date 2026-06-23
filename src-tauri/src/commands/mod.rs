@@ -7,9 +7,11 @@ mod chat_settings;
 mod contacts;
 mod media;
 mod messaging;
+mod newsletters;
 
 pub use auth::*;
 pub use chat_settings::*;
 pub use contacts::*;
 pub use media::*;
 pub use messaging::*;
+pub use newsletters::*;

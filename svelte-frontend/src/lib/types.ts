@@ -113,18 +113,6 @@ export interface ResolveJidDto {
   lid: string | null;
 }
 
-/** Offline-sync progress (wa://sync/progress) — drives the loading screen. */
-export interface SyncProgressDto {
-  /** "preview" | "completed" */
-  phase: string;
-  total: number;
-  messages: number;
-  notifications: number;
-  receipts: number;
-  appDataChanges: number;
-  done: boolean;
-}
-
 export interface ContactDto {
   jid: string;
   name: string | null;

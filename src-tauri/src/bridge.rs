@@ -19,7 +19,7 @@ use whatsapp_rust::waproto::whatsapp as wa;
 
 use crate::dto::{
     ChatDto, ChatFlagsDto, HistoryDto, MediaDescriptorDto, MediaDto, MessageDto, MessageUpdateDto,
-    QuotedDto, ReceiptDto, SyncProgressDto,
+    QuotedDto, ReceiptDto,
 };
 
 /// Catch-all topic every event (except the noisy/streamed ones) is also emitted on.
@@ -67,46 +67,6 @@ pub async fn pump(app: AppHandle, session_id: String, rx: Receiver<Arc<Event>>) 
                     "payload": serde_json::to_value(dto).unwrap_or(Value::Null),
                 });
                 let _ = app.emit("wa://chat/flags", envelope.clone());
-                let _ = app.emit(GLOBAL_TOPIC, envelope);
-                continue;
-            }
-            // Offline-sync progress → a single shape on wa://sync/progress so the
-            // UI can drive a "loading your chats…" bar after the handshake.
-            Event::OfflineSyncPreview(p) => {
-                let dto = SyncProgressDto {
-                    phase: "preview".into(),
-                    total: p.total,
-                    messages: p.messages,
-                    notifications: p.notifications,
-                    receipts: p.receipts,
-                    app_data_changes: p.app_data_changes,
-                    done: false,
-                };
-                let envelope = json!({
-                    "sessionId": session_id,
-                    "kind": "OfflineSyncPreview",
-                    "payload": serde_json::to_value(dto).unwrap_or(Value::Null),
-                });
-                let _ = app.emit("wa://sync/progress", envelope.clone());
-                let _ = app.emit(GLOBAL_TOPIC, envelope);
-                continue;
-            }
-            Event::OfflineSyncCompleted(c) => {
-                let dto = SyncProgressDto {
-                    phase: "completed".into(),
-                    total: c.count,
-                    messages: 0,
-                    notifications: 0,
-                    receipts: 0,
-                    app_data_changes: 0,
-                    done: true,
-                };
-                let envelope = json!({
-                    "sessionId": session_id,
-                    "kind": "OfflineSyncCompleted",
-                    "payload": serde_json::to_value(dto).unwrap_or(Value::Null),
-                });
-                let _ = app.emit("wa://sync/progress", envelope.clone());
                 let _ = app.emit(GLOBAL_TOPIC, envelope);
                 continue;
             }

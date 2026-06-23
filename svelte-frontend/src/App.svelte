@@ -19,13 +19,12 @@
 </script>
 
 <!-- Source of truth is the handshake type: registered (IK) = logged in,
-     unregistered (XX) = logged out. Show cached chats immediately (offline-ok);
-     show the loading screen while a fresh, cache-less session connects, and while
-     the post-handshake offline sync drains a backlog with nothing to show yet
-     (so the user sees a progress bar instead of an empty list). -->
+     unregistered (XX) = logged out. While we rehydrate the cached chats from
+     IndexedDB show the loading screen (with a progress bar); then show the chats
+     (offline-ok), or a connecting screen for a fresh cache-less session. -->
 {#if !session.registered}
   <PairingScreen />
-{:else if session.syncActive && !hasChats}
+{:else if session.hydrating}
   <LoadingScreen />
 {:else if session.connected || hasChats}
   <MainLayout />
