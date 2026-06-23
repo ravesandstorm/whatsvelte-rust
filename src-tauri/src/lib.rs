@@ -22,11 +22,20 @@ use session::{SessionManager, DEFAULT_SESSION};
 /// Dev: the vendored `rust-backend/` dir (resolved at build time, so it's
 /// independent of the runtime working directory). Override with `WA_DATA_DIR`.
 /// Phase 4 will switch the default to the OS app-data dir.
-fn data_dir() -> PathBuf {
+fn data_dir(app: &tauri::AppHandle) -> PathBuf {
     if let Ok(dir) = std::env::var("WA_DATA_DIR") {
         return PathBuf::from(dir);
     }
-    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../rust-backend"))
+    #[cfg(debug_assertions)]
+    {
+        PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../rust-backend"))
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        let path = app.path().app_data_dir().expect("Failed to get app_data_dir");
+        let _ = std::fs::create_dir_all(&path);
+        path
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -38,7 +47,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            let manager = Arc::new(SessionManager::new(app.handle().clone(), data_dir()));
+            let manager = Arc::new(SessionManager::new(app.handle().clone(), data_dir(app.handle())));
             app.manage(manager.clone());
 
             // Auto-boot the default session so a QR code appears on launch
