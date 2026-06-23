@@ -27,4 +27,9 @@ export const session = $state({
   hydrateTotal: 0,
   /** Determinate progress numerator. */
   hydrateDone: 0,
+
+  /** True while history-sync chunks (wa://history) are streaming in. There's no
+   * count or end signal for these, so it's an indeterminate indicator cleared by
+   * a debounce once the chunks stop. Drives a subtle spinner in the chat header. */
+  historySyncing: false,
 });

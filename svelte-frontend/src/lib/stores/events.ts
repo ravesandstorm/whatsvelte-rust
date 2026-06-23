@@ -48,6 +48,18 @@ let started = false;
 /** Channels are fetched once per connected session (not in history sync). */
 let newslettersLoaded = false;
 
+/** History-sync chunks have no count/end signal, so we light an indeterminate
+ * indicator on each chunk and clear it after a quiet gap. */
+let historySyncTimer: ReturnType<typeof setTimeout> | null = null;
+function markHistorySyncing() {
+  session.historySyncing = true;
+  if (historySyncTimer) clearTimeout(historySyncTimer);
+  historySyncTimer = setTimeout(() => {
+    historySyncTimer = null;
+    session.historySyncing = false;
+  }, 2500);
+}
+
 /** Pull the followed channels and seed them into the chat list so the Channels
  * section isn't empty (newsletters never arrive via history sync, only live).
  * Best-effort: requires an active connection, so failures are swallowed and a
@@ -134,6 +146,7 @@ export async function startEventBridge() {
   });
 
   await on<HistoryDto>("wa://history", (h) => {
+    markHistorySyncing();
     for (const c of h.chats) {
       const jid = canonicalJid(c.jid);
       upsertChatFromDto(jid === c.jid ? c : { ...c, jid });
@@ -320,6 +333,11 @@ export async function resetAll() {
   session.hydrating = false;
   session.hydrateTotal = 0;
   session.hydrateDone = 0;
+  session.historySyncing = false;
+  if (historySyncTimer) {
+    clearTimeout(historySyncTimer);
+    historySyncTimer = null;
+  }
   newslettersLoaded = false;
   chats.clear();
   messagesByChat.clear();

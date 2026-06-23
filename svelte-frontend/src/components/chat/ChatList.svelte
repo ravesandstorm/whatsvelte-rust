@@ -69,7 +69,14 @@
 
 <div class="sidebar">
   <header>
-    <span class="me">{session.pushName ?? (session.jid ? formatPhone(session.jid) : "WhatsApp")}</span>
+    <div class="left">
+      <span class="me">{session.pushName ?? (session.jid ? formatPhone(session.jid) : "WhatsApp")}</span>
+      {#if session.historySyncing}
+        <span class="syncing" title="Syncing chat history…">
+          <span class="sync-dot"></span>Syncing…
+        </span>
+      {/if}
+    </div>
     <button class="settings" aria-label="Settings" onclick={() => (ui.settingsOpen = true)}>⚙</button>
   </header>
   <div class="search">
@@ -123,9 +130,40 @@
     background: var(--wa-panel);
     font-weight: 600;
   }
-  .me {
+  .left {
     flex: 1;
     min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .me {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .syncing {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--wa-text-muted);
+  }
+  .sync-dot {
+    width: 11px;
+    height: 11px;
+    border: 1.5px solid var(--wa-border);
+    border-top-color: var(--wa-green);
+    border-radius: 50%;
+    animation: sync-spin 0.8s linear infinite;
+  }
+  @keyframes sync-spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
   .settings {
     border: none;
