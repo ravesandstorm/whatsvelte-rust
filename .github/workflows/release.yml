@@ -40,7 +40,10 @@ jobs:
 
       # Clean install frontend dependencies
       - name: Install npm dependencies
-        run: npm ci
+        run: |
+          npm ci
+          cd svelte-frontend
+          npm ci
 
       # Install Rust toolchain for the backend
       - name: Setup Rust
