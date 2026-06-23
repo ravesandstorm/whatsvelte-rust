@@ -10,6 +10,7 @@
   let src = $state<string | null>(null);
   let loading = $state(false);
   let error = $state(false);
+  let saving = $state(false);
 
   const thumbUrl = $derived(thumbnail ? `data:image/jpeg;base64,${thumbnail}` : null);
   // Images and stickers load eagerly; heavier media waits for a click.
@@ -46,6 +47,21 @@
       error = true;
     } finally {
       loading = false;
+    }
+  }
+
+  // Save a copy into the OS Downloads folder (reuses the existing command).
+  async function downloadDoc() {
+    if (saving) return;
+    saving = true;
+    error = false;
+    try {
+      await api.saveMediaToDownloads(media.descriptor, media.mimetype, media.fileName);
+    } catch (e) {
+      console.error("download document failed", e);
+      error = true;
+    } finally {
+      saving = false;
     }
   }
 
@@ -87,9 +103,14 @@
     </button>
   {/if}
 {:else if media.kind === "document"}
-  <button class="doc" onclick={openDoc}>
-    📄 <span class="doc-name">{media.fileName ?? "Document"}</span>
-  </button>
+  <div class="doc">
+    <button class="doc-open" onclick={openDoc} disabled={loading}>
+      📄 <span class="doc-name">{media.fileName ?? "Document"}</span>
+    </button>
+    <button class="doc-dl" onclick={downloadDoc} disabled={saving} title="Download" aria-label="Download">
+      {saving ? "…" : "⬇"}
+    </button>
+  </div>
 {/if}
 
 {#if error}<div class="err">Couldn't load media</div>{/if}
@@ -156,7 +177,7 @@
     font-size: 18px;
   }
   .audio,
-  .doc {
+  .doc-open {
     border: none;
     background: var(--wa-panel);
     color: var(--wa-text);
@@ -167,6 +188,31 @@
     gap: 8px;
     width: 100%;
     text-align: left;
+  }
+  .doc {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+    width: 100%;
+  }
+  .doc-open {
+    flex: 1;
+    min-width: 0;
+  }
+  .doc-dl {
+    flex-shrink: 0;
+    border: none;
+    background: var(--wa-panel);
+    color: var(--wa-text);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 15px;
+  }
+  .doc-dl:hover {
+    background: var(--wa-hover);
+  }
+  .doc-dl:disabled {
+    opacity: 0.5;
   }
   .doc-name {
     overflow: hidden;

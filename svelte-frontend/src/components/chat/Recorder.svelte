@@ -24,14 +24,16 @@
   let timer: ReturnType<typeof setInterval> | null = null;
 
   const needsVideo = $derived(mode !== "voice");
-  const needsAudio = $derived(mode !== "photo");
 
   async function init() {
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: needsVideo,
-        audio: needsAudio,
-      });
+      // WebKit (WKWebView) rejects the whole request with OverconstrainedError
+      // ("invalid constraint") if a track is passed as `false`; only include the
+      // keys we actually want.
+      const constraints: MediaStreamConstraints = {};
+      if (mode !== "voice") constraints.video = true;
+      if (mode !== "photo") constraints.audio = true;
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
       phase = "ready";
       if (needsVideo && videoEl) {
         videoEl.srcObject = stream;
