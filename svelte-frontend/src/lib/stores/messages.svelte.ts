@@ -45,7 +45,22 @@ function commit(jid: string, arr: UiMessage[]) {
 
 export function addMessage(m: UiMessage) {
   const arr = ensure(m.chatJid);
-  if (m.id && arr.some((x) => x.id === m.id)) return; // dedupe by id
+
+  // Dedupe by id — but if the incoming copy carries downloadable media we don't
+  // have yet, adopt it. This is how our own sent media gets a real `MediaDto`:
+  // the optimistic bubble only has a thumbnail, and the server echo (which has
+  // the media) would otherwise be dropped here, leaving sent media unclickable.
+  if (m.id) {
+    const dupIdx = arr.findIndex((x) => x.id === m.id);
+    if (dupIdx >= 0) {
+      const existing = arr[dupIdx];
+      if (m.media && !existing.media) {
+        arr[dupIdx] = { ...existing, media: m.media, thumbnail: m.thumbnail ?? existing.thumbnail };
+        commit(m.chatJid, arr);
+      }
+      return;
+    }
+  }
 
   // Reconcile the server echo of our own send with the optimistic bubble.
   if (m.fromMe) {
