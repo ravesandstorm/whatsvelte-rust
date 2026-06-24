@@ -88,9 +88,13 @@
   });
 </script>
 
+<!-- Double-click anywhere on the row (incoming or outgoing) to reply to it.
+     The accessible reply path is the hover Reply button; this is an enhancement. -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
   class="row"
   class:me={message.fromMe}
+  ondblclick={() => startReply(message)}
   use:trackRead={{
     chatJid: message.chatJid,
     id: message.id,

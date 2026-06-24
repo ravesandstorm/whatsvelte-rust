@@ -48,6 +48,24 @@ make server    # tauri dev — compiles the backend and opens the app
 
 On first launch, the app boots the default WhatsApp session and shows a QR code to link a device (WhatsApp → Linked Devices), or use the pair-code field.
 
+## Known Issues
+
+- **macOS: "app is damaged and can't be opened"** — the `.dmg` is not yet
+  notarized with an Apple Developer ID (the CI ships it ad-hoc signed). macOS
+  Gatekeeper quarantines downloaded unsigned apps. After dragging the app to
+  `/Applications`, clear the quarantine flag once:
+  ```bash
+  xattr -cr /Applications/whatsvelte-rust.app
+  ```
+  Then open it normally. (Alternatively: right-click the app → **Open** →
+  **Open** on the warning dialog.) Windows and Linux builds are unaffected.
+- **Number resolution is unreliable** — mapping a chat/sender to its real phone
+  number (LID ↔ phone-number unification) does not always resolve correctly, so
+  some contacts may show a raw JID/LID instead of a phone number or saved name.
+- **Chat type resolution is unreliable** — distinguishing chat types (individual
+  vs. group vs. newsletter/broadcast) is not fully reliable yet, so a chat may
+  occasionally be classified or rendered as the wrong type.
+
 ## Documentation Reference
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) - System architecture overview.
 - [`docs/phase-1-api-surface.md`](docs/phase-1-api-surface.md) - Backend IPC & Library Mapping.
