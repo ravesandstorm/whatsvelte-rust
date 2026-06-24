@@ -60,6 +60,17 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS code-signing + notarization. The .dmg is shipped ad-hoc signed
+          # (see tauri.conf.json bundle.macOS.signingIdentity) until these repo
+          # secrets are populated; once set, tauri-action signs with the Developer
+          # ID and notarizes so Gatekeeper stops flagging the app as "damaged".
+          # All are no-ops when empty, so Linux/Windows jobs are unaffected.
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Release ${{ github.ref_name }}'
