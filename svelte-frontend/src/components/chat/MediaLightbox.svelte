@@ -7,9 +7,19 @@
   // in MainLayout, but we read it reactively here too so a change re-resolves.
   const media = $derived(ui.lightboxMedia);
   const isVideo = $derived(media?.kind === "video");
+  // Instant low-res placeholder while the full media downloads.
+  const thumbUrl = $derived(
+    ui.lightboxThumbnail ? `data:image/jpeg;base64,${ui.lightboxThumbnail}` : null,
+  );
 
   let src = $state<string | null>(null);
   let loadError = $state(false);
+  // True once the full-resolution <img>/<video> has actually decoded — until then
+  // we keep the blurred thumbnail + spinner up.
+  let fullLoaded = $state(false);
+  // Monotonic token so a slow resolve for a previous item can't clobber the
+  // current one (more robust than comparing object identity).
+  let loadGen = 0;
   let saving = $state(false);
   let saved = $state(false);
 
@@ -29,8 +39,10 @@
   // Resolve the asset URL whenever the open item changes, resetting view state.
   $effect(() => {
     const m = ui.lightboxMedia;
+    const gen = ++loadGen;
     src = null;
     loadError = false;
+    fullLoaded = false;
     saved = false;
     scale = 1;
     tx = 0;
@@ -40,17 +52,17 @@
     void (async () => {
       try {
         const url = await mediaSrc(m);
-        // Guard against a stale resolve after the user moved to another item.
-        if (ui.lightboxMedia === m) src = url;
+        if (gen === loadGen) src = url;
       } catch (e) {
         console.error("lightbox media load failed", e);
-        if (ui.lightboxMedia === m) loadError = true;
+        if (gen === loadGen) loadError = true;
       }
     })();
   });
 
   function close() {
     ui.lightboxMedia = null;
+    ui.lightboxThumbnail = null;
   }
 
   function onBackdropClick(e: MouseEvent) {
@@ -130,27 +142,43 @@
       <button class="tbtn close" onclick={close} aria-label="Close" title="Close (Esc)">✕</button>
     </div>
 
-    {#if isVideo}
-      {#if src}
+    <!-- Full-resolution media. Mounted as soon as the asset URL resolves; its
+         load/error events drive the overlay below. -->
+    {#if src}
+      {#if isVideo}
         <!-- svelte-ignore a11y_media_has_caption -->
-        <video src={src} controls autoplay></video>
-      {:else if loadError}
-        <div class="msg">Couldn't load video</div>
+        <video
+          src={src}
+          poster={thumbUrl ?? undefined}
+          controls
+          autoplay
+          onloadeddata={() => (fullLoaded = true)}
+          onerror={() => (loadError = true)}
+        ></video>
       {:else}
-        <div class="msg">Loading…</div>
+        <img
+          class="zoom"
+          src={src}
+          alt=""
+          draggable="false"
+          style:transform={`translate(${tx}px, ${ty}px) scale(${scale})`}
+          onload={() => (fullLoaded = true)}
+          onerror={() => (loadError = true)}
+        />
       {/if}
-    {:else if src}
-      <img
-        class="zoom"
-        src={src}
-        alt=""
-        draggable="false"
-        style:transform={`translate(${tx}px, ${ty}px) scale(${scale})`}
-      />
-    {:else if loadError}
-      <div class="msg">Couldn't load image</div>
-    {:else}
-      <div class="msg">Loading…</div>
+    {/if}
+
+    <!-- Overlay shown until the full media has actually decoded: blurred
+         thumbnail as an instant preview, a spinner while loading, or an error. -->
+    {#if !fullLoaded}
+      <div class="loading">
+        {#if thumbUrl}<img class="zoom placeholder" src={thumbUrl} alt="" draggable="false" />{/if}
+        {#if loadError}
+          <div class="msg chip">Couldn't load {isVideo ? "video" : "image"}</div>
+        {:else}
+          <div class="spinner"></div>
+        {/if}
+      </div>
     {/if}
   </div>
 {/if}
@@ -215,8 +243,45 @@
     max-height: 92vh;
     outline: none;
   }
+  /* Overlay (blurred thumbnail + spinner/error) sitting over the full media
+     until it decodes. Children stack in one centered grid cell. */
+  .loading {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+  }
+  .loading > * {
+    grid-area: 1 / 1;
+  }
+  /* Low-res thumbnail shown (blurred) until the full media loads. The slight
+     scale hides the blur bleeding past the edges. */
+  .placeholder {
+    filter: blur(14px);
+    transform: scale(1.06);
+  }
+  .spinner {
+    width: 42px;
+    height: 42px;
+    border: 3px solid rgba(255, 255, 255, 0.25);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
   .msg {
     color: var(--wa-text-muted, #aaa);
     font-size: 14px;
+  }
+  .chip {
+    padding: 6px 14px;
+    border-radius: 16px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
   }
 </style>

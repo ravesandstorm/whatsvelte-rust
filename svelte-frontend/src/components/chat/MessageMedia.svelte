@@ -66,7 +66,10 @@
   }
 
   // Open the full-screen viewer (zoom/pan for images, playback for video).
+  // Pass the thumbnail too so the viewer shows it instantly while the
+  // full-resolution media downloads.
   function openLightbox() {
+    ui.lightboxThumbnail = thumbnail;
     ui.lightboxMedia = media;
   }
 </script>
