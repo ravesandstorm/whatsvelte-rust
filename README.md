@@ -71,5 +71,23 @@ On first launch, the app boots the default WhatsApp session and shows a QR code 
 - [`docs/phase-1-api-surface.md`](docs/phase-1-api-surface.md) - Backend IPC & Library Mapping.
 - [`docs/phase-2-frontend.md`](docs/phase-2-frontend.md) - Frontend design and component structure.
 
+## Notes
+
+I know some people are against Webviews and Tauri in general, but this app has been made to achieve basic functionality of WhatsApp Web, which simply takes too much memory at idle, plus running it on Chromium based browsers is simply overkill. 
+
+I noticed there was no directly available alternative without wrapping the same, high resource usage node environment web app in smaller and smaller Webviews, but the underlying bloat, memory leaks, lag all stayed the same, if not slightly better. So I made this to stay open as I do other resource intensive tasks, since a simple messaging app being responsible for taking up most of my usable, precious memory is simply annoying. I wanted to be able to stay connected without having to open my phone every time.
+
+There is a way to make this better, without using Webviews or Tauri, by using the same whatsapp-rust backend but a Flutter frontend using flutter_to_rust_bridge, but it's an exponential increase in development effort for a slight increase in performance, so I might keep that for a future version, once I completely understand how to make the app work with the current stack. 
+
+After some basic testing, I've come to the conclusion that this app takes upto 50 times less memory than WhatsApp, more rigorous testing to be done later. 
+
+|                |Startup RAM|RAM Under Load<br>(Rapid Scrolling)|Idle RAM|
+|----------------|-----------|--------------------------|--------|
+|WhatsApp Desktop|1.6 GB     |2 GB                      |1 GB    |
+|Whatsapp Web    |1 GB       |1.2 GB                    |> 600 MB|
+|This App        |300 MB     |500 MB                    |< 100 MB|
+
+On the release windows version on idle, this app takes as less as 20MB memory!
+
 ## Attribution
 Backend library: [whatsapp-rust](https://github.com/oxidezap/whatsapp-rust)
