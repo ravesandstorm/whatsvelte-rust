@@ -100,7 +100,15 @@ export async function startEventBridge() {
   // 1. Register listeners first so no live event is dropped while we hydrate.
   //    (Persistence is still disabled here, so store mutations don't write yet.)
   await on<{ code: string }>("wa://auth/qr", (p) => {
+    // A fresh QR means the loop is alive again (clears any prior "dead" state,
+    // e.g. after a logout-triggered reboot).
+    session.clientDead = false;
     session.qrCode = p.code;
+  });
+  // The backend run loop shut down (all QR codes expired) while unpaired: the QR
+  // on screen is stale and won't rotate. Prompt the user to relaunch the app.
+  await on("wa://auth/dead", () => {
+    session.clientDead = true;
   });
   await on<{ code: string }>("wa://auth/pair-code", (p) => {
     session.pairCode = p.code;
@@ -328,6 +336,7 @@ export async function resetAll() {
   session.loggedIn = false;
   session.connected = false;
   session.registered = false;
+  session.clientDead = false;
   session.jid = null;
   session.pushName = null;
   session.hydrating = false;

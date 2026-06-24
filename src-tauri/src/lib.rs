@@ -22,7 +22,9 @@ use session::{SessionManager, DEFAULT_SESSION};
 /// Dev: the vendored `rust-backend/` dir (resolved at build time, so it's
 /// independent of the runtime working directory). Override with `WA_DATA_DIR`.
 /// Phase 4 will switch the default to the OS app-data dir.
-#[allow(dead_code)]
+// `app` is only used in release builds (the dev branch is a compile-time path),
+// so it reads as unused under debug_assertions.
+#[cfg_attr(debug_assertions, allow(unused_variables))]
 fn data_dir(app: &tauri::AppHandle) -> PathBuf {
     if let Ok(dir) = std::env::var("WA_DATA_DIR") {
         return PathBuf::from(dir);

@@ -11,6 +11,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use serde_json::json;
+use tauri::Emitter;
 use tokio::sync::Mutex;
 use whatsapp_rust::prelude::*;
 use whatsapp_rust::wacore::types::events::ChannelEventHandler;
@@ -21,12 +23,17 @@ use crate::error::{ApiError, ApiResult};
 /// Session id used when the frontend doesn't specify one.
 pub const DEFAULT_SESSION: &str = "default";
 
-/// A single booted account: the background run-loop handle plus its client.
+/// A single booted account: the background run-loop task plus its client.
 pub struct Session {
-    /// Kept alive for the lifetime of the session; dropping aborts the loop.
-    #[allow(dead_code)]
-    handle: BotHandle,
+    /// Aborted on drop so `reset` releases the SQLite handle before deleting it.
+    run_task: tauri::async_runtime::JoinHandle<()>,
     pub client: Arc<Client>,
+}
+
+impl Drop for Session {
+    fn drop(&mut self) {
+        self.run_task.abort();
+    }
 }
 
 pub struct SessionManager {
@@ -120,13 +127,32 @@ impl SessionManager {
         let (handler, rx) = ChannelEventHandler::new();
         client.register_handler(handler);
 
-        let handle = bot.spawn();
+        // Drive the run loop ourselves (rather than `bot.spawn()`) so we can react
+        // when it shuts down. Once all QR codes expire the library disconnects and
+        // the loop exits for good — it won't restart itself, so if we're still
+        // unpaired the on-screen QR is now dead and the app must be relaunched.
+        // (An abort from `Session`'s drop cancels this task before the emit, so a
+        // reset-triggered shutdown never reports as "dead".)
+        let dead_app = self.app.clone();
+        let dead_sid = session_id.to_string();
+        let dead_client = client.clone();
+        let run_task = tauri::async_runtime::spawn(async move {
+            bot.run().await;
+            if dead_client.is_logged_in() {
+                log::info!("[{dead_sid}] run loop ended (logged in)");
+            } else {
+                log::warn!("[{dead_sid}] run loop ended while unpaired; QR is dead, restart required");
+                let envelope = json!({ "sessionId": dead_sid, "kind": "ClientDead", "payload": {} });
+                let _ = dead_app.emit("wa://auth/dead", envelope.clone());
+                let _ = dead_app.emit("wa://event", envelope);
+            }
+        });
 
         // Drain the library event stream into Tauri events for this session.
         let app = self.app.clone();
         let sid = session_id.to_string();
         tauri::async_runtime::spawn(bridge::pump(app, sid, rx));
 
-        Ok(Arc::new(Session { handle, client }))
+        Ok(Arc::new(Session { run_task, client }))
     }
 }

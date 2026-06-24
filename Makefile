@@ -6,7 +6,7 @@
 help:
 	@echo "Targets:"
 	@echo "make setup	 - Install the Tauri CLI + JS deps (run once)"
-	@echo "make server    	- Run the app in dev mode (tauri dev) — the continuous dev loop"
+	@echo "make run    		- Run the app in dev mode (tauri dev) — the continuous dev loop"
 	@echo "make dev       	- Alias for 'server'"
 	@echo "make build     	- Build the single-executable bundle (tauri build, Phase 4)"
 	@echo "make frontend  	- Phase 1: static placeholder (no dev server). Phase 2: vite dev"
@@ -20,7 +20,7 @@ setup:
 
 # The "continuously running for development" loop: compiles the Rust backend,
 # loads the frontend, and hot-reconnects on change.
-server:
+run:
 	npm run tauri dev
 
 dev: server

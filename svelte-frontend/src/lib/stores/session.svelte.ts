@@ -13,6 +13,9 @@ export const session = $state({
   qrCode: null as string | null,
   /** Latest phone-pairing code, if requested. */
   pairCode: null as string | null,
+  /** True once the backend run loop has shut down (all QR codes expired) while
+   * still unpaired. The on-screen QR is stale and the app must be relaunched. */
+  clientDead: false,
 
   // --- Frontend hydration progress (loading cached chats from IndexedDB) ----
   // The backend has no chat/message query API; on restart the UI is rebuilt
