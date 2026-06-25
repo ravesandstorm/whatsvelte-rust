@@ -34,7 +34,7 @@ _bump_version() {
 
     # Git Operations
     git add "$conf" && \
-    git commit -m "bump version to v$new" && \
+    git commit -m "chore: bump version to v$new" && \
     git tag "v$new" && \
     git push origin main && \
     git push origin "v$new" && \
