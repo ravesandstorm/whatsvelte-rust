@@ -195,6 +195,16 @@ export function applyRevoke(
   commit(jid, arr);
 }
 
+/** Remove a message entirely (delete-for-me — no tombstone, unlike revoke). */
+export function removeMessage(jid: string, targetId: string) {
+  const arr = messagesByChat.get(jid);
+  if (!arr) return;
+  const next = arr.filter((m) => m.id !== targetId);
+  if (next.length === arr.length) return;
+  messagesByChat.set(jid, next);
+  schedulePersistMessages(jid);
+}
+
 /** Replace a message's text with its edited content. */
 export function applyEdit(jid: string, targetId: string, text: string | null, editedAt: number) {
   const arr = messagesByChat.get(jid);

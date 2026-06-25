@@ -73,6 +73,8 @@ pub fn run() {
             commands::send_text,
             commands::send_reply,
             commands::edit_message,
+            commands::revoke_message,
+            commands::delete_for_me,
             commands::send_reaction,
             commands::mark_read,
             commands::mark_read_messages,

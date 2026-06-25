@@ -75,6 +75,8 @@ pub struct QuotedDto {
     pub text: Option<String>,
     /// "text" | "image" | ... — for a non-text preview label.
     pub kind: String,
+    /// Base64 JPEG thumbnail of the quoted media, when it has one.
+    pub thumbnail: Option<String>,
 }
 
 /// One rendered message. Built in `bridge.rs` from either a live

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { initials } from "../../lib/util/jid";
   import { contacts, ensureContact } from "../../lib/stores/contacts.svelte";
+  import { canonicalJid } from "../../lib/stores/lid";
 
   let {
     label,
@@ -14,7 +15,7 @@
     if (jid) void ensureContact(jid);
   });
 
-  const url = $derived(jid ? (contacts.get(jid)?.pictureUrl ?? null) : null);
+  const url = $derived(jid ? (contacts.get(canonicalJid(jid))?.pictureUrl ?? null) : null);
 </script>
 
 {#if url}

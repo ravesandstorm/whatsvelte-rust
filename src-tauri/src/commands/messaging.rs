@@ -5,7 +5,7 @@ use std::sync::Arc;
 use tauri::State;
 use whatsapp_rust::wacore::proto_helpers::{build_quote_context, build_reaction_message, MessageExt};
 use whatsapp_rust::waproto::whatsapp as wa;
-use whatsapp_rust::Jid;
+use whatsapp_rust::{Jid, RevokeType};
 
 use crate::dto::SendResultDto;
 use crate::error::{ApiError, ApiResult};
@@ -136,6 +136,60 @@ pub async fn send_reaction(
     session
         .client
         .send_message(chat, msg)
+        .await
+        .map_err(ApiError::library)?;
+    Ok(())
+}
+
+/// Delete a message for everyone (revoke). For your own message pass
+/// `participant: None`; as a group admin deleting another user's message, pass
+/// that user's JID (as-is, no LID→PN canonicalization) as `participant`.
+#[tauri::command]
+pub async fn revoke_message(
+    jid: String,
+    message_id: String,
+    participant: Option<String>,
+    session_id: Option<String>,
+    mgr: Mgr<'_>,
+) -> ApiResult<()> {
+    let (_, session) = mgr.session(session_id).await?;
+    let to = parse_jid(&jid)?;
+    let revoke_type = match participant {
+        Some(p) => RevokeType::Admin {
+            original_sender: parse_jid(&p)?,
+        },
+        None => RevokeType::Sender,
+    };
+    session
+        .client
+        .revoke_message(to, message_id, revoke_type)
+        .await
+        .map_err(ApiError::library)?;
+    Ok(())
+}
+
+/// Delete a message locally only ("delete for me"). For a group message from
+/// someone else, pass their JID as `participant`.
+#[tauri::command]
+pub async fn delete_for_me(
+    jid: String,
+    message_id: String,
+    from_me: bool,
+    participant: Option<String>,
+    timestamp: Option<i64>,
+    session_id: Option<String>,
+    mgr: Mgr<'_>,
+) -> ApiResult<()> {
+    let (_, session) = mgr.session(session_id).await?;
+    let chat = parse_jid(&jid)?;
+    let participant_jid = match participant {
+        Some(p) => Some(parse_jid(&p)?),
+        None => None,
+    };
+    session
+        .client
+        .chat_actions()
+        .delete_message_for_me(&chat, participant_jid.as_ref(), &message_id, from_me, false, timestamp)
         .await
         .map_err(ApiError::library)?;
     Ok(())

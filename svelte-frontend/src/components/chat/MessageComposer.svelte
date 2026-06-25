@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { api } from "../../lib/ipc";
   import { addOptimistic, applyEdit, confirmOptimistic } from "../../lib/stores/messages.svelte";
   import { touchChat } from "../../lib/stores/chats.svelte";
@@ -22,6 +23,14 @@
   let recordMode = $state<"voice" | "video" | "photo" | null>(null);
   let ta: HTMLTextAreaElement | undefined = $state();
   let lastEditId: string | null = $state(null);
+  let lastReplyId: string | null = $state(null);
+  // In-progress text saved when entering edit mode, restored after the edit is
+  // sent or cancelled so a half-typed message isn't lost.
+  let draft: string | null = null;
+
+  // Focus the composer when the chat opens (Conversation is keyed by jid, so
+  // this mounts fresh on every chat switch).
+  onMount(() => ta?.focus());
   // `:shortcode` autocomplete state.
   let suggest = $state<{ code: string; emoji: string }[]>([]);
   let suggestIdx = $state(0);
@@ -64,9 +73,11 @@
   });
 
   // Prefill the box with the message being edited (once per new edit target).
+  // Stash any in-progress text as a draft the first time we enter edit mode.
   $effect(() => {
     const e = compose.editTarget;
     if (e && e.chatJid === jid && e.id !== lastEditId) {
+      if (lastEditId === null && text.trim()) draft = text;
       text = e.text ?? "";
       lastEditId = e.id;
       queueMicrotask(() => ta?.focus());
@@ -74,6 +85,24 @@
       lastEditId = null;
     }
   });
+
+  // Focus the composer when a reply is started (once per new reply target).
+  $effect(() => {
+    const r = compose.replyTarget;
+    if (r && r.chatJid === jid && r.id !== lastReplyId) {
+      lastReplyId = r.id;
+      queueMicrotask(() => ta?.focus());
+    } else if (!r) {
+      lastReplyId = null;
+    }
+  });
+
+  // Cancel an edit and restore the stashed draft.
+  function cancelEditLocal() {
+    text = draft ?? "";
+    draft = null;
+    cancelEdit();
+  }
 
   const replyName = $derived.by(() => {
     const r = compose.replyTarget;
@@ -93,7 +122,8 @@
     // Edit takes priority over reply/new-message.
     const edit = compose.editTarget;
     if (edit) {
-      text = "";
+      text = draft ?? "";
+      draft = null;
       cancelEdit();
       applyEdit(edit.chatJid, edit.id, body, now); // optimistic
       try {
@@ -114,6 +144,7 @@
         senderJid: quotedSender,
         text: target.text,
         kind: target.kind,
+        thumbnail: target.thumbnail,
       };
       cancelReply();
       const tempId = addOptimistic(jid, body, quoted);
@@ -158,6 +189,19 @@
       if (e.key === "Escape") {
         e.preventDefault();
         suggest = [];
+        return;
+      }
+    }
+    // Escape cancels an in-progress edit (restoring the draft) or reply.
+    if (e.key === "Escape") {
+      if (compose.editTarget) {
+        e.preventDefault();
+        cancelEditLocal();
+        return;
+      }
+      if (compose.replyTarget) {
+        e.preventDefault();
+        cancelReply();
         return;
       }
     }
@@ -222,7 +266,7 @@
       <div class="reply-name">Editing message</div>
       <div class="reply-text">{editing.text ?? `[${editing.kind}]`}</div>
     </div>
-    <button class="reply-cancel" aria-label="Cancel edit" onclick={cancelEdit}>✕</button>
+    <button class="reply-cancel" aria-label="Cancel edit" onclick={cancelEditLocal}>✕</button>
   </div>
 {:else if reply}
   <div class="reply-banner">
@@ -231,6 +275,9 @@
       <div class="reply-name">{replyName}</div>
       <div class="reply-text">{reply.text ?? `[${reply.kind}]`}</div>
     </div>
+    {#if reply.thumbnail}
+      <img class="reply-thumb" src={`data:image/jpeg;base64,${reply.thumbnail}`} alt="" />
+    {/if}
     <button class="reply-cancel" aria-label="Cancel reply" onclick={cancelReply}>✕</button>
   </div>
 {/if}
@@ -330,6 +377,14 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .reply-thumb {
+    width: 38px;
+    height: 38px;
+    border-radius: 4px;
+    object-fit: cover;
+    flex-shrink: 0;
+    align-self: center;
   }
   .reply-cancel {
     border: none;

@@ -59,6 +59,8 @@ export interface QuotedDto {
   senderJid: string | null;
   text: string | null;
   kind: string;
+  /** base64 JPEG thumbnail of the quoted media, when present. */
+  thumbnail: string | null;
 }
 
 export interface MessageDto {

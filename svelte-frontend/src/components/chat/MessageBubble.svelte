@@ -6,14 +6,39 @@
   import { canonicalJid } from "../../lib/stores/lid";
   import { applyReaction } from "../../lib/stores/messages.svelte";
   import { startEdit, startReply } from "../../lib/stores/compose.svelte";
+  import { scrollToMessage } from "../../lib/stores/scroll.svelte";
   import { session } from "../../lib/stores/session.svelte";
   import { api } from "../../lib/ipc";
   import { trackRead } from "../../lib/receipts";
   import ReactionPicker from "./ReactionPicker.svelte";
   import MessageMedia from "./MessageMedia.svelte";
+  import MessageContextMenu from "./MessageContextMenu.svelte";
 
-  let { message, group }: { message: UiMessage; group: boolean } = $props();
+  let {
+    message,
+    group,
+    prev = null,
+    highlighted = false,
+  }: { message: UiMessage; group: boolean; prev?: UiMessage | null; highlighted?: boolean } =
+    $props();
   let showReact = $state(false);
+  let menu = $state<{ x: number; y: number } | null>(null);
+
+  // Consecutive messages from the same sender group together (tight spacing, no
+  // repeated sender name); a different sender starts a new visual group.
+  const sameSenderAsPrev = $derived(
+    !!prev &&
+      prev.fromMe === message.fromMe &&
+      prev.senderJid === message.senderJid &&
+      !prev.deleted,
+  );
+  // Stickers render borderless (no bubble chrome), WhatsApp-style.
+  const bareSticker = $derived(message.kind === "sticker" && !!message.media && !message.deleted);
+
+  function onContext(e: MouseEvent) {
+    e.preventDefault();
+    menu = { x: e.clientX, y: e.clientY };
+  }
 
   async function react(emoji: string) {
     showReact = false;
@@ -94,7 +119,11 @@
 <div
   class="row"
   class:me={message.fromMe}
+  class:grouped={sameSenderAsPrev}
+  class:highlighted
+  data-mid={message.id}
   ondblclick={() => startReply(message)}
+  oncontextmenu={onContext}
   use:trackRead={{
     chatJid: message.chatJid,
     id: message.id,
@@ -102,14 +131,21 @@
     fromMe: message.fromMe,
   }}
 >
-  <div class="bubble" class:me={message.fromMe}>
-    {#if group && !message.fromMe}
+  <div class="bubble" class:me={message.fromMe} class:bare={bareSticker}>
+    {#if group && !message.fromMe && !sameSenderAsPrev}
       <div class="sender">{senderName}</div>
     {/if}
     {#if message.quoted && !message.deleted}
-      <div class="quoted">
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div class="quoted" role="button" tabindex="0" onclick={() => scrollToMessage(message.quoted!.id)}
+        onkeydown={(e) => (e.key === "Enter" || e.key === " ") && scrollToMessage(message.quoted!.id)}>
         {#if quotedSender}<div class="q-sender">{quotedSender}</div>{/if}
-        <div class="q-text">{message.quoted.text ?? `[${message.quoted.kind}]`}</div>
+        <div class="q-row">
+          <div class="q-text">{message.quoted.text ?? `[${message.quoted.kind}]`}</div>
+          {#if message.quoted.thumbnail}
+            <img class="q-thumb" src={`data:image/jpeg;base64,${message.quoted.thumbnail}`} alt="" />
+          {/if}
+        </div>
       </div>
     {/if}
     {#if message.deleted}
@@ -197,10 +233,32 @@
   </div>
 </div>
 
+{#if menu}
+  <MessageContextMenu x={menu.x} y={menu.y} {message} onclose={() => (menu = null)} />
+{/if}
+
 <style>
   .row {
     display: flex;
-    margin: 2px 0;
+    margin-top: 10px;
+    border-radius: 6px;
+  }
+  /* Same-sender follow-on: tight spacing (visually grouped). */
+  .row.grouped {
+    margin-top: 2px;
+  }
+  /* Flash when jumped-to from a reply preview. */
+  .row.highlighted {
+    animation: flashrow 1.4s ease-out;
+  }
+  @keyframes flashrow {
+    0%,
+    35% {
+      background: color-mix(in srgb, var(--wa-green) 28%, transparent);
+    }
+    100% {
+      background: transparent;
+    }
   }
   .row.me {
     justify-content: flex-end;
@@ -230,18 +288,35 @@
     padding: 3px 8px;
     margin-bottom: 4px;
     max-width: 100%;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
   }
   .q-sender {
     font-size: 12px;
     font-weight: 600;
     color: var(--wa-green);
   }
+  .q-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
   .q-text {
+    flex: 1;
+    min-width: 0;
     font-size: 13px;
     color: var(--wa-text-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .q-thumb {
+    width: 34px;
+    height: 34px;
+    border-radius: 4px;
+    object-fit: cover;
+    flex-shrink: 0;
   }
   .react-btn {
     opacity: 0;
@@ -269,6 +344,12 @@
   }
   .bubble.me {
     background: var(--wa-bubble-out);
+  }
+  /* Borderless sticker: drop the bubble chrome so the sticker floats. */
+  .bubble.bare {
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
   }
   .sender {
     font-size: 12.5px;

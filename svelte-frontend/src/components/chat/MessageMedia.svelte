@@ -133,6 +133,11 @@
     border-radius: 6px;
     display: block;
   }
+  /* Keep inline images modestly sized; the lightbox shows full resolution. */
+  .image img {
+    max-width: 300px;
+    max-height: 360px;
+  }
   .sticker img {
     max-width: 140px;
     background: transparent;
@@ -161,9 +166,11 @@
     border-radius: 6px;
     overflow: hidden;
     display: block;
+    width: 280px;
+    min-height: 160px;
   }
   .poster img {
-    max-width: 100%;
+    width: 100%;
     display: block;
   }
   .play {

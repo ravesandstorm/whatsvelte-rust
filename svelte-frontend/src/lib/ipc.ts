@@ -39,6 +39,18 @@ export const api = {
   ) => invoke<SendResultDto>("send_reply", { jid, text, quotedId, quotedSender, quotedText }),
   editMessage: (jid: string, originalId: string, newText: string) =>
     invoke<SendResultDto>("edit_message", { jid, originalId, newText }),
+  /** Delete for everyone (revoke). `participant` is null for your own message,
+   * else the original sender's JID when revoking as a group admin. */
+  revokeMessage: (jid: string, messageId: string, participant: string | null) =>
+    invoke<void>("revoke_message", { jid, messageId, participant }),
+  /** Delete locally only ("delete for me"). */
+  deleteForMe: (
+    jid: string,
+    messageId: string,
+    fromMe: boolean,
+    participant: string | null,
+    timestamp: number | null,
+  ) => invoke<void>("delete_for_me", { jid, messageId, fromMe, participant, timestamp }),
   sendReaction: (
     jid: string,
     targetId: string,

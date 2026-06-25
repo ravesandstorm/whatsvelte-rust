@@ -21,6 +21,11 @@ export interface Contact {
 
 export const contacts = new SvelteMap<string, Contact>();
 const inflight = new Set<string>();
+// JIDs already queried from the backend this session. Distinct from
+// `contacts.has()` because the name cache pre-seeds `contacts` (name only,
+// pictureUrl: null) on boot — guarding on that would suppress the live avatar
+// fetch, so picture URLs (which expire and aren't persisted) never reload.
+const fetched = new Set<string>();
 
 /** Persisted learned names: normalizeJid → name. Plain map; the reactive copy
  * lives in `contacts`. */
@@ -75,6 +80,8 @@ export function clearNameCache() {
     }
   }
   nameCache.clear();
+  fetched.clear();
+  contacts.clear();
   lsKey = null;
 }
 
@@ -118,7 +125,7 @@ export async function ensureContact(jid: string) {
   // Resolve to the canonical (PN) form first so a `@lid` participant is fetched
   // and cached under the same key contactFor / the name cache use.
   const key = canonicalJid(jid);
-  if (contacts.has(key) || inflight.has(key)) return;
+  if (fetched.has(key) || inflight.has(key)) return;
   inflight.add(key);
   const learned = contactFor(key)?.name ?? null;
   try {
@@ -134,6 +141,7 @@ export async function ensureContact(jid: string) {
   } catch {
     contacts.set(key, { name: learned, verifiedName: null, lid: null, pictureUrl: null });
   } finally {
+    fetched.add(key);
     inflight.delete(key);
   }
 }

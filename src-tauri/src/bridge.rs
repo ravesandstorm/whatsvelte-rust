@@ -44,6 +44,12 @@ pub async fn pump(app: AppHandle, session_id: String, rx: Receiver<Arc<Event>>) 
                     let _ = app.emit(GLOBAL_TOPIC, envelope);
                     continue;
                 }
+                // An undecryptable encrypted edit/reaction (parent messageSecret
+                // unknown) is dispatched as the raw field-82 message. Don't
+                // materialize it as a spurious "[other]" bubble.
+                if msg.get_base_message().secret_encrypted_message.is_some() {
+                    continue;
+                }
                 serde_json::to_value(message_dto_live(msg, info)).unwrap_or(Value::Null)
             }
             // History sync is large and lazy; decode it off-thread and emit
@@ -334,23 +340,48 @@ fn normalize_chat_jid(jid: &str) -> String {
     }
 }
 
+/// Peel the FutureProof wrappers `get_base_message()` doesn't, so content nested
+/// in them (group-mention links, spoilers, bot/status wrappers, lottie stickers)
+/// classifies by its inner payload instead of falling through to "[other]".
+fn unwrap_wrappers(msg: &wa::Message) -> &wa::Message {
+    let mut cur = msg.get_base_message();
+    loop {
+        let next = cur
+            .group_mentioned_message
+            .as_ref()
+            .or(cur.bot_invoke_message.as_ref())
+            .or(cur.bot_forwarded_message.as_ref())
+            .or(cur.status_mention_message.as_ref())
+            .or(cur.group_status_mention_message.as_ref())
+            .or(cur.associated_child_message.as_ref())
+            .or(cur.lottie_sticker_message.as_ref())
+            .or(cur.spoiler_message.as_ref())
+            .and_then(|m| m.message.as_deref());
+        match next {
+            Some(inner) => cur = inner.get_base_message(),
+            None => return cur,
+        }
+    }
+}
+
 fn text_of(msg: &wa::Message) -> Option<String> {
-    msg.text_content()
-        .or_else(|| msg.get_caption())
+    let base = unwrap_wrappers(msg);
+    base.text_content()
+        .or_else(|| base.get_caption())
         .map(str::to_string)
         // Business / interactive variants (buttons, lists, templates, polls, …)
         // aren't covered by text_content/caption — extract their readable text so
         // they never render as a bare "[other]" placeholder.
-        .or_else(|| structured_text(msg.get_base_message()))
+        .or_else(|| structured_text(base))
 }
 
 fn classify(msg: &wa::Message) -> String {
-    let b = msg.get_base_message();
+    let b = unwrap_wrappers(msg);
     let k = if b.conversation.is_some() || b.extended_text_message.is_some() {
         "text"
     } else if b.image_message.is_some() {
         "image"
-    } else if b.video_message.is_some() {
+    } else if b.video_message.is_some() || b.ptv_message.is_some() {
         "video"
     } else if b.audio_message.is_some() {
         "audio"
@@ -561,7 +592,7 @@ fn structured_text(b: &wa::Message) -> Option<String> {
 /// payload. Returns `None` for non-media or media missing the keys needed to
 /// decrypt (in which case the inline thumbnail still renders).
 fn media_dto(msg: &wa::Message) -> Option<MediaDto> {
-    let b = msg.get_base_message();
+    let b = unwrap_wrappers(msg);
     let b64 = |bytes: &[u8]| base64::engine::general_purpose::STANDARD.encode(bytes);
 
     let descriptor = |direct_path: &Option<String>,
@@ -595,6 +626,19 @@ fn media_dto(msg: &wa::Message) -> Option<MediaDto> {
         });
     }
     if let Some(m) = b.video_message.as_ref() {
+        let d = descriptor(&m.direct_path, &m.media_key, &m.file_sha256, &m.file_enc_sha256, m.file_length, "video")?;
+        return Some(MediaDto {
+            kind: "video".into(),
+            mimetype: m.mimetype.clone(),
+            file_name: None,
+            width: m.width,
+            height: m.height,
+            duration_secs: m.seconds,
+            is_animated: m.gif_playback,
+            descriptor: d,
+        });
+    }
+    if let Some(m) = b.ptv_message.as_ref() {
         let d = descriptor(&m.direct_path, &m.media_key, &m.file_sha256, &m.file_enc_sha256, m.file_length, "video")?;
         return Some(MediaDto {
             kind: "video".into(),
@@ -676,25 +720,28 @@ fn quoted_dto(msg: &wa::Message) -> Option<QuotedDto> {
     let ci = context_info_of(msg.get_base_message())?;
     let id = ci.stanza_id.clone()?; // a real reply always references a stanza
     let qm = ci.quoted_message.as_deref();
-    let (text, kind) = match qm {
-        Some(m) => (text_of(m), classify(m)),
-        None => (None, "other".to_string()),
+    let (text, kind, thumbnail) = match qm {
+        Some(m) => (text_of(m), classify(m), thumbnail_b64(m)),
+        None => (None, "other".to_string(), None),
     };
     Some(QuotedDto {
         id,
         sender_jid: ci.participant.clone(),
         text,
         kind,
+        thumbnail,
     })
 }
 
 fn thumbnail_b64(msg: &wa::Message) -> Option<String> {
-    let b = msg.get_base_message();
+    let b = unwrap_wrappers(msg);
     let bytes = b
         .image_message
         .as_ref()
         .and_then(|m| m.jpeg_thumbnail.as_ref())
-        .or_else(|| b.video_message.as_ref().and_then(|m| m.jpeg_thumbnail.as_ref()))?;
+        .or_else(|| b.video_message.as_ref().and_then(|m| m.jpeg_thumbnail.as_ref()))
+        .or_else(|| b.ptv_message.as_ref().and_then(|m| m.jpeg_thumbnail.as_ref()))
+        .or_else(|| b.extended_text_message.as_ref().and_then(|m| m.jpeg_thumbnail.as_ref()))?;
     Some(base64::engine::general_purpose::STANDARD.encode(bytes))
 }
 

@@ -2,6 +2,7 @@
   import { tick } from "svelte";
   import type { UiMessage } from "../../lib/stores/messages.svelte";
   import { isGroup } from "../../lib/util/jid";
+  import { scrollTarget } from "../../lib/stores/scroll.svelte";
   import MessageBubble from "./MessageBubble.svelte";
 
   let { messages, chatJid }: { messages: UiMessage[]; chatJid: string } = $props();
@@ -33,6 +34,36 @@
     pinned = true;
   }
 
+  // Briefly highlighted message after a jump (tapping a reply's quoted preview).
+  let highlightId = $state<string | null>(null);
+  let highlightTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // React to a scroll-to-message request: reveal it (growing the window past the
+  // loaded page if needed), center it, and flash it.
+  $effect(() => {
+    scrollTarget.nonce; // track each request
+    const id = scrollTarget.id;
+    if (id) void revealAndScroll(id);
+  });
+
+  async function revealAndScroll(id: string) {
+    const idx = messages.findIndex((m) => m.id === id);
+    if (idx < 0) return; // not in this chat / not loaded from history
+    const fromEnd = messages.length - idx;
+    if (fromEnd > limit) {
+      limit = fromEnd + 5;
+      await tick();
+    }
+    const node = el?.querySelector(`[data-mid="${CSS.escape(id)}"]`) as HTMLElement | null;
+    if (!node) return;
+    node.scrollIntoView({ block: "center", behavior: "smooth" });
+    highlightId = id;
+    if (highlightTimer) clearTimeout(highlightTimer);
+    highlightTimer = setTimeout(() => {
+      if (highlightId === id) highlightId = null;
+    }, 1500);
+  }
+
   async function onScroll() {
     const node = el;
     if (!node) return;
@@ -58,8 +89,13 @@
       {#if hasOlder}
         <div class="older">Showing the latest messages — scroll up for more</div>
       {/if}
-      {#each visible as m (m.id)}
-        <MessageBubble message={m} group={isGroup(chatJid)} />
+      {#each visible as m, i (m.id)}
+        <MessageBubble
+          message={m}
+          group={isGroup(chatJid)}
+          prev={visible[i - 1] ?? null}
+          highlighted={m.id === highlightId}
+        />
       {/each}
     {/if}
   </div>
