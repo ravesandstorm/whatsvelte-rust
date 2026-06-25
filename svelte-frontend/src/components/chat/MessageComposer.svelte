@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { api } from "../../lib/ipc";
   import { addOptimistic, applyEdit, confirmOptimistic } from "../../lib/stores/messages.svelte";
-  import { touchChat } from "../../lib/stores/chats.svelte";
+  import { touchChat, getDraft, setDraft } from "../../lib/stores/chats.svelte";
   import { settings } from "../../lib/stores/settings.svelte";
   import { compose, cancelReply, cancelEdit } from "../../lib/stores/compose.svelte";
   import { session } from "../../lib/stores/session.svelte";
@@ -28,9 +28,21 @@
   // sent or cancelled so a half-typed message isn't lost.
   let draft: string | null = null;
 
-  // Focus the composer when the chat opens (Conversation is keyed by jid, so
-  // this mounts fresh on every chat switch).
-  onMount(() => ta?.focus());
+  // Restore any saved draft and focus the composer when the chat opens
+  // (Conversation is keyed by jid, so this mounts fresh on every chat switch).
+  onMount(() => {
+    const d = getDraft(jid);
+    if (d) text = d;
+    ta?.focus();
+  });
+
+  // Mirror the composer text into the chat's draft (live preview in the list).
+  // Skip while editing — that text is the message being edited, not a draft.
+  $effect(() => {
+    const t = text;
+    if (compose.editTarget) return;
+    setDraft(jid, t);
+  });
   // `:shortcode` autocomplete state.
   let suggest = $state<{ code: string; emoji: string }[]>([]);
   let suggestIdx = $state(0);

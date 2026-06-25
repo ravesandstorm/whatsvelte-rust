@@ -13,6 +13,7 @@
   import ReactionPicker from "./ReactionPicker.svelte";
   import MessageMedia from "./MessageMedia.svelte";
   import MessageContextMenu from "./MessageContextMenu.svelte";
+  import Linkify from "./Linkify.svelte";
 
   let {
     message,
@@ -157,7 +158,7 @@
         <img class="thumb" src={`data:image/jpeg;base64,${message.thumbnail}`} alt="" />
       {/if}
       {#if message.text}
-        <div class="text">{message.text}</div>
+        <div class="text"><Linkify text={message.text} /></div>
       {:else if !message.thumbnail && !message.media}
         <div class="text muted">{typeLabel ? `〔${typeLabel}〕` : `[${message.kind}]`}</div>
       {/if}

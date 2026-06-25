@@ -44,6 +44,7 @@
       full: m.text ?? body,
     };
   });
+  const hasDraft = $derived(!!chat.draft?.trim());
   const tickRead = $derived(preview.status === "read" || preview.status === "played");
   // Double tick for delivered/read/played; single for sent; clock for sending.
   const tickDouble = $derived(preview.status !== "sending" && preview.status !== "sent");
@@ -105,9 +106,15 @@
       <span class="time">{formatChatTime(chat.timestamp)}</span>
     </div>
     <div class="bottom">
-      <span class="preview" title={preview.full}>
-        {#if preview.status}{@render tickIcon()} {/if}{preview.prefix}{preview.body}
-      </span>
+      {#if hasDraft}
+        <span class="preview" title={chat.draft}>
+          <span class="draft-label">Draft:</span> {chat.draft}
+        </span>
+      {:else}
+        <span class="preview" title={preview.full}>
+          {#if preview.status}{@render tickIcon()} {/if}{preview.prefix}{preview.body}
+        </span>
+      {/if}
       {#if chat.unread}<span class="badge">{chat.unread}</span>{/if}
     </div>
   </div>
@@ -218,6 +225,9 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .draft-label {
+    color: #f15c6d;
   }
   .tick {
     font-size: 12px;

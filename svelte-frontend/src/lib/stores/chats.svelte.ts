@@ -14,6 +14,8 @@ export interface Chat {
   muted?: boolean;
   pinned?: boolean;
   archived?: boolean;
+  /** Unsent composer text, shown as a "Draft" preview in the list. */
+  draft?: string;
 }
 
 export const chats = new SvelteMap<string, Chat>();
@@ -36,6 +38,7 @@ export function upsertChatFromDto(d: ChatDto) {
     muted: prev?.muted,
     pinned: prev?.pinned,
     archived: prev?.archived,
+    draft: prev?.draft,
   });
   schedulePersistChats();
 }
@@ -60,6 +63,7 @@ export function touchChat(
     muted: prev?.muted,
     pinned: prev?.pinned,
     archived: prev?.archived,
+    draft: prev?.draft,
   });
   schedulePersistChats();
 }
@@ -150,6 +154,7 @@ export function mergeChats(fromJid: string, toJid: string) {
       muted: to.muted ?? from.muted,
       pinned: to.pinned ?? from.pinned,
       archived: to.archived ?? from.archived,
+      draft: to.draft ?? from.draft,
     });
   } else {
     chats.set(toJid, { ...from, jid: toJid });
@@ -166,6 +171,26 @@ export function selectChat(jid: string) {
     chats.set(jid, { ...c, unread: 0 });
     schedulePersistChats();
   }
+}
+
+/** Stash (or clear, when blank) the unsent composer text for a chat. */
+export function setDraft(jid: string, text: string) {
+  const draft = text.trim() ? text : undefined;
+  const prev = chats.get(jid);
+  if (prev) {
+    if (prev.draft === draft) return;
+    chats.set(jid, { ...prev, draft });
+  } else if (draft) {
+    // A draft typed in a chat with no list row yet (e.g. a brand-new DM).
+    chats.set(jid, { jid, name: null, lastMessage: null, timestamp: 0, unread: 0, draft });
+  } else {
+    return;
+  }
+  schedulePersistChats();
+}
+
+export function getDraft(jid: string): string {
+  return chats.get(jid)?.draft ?? "";
 }
 
 export function setChatName(jid: string, name: string) {
