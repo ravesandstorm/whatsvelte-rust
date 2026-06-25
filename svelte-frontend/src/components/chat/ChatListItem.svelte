@@ -44,7 +44,8 @@
       full: m.text ?? body,
     };
   });
-  const hasDraft = $derived(!!chat.draft?.trim());
+  // Only surface the draft once you've left the chat — not live while it's open.
+  const hasDraft = $derived(!!chat.draft?.trim() && chatUi.activeJid !== chat.jid);
   const tickRead = $derived(preview.status === "read" || preview.status === "played");
   // Double tick for delivered/read/played; single for sent; clock for sending.
   const tickDouble = $derived(preview.status !== "sending" && preview.status !== "sent");
