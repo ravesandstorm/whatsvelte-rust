@@ -12,6 +12,7 @@ import {
   applyReaction,
   applyReceipt,
   applyRevoke,
+  removeMessage,
   messagesByChat,
   type MessageStatus,
 } from "./messages.svelte";
@@ -204,6 +205,13 @@ export async function startEventBridge() {
     }
     void unifyLid(u.chatJid);
     if (u.senderJid && u.senderJid !== u.chatJid) void unifyLid(u.senderJid);
+  });
+
+  // A "delete for me" synced from another linked device (or our own re-sync) —
+  // remove it here too (no tombstone; it's gone only for us).
+  await on<{ chatJid: string; messageId: string }>("wa://message/delete-for-me", (u) => {
+    removeMessage(canonicalJid(u.chatJid), u.messageId);
+    void unifyLid(u.chatJid);
   });
 
   // 2. Determine login state. The ONLY source of truth is the handshake type

@@ -76,6 +76,21 @@ pub async fn pump(app: AppHandle, session_id: String, rx: Receiver<Arc<Event>>) 
                 let _ = app.emit(GLOBAL_TOPIC, envelope);
                 continue;
             }
+            // Delete-for-me synced from another linked device (or our own re-sync
+            // after sending) — drop the message locally so every device matches.
+            Event::DeleteMessageForMeUpdate(u) => {
+                let envelope = json!({
+                    "sessionId": session_id,
+                    "kind": "DeleteForMe",
+                    "payload": {
+                        "chatJid": u.chat_jid.to_string(),
+                        "messageId": u.message_id,
+                    },
+                });
+                let _ = app.emit("wa://message/delete-for-me", envelope.clone());
+                let _ = app.emit(GLOBAL_TOPIC, envelope);
+                continue;
+            }
             // Flatten pairing events to the documented {code, timeoutSecs} shape
             // (otherwise they serialize externally-tagged and the UI can't read
             // `payload.code`).

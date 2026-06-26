@@ -83,7 +83,7 @@
     cursor: pointer;
   }
   .menu button:hover {
-    background: var(--wa-hover);
+    background: var(--wa-highlight);
   }
   .menu button.danger {
     color: #e06457;

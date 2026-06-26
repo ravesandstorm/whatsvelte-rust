@@ -103,7 +103,7 @@
     text-align: center;
   }
   .opt:hover {
-    background: var(--wa-hover);
+    background: var(--wa-highlight);
   }
   .opt.danger {
     color: #e06457;

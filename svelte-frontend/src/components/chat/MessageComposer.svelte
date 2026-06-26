@@ -48,6 +48,15 @@
   // `:shortcode` autocomplete state.
   let suggest = $state<{ code: string; emoji: string }[]>([]);
   let suggestIdx = $state(0);
+  let suggestEl: HTMLDivElement | undefined = $state();
+
+  // Keep the arrow-key-selected suggestion scrolled into view.
+  $effect(() => {
+    suggestIdx; // track
+    queueMicrotask(() =>
+      suggestEl?.querySelector(".suggest-item.active")?.scrollIntoView({ block: "nearest" }),
+    );
+  });
 
   const TOKEN_RE = /(?:^|\s):([a-zA-Z0-9_+-]+)$/;
 
@@ -321,7 +330,7 @@
   <AttachMenu onpick={(a) => (pending = a)} onrecord={(m) => (recordMode = m)} />
   <div class="ta-wrap">
     {#if suggest.length}
-      <div class="suggest">
+      <div class="suggest" bind:this={suggestEl}>
         {#each suggest as s, i (s.code)}
           <button
             class="suggest-item"
@@ -468,7 +477,7 @@
   }
   .suggest-item.active,
   .suggest-item:hover {
-    background: var(--wa-hover);
+    background: var(--wa-highlight);
   }
   .suggest-emoji {
     font-size: 20px;
