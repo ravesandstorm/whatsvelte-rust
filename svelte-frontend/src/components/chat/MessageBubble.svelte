@@ -13,6 +13,7 @@
   import ReactionPicker from "./ReactionPicker.svelte";
   import MessageMedia from "./MessageMedia.svelte";
   import MessageContextMenu from "./MessageContextMenu.svelte";
+  import DeleteMessageModal from "./DeleteMessageModal.svelte";
   import Linkify from "./Linkify.svelte";
 
   let {
@@ -24,6 +25,7 @@
     $props();
   let showReact = $state(false);
   let menu = $state<{ x: number; y: number } | null>(null);
+  let deleteModal = $state(false);
 
   // Consecutive messages from the same sender group together (tight spacing, no
   // repeated sender name); a different sender starts a new visual group.
@@ -38,6 +40,11 @@
 
   function onContext(e: MouseEvent) {
     e.preventDefault();
+    // Stop the event reaching window: the menu mounts synchronously and its
+    // own window `contextmenu` listener would otherwise close it on this very
+    // click. Also lets right-clicks on media/stickers (which bubble up to the
+    // row) open the menu.
+    e.stopPropagation();
     menu = { x: e.clientX, y: e.clientY };
   }
 
@@ -235,7 +242,20 @@
 </div>
 
 {#if menu}
-  <MessageContextMenu x={menu.x} y={menu.y} {message} onclose={() => (menu = null)} />
+  <MessageContextMenu
+    x={menu.x}
+    y={menu.y}
+    {message}
+    onclose={() => (menu = null)}
+    ondelete={() => {
+      menu = null;
+      deleteModal = true;
+    }}
+  />
+{/if}
+
+{#if deleteModal}
+  <DeleteMessageModal {message} onclose={() => (deleteModal = false)} />
 {/if}
 
 <style>

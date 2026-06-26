@@ -1,25 +1,28 @@
 <script lang="ts">
   import type { UiMessage } from "../../lib/stores/messages.svelte";
-  import { applyRevoke, removeMessage } from "../../lib/stores/messages.svelte";
   import { startReply, startEdit } from "../../lib/stores/compose.svelte";
-  import { isGroup } from "../../lib/util/jid";
-  import { api } from "../../lib/ipc";
 
   let {
     x,
     y,
     message,
     onclose,
-  }: { x: number; y: number; message: UiMessage; onclose: () => void } = $props();
+    ondelete,
+  }: {
+    x: number;
+    y: number;
+    message: UiMessage;
+    onclose: () => void;
+    ondelete: () => void;
+  } = $props();
 
   const canReply = $derived(!message.deleted);
   const canEdit = $derived(message.fromMe && !!message.text && !message.media && !message.deleted);
-  // Revoke-for-everyone only makes sense for our own, not-yet-deleted messages.
-  const canDeleteEveryone = $derived(message.fromMe && !message.deleted);
+  const canDelete = $derived(!message.deleted);
 
-  // Keep the menu on-screen (approximate menu box ~ 210x190).
+  // Keep the menu on-screen (approximate menu box ~ 210x150).
   const px = $derived(Math.max(8, Math.min(x, window.innerWidth - 214)));
-  const py = $derived(Math.max(8, Math.min(y, window.innerHeight - 196)));
+  const py = $derived(Math.max(8, Math.min(y, window.innerHeight - 160)));
 
   function reply() {
     startReply(message);
@@ -31,30 +34,10 @@
     onclose();
   }
 
-  async function deleteForMe() {
-    onclose();
-    removeMessage(message.chatJid, message.id); // optimistic
-    try {
-      await api.deleteForMe(
-        message.chatJid,
-        message.id,
-        message.fromMe,
-        isGroup(message.chatJid) && !message.fromMe ? message.senderJid : null,
-        message.timestamp,
-      );
-    } catch (e) {
-      console.error("delete for me failed", e);
-    }
-  }
-
-  async function deleteForEveryone() {
-    onclose();
-    applyRevoke(message.chatJid, message.id); // optimistic tombstone
-    try {
-      await api.revokeMessage(message.chatJid, message.id, null);
-    } catch (e) {
-      console.error("revoke failed", e);
-    }
+  // Hand off to the parent's confirmation modal (which offers
+  // delete-for-me / delete-for-everyone).
+  function del() {
+    ondelete();
   }
 </script>
 
@@ -71,9 +54,8 @@
   {#if canEdit}
     <button role="menuitem" onclick={edit}>Edit</button>
   {/if}
-  <button role="menuitem" onclick={deleteForMe}>Delete for me</button>
-  {#if canDeleteEveryone}
-    <button role="menuitem" class="danger" onclick={deleteForEveryone}>Delete for everyone</button>
+  {#if canDelete}
+    <button role="menuitem" class="danger" onclick={del}>Delete</button>
   {/if}
 </div>
 

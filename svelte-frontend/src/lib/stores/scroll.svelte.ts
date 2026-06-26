@@ -8,3 +8,9 @@ export function scrollToMessage(id: string) {
   scrollTarget.id = id;
   scrollTarget.nonce++;
 }
+
+// Disarm the request once the jump (and its highlight) is done, so a stale id
+// can't pull the viewport back to an old message on later renders.
+export function clearScrollTarget() {
+  scrollTarget.id = null;
+}

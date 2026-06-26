@@ -10,7 +10,9 @@
   import { contactFor } from "../../lib/stores/contacts.svelte";
   import type { QuotedDto } from "../../lib/types";
   import { searchEmojiShortcodes } from "../../lib/emoji";
-  import EmojiPicker from "./EmojiPicker.svelte";
+  import MediaPickerPanel from "./MediaPickerPanel.svelte";
+  import { sendGif } from "../../lib/send-gif";
+  import type { Gif } from "../../lib/klipy";
   import AttachMenu from "./AttachMenu.svelte";
   import MediaPreview from "./MediaPreview.svelte";
   import Recorder from "./Recorder.svelte";
@@ -18,7 +20,7 @@
 
   let { jid }: { jid: string } = $props();
   let text = $state("");
-  let showEmoji = $state(false);
+  let showPicker = $state(false);
   let pending = $state<PendingAttachment | null>(null);
   let recordMode = $state<"voice" | "video" | "photo" | null>(null);
   let ta: HTMLTextAreaElement | undefined = $state();
@@ -127,7 +129,7 @@
   async function send() {
     const body = text.trim();
     if (!body) return;
-    showEmoji = false;
+    showPicker = false;
     suggest = [];
     const now = Math.floor(Date.now() / 1000);
 
@@ -269,6 +271,12 @@
       el.setSelectionRange(pos, pos);
     });
   }
+
+  // Tapping a GIF in the picker sends it straight away (WhatsApp behaviour).
+  function onGif(gif: Gif) {
+    showPicker = false;
+    void sendGif(jid, gif.gifUrl);
+  }
 </script>
 
 {#if editing}
@@ -296,14 +304,18 @@
 
 <div class="composer">
   <div class="emoji-wrap">
-    {#if showEmoji}
-      <EmojiPicker overlay onpick={insertEmoji} onclose={() => (showEmoji = false)} />
+    {#if showPicker}
+      <MediaPickerPanel
+        onemoji={insertEmoji}
+        ongif={onGif}
+        onclose={() => (showPicker = false)}
+      />
     {/if}
     <button
       class="icon"
-      aria-label="Emoji"
-      class:active={showEmoji}
-      onclick={() => (showEmoji = !showEmoji)}>😊</button
+      aria-label="Emoji & GIFs"
+      class:active={showPicker}
+      onclick={() => (showPicker = !showPicker)}>😊</button
     >
   </div>
   <AttachMenu onpick={(a) => (pending = a)} onrecord={(m) => (recordMode = m)} />

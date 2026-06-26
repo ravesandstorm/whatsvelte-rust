@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { tick } from "svelte";
+  import { tick, untrack } from "svelte";
   import type { UiMessage } from "../../lib/stores/messages.svelte";
   import { isGroup } from "../../lib/util/jid";
-  import { scrollTarget } from "../../lib/stores/scroll.svelte";
+  import { scrollTarget, clearScrollTarget } from "../../lib/stores/scroll.svelte";
   import MessageBubble from "./MessageBubble.svelte";
 
   let { messages, chatJid }: { messages: UiMessage[]; chatJid: string } = $props();
@@ -24,8 +24,10 @@
   // Auto-scroll to the newest message on first render and whenever a message
   // arrives while parked at the bottom.
   $effect(() => {
-    visible.length; // track
-    if (pinned && el) el.scrollTop = el.scrollHeight;
+    visible.length; // track new messages only
+    // Read `pinned` untracked: toggling it (e.g. via jumpToBottom) must not
+    // re-fire this instant jump, which would clobber an in-flight smooth scroll.
+    if (untrack(() => pinned) && el) el.scrollTop = el.scrollHeight;
   });
 
   function jumpToBottom() {
@@ -41,8 +43,11 @@
   // React to a scroll-to-message request: reveal it (growing the window past the
   // loaded page if needed), center it, and flash it.
   $effect(() => {
-    scrollTarget.nonce; // track each request
-    const id = scrollTarget.id;
+    scrollTarget.nonce; // sole trigger — fires exactly once per explicit request
+    // Read `id` untracked so clearing it later (clearScrollTarget) can't re-fire
+    // this effect and yank the viewport back to the message after the user has
+    // scrolled away.
+    const id = untrack(() => scrollTarget.id);
     if (id) void revealAndScroll(id);
   });
 
@@ -61,6 +66,7 @@
     if (highlightTimer) clearTimeout(highlightTimer);
     highlightTimer = setTimeout(() => {
       if (highlightId === id) highlightId = null;
+      clearScrollTarget(); // disarm the request now the flash is done
     }, 1500);
   }
 

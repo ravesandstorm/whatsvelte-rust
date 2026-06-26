@@ -273,16 +273,24 @@ pub async fn send_media(
         .map_err(ApiError::library)?;
 
     let msg = match media_type.as_str() {
-        "video" => media::video_message(
-            upload,
-            VideoOptions {
-                caption: opts.caption,
-                mimetype: opts.mimetype,
-                jpeg_thumbnail: thumb,
-                duration_seconds: opts.duration_secs,
-                gif_playback: None,
-            },
-        ),
+        "video" => {
+            // Animated GIFs are sent as videos with the gif-playback flag so they
+            // auto-loop inline (WhatsApp behaviour); regular videos leave it unset.
+            let gif_playback = match opts.mimetype.as_deref() {
+                Some(m) if m.starts_with("image/gif") => Some(true),
+                _ => None,
+            };
+            media::video_message(
+                upload,
+                VideoOptions {
+                    caption: opts.caption,
+                    mimetype: opts.mimetype,
+                    jpeg_thumbnail: thumb,
+                    duration_seconds: opts.duration_secs,
+                    gif_playback,
+                },
+            )
+        }
         "audio" => media::audio_message(
             upload,
             AudioOptions {
