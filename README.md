@@ -30,7 +30,7 @@ A lightweight, low-RAM alternative to WhatsApp Desktop. Built with a Svelte fron
 - Handled LID ↔ Phone Number identity unification.
 - *See [`docs/phase-2-frontend.md`](docs/phase-2-frontend.md) for architectural data flow.*
 
-### Phase 3: Media Sending ⏳ (Planned)
+### Phase 3: Media Sending ✅ (Completed)
 - Implement frontend file selection, compression, and thumbnail generation.
 - Add voice recording via `MediaRecorder`.
 - Enable document, video, and audio sending via the backend.
@@ -50,6 +50,17 @@ On first launch, the app boots the default WhatsApp session and shows a QR code 
 
 ## Known Issues
 
+- **Number resolution is unreliable** — mapping a chat/sender to its real phone
+  number (LID ↔ phone-number unification) does not always resolve correctly, so
+  some contacts may show a raw JID/LID instead of a phone number or saved name.
+- **Chat type resolution is unreliable** — distinguishing chat types (individual
+  vs. group vs. newsletter/broadcast) is not fully reliable yet, so a chat may
+  occasionally be classified or rendered as the wrong type.
+- **Stickers sending is not implemented** — the whatsapp web api makes it quite
+  complicated to parse sticker information, to be added later.
+- **Some messages are rendered as [other]** — not every type is fully implemented
+  which include but are not limited to: interactive messages like polls, business
+  messages, contact cards, number changes.
 - **macOS: "app is damaged and can't be opened"** — the `.dmg` is not yet
   notarized with an Apple Developer ID (the CI ships it ad-hoc signed). macOS
   Gatekeeper quarantines downloaded unsigned apps. After dragging the app to
@@ -59,12 +70,6 @@ On first launch, the app boots the default WhatsApp session and shows a QR code 
   ```
   Then open it normally. (Alternatively: right-click the app → **Open** →
   **Open** on the warning dialog.) Windows and Linux builds are unaffected.
-- **Number resolution is unreliable** — mapping a chat/sender to its real phone
-  number (LID ↔ phone-number unification) does not always resolve correctly, so
-  some contacts may show a raw JID/LID instead of a phone number or saved name.
-- **Chat type resolution is unreliable** — distinguishing chat types (individual
-  vs. group vs. newsletter/broadcast) is not fully reliable yet, so a chat may
-  occasionally be classified or rendered as the wrong type.
 
 ## Documentation Reference
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) - System architecture overview.
@@ -88,6 +93,9 @@ After some basic testing, I've come to the conclusion that this app takes upto 5
 |This App        |300 MB     |500 MB                    |< 100 MB|
 
 On the release windows version on idle, this app takes as less as 20MB memory!
+
+Feel free to try it out, any feedback is appreciated. 
+Star the repo if you like it!
 
 ## Attribution
 Backend library: [whatsapp-rust](https://github.com/oxidezap/whatsapp-rust)
