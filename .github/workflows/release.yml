@@ -15,8 +15,13 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
+            target: ""
           - os: macos-latest
+            target: ""
           - os: windows-latest
+            target: "x86_64-pc-windows-msvc" # Standard 64-bit Windows
+          - os: windows-latest
+            target: "aarch64-pc-windows-msvc" # ARM64 Windows
 
     runs-on: ${{ matrix.os }}
     steps:
