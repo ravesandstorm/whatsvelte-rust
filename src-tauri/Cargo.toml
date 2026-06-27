@@ -1,9 +1,9 @@
 [package]
 name = "whatsvelte-rust"
-version = "0.1.0"
+version = "1.2.0"
 description = "Tauri desktop app wrapping the whatsapp-rust library"
-edition = "2021"
-rust-version = "1.82"
+edition = "2024"
+rust-version = "1.85"
 
 # Tauri v2 convention: the app logic lives in a lib so mobile targets can reuse
 # it; main.rs is a thin shim. crate-type covers desktop + mobile linking.
