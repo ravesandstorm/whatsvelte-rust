@@ -10,9 +10,38 @@ _bump_version() {
     # Locate the tauri.conf.json file relative to the git repository root
     conf="$(git rev-parse --show-toplevel)/src-tauri/tauri.conf.json" || return 1
 
+    # Check for uncommitted local changes (including untracked files)
+    if [ -n "$(git status --porcelain)" ]; then
+        echo "X Error: Working directory is not clean. Please commit or stash local changes before releasing."
+        return 1
+    fi
+
+    # Ensure local and remote are in sync
+    echo "Fetching latest remote state..."
+    if ! git fetch -q; then
+        echo "X Error: Failed to fetch from remote!"
+        return 1
+    fi
+
+    local local_head
+    local remote_head
+
+    local_head=$(git rev-parse HEAD)
+    
+    # Safely get upstream tracking branch, catching the error if it doesn't exist
+    if ! remote_head=$(git rev-parse @{u} 2>/dev/null); then
+        echo "X Error: No upstream tracking branch configured for the current branch!"
+        return 1
+    fi
+
+    if [ "$local_head" != "$remote_head" ]; then
+        echo "X Error: Local and remote branches are out of sync. Please pull/push before releasing."
+        return 1
+    fi
+
     # Check if the file actually exists
     if [ ! -f "$conf" ]; then
-        echo "❌ Error: $conf not found!"
+        echo "X Error: $conf not found!"
         return 1
     fi
 
@@ -38,7 +67,7 @@ _bump_version() {
     git tag "v$new" && \
     git push origin main && \
     git push origin "v$new" && \
-    echo "✅ Released v$new"
+    echo "Success! Released v$new"
 }
 
 # Accept terminal argument and trigger the core logic
