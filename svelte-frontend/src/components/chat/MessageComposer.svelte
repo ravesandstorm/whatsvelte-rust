@@ -16,6 +16,8 @@
   import AttachMenu from "./AttachMenu.svelte";
   import MediaPreview from "./MediaPreview.svelte";
   import Recorder from "./Recorder.svelte";
+  import { formatQuotedText } from "../../lib/util/preview";
+  import { mediaSrc } from "../../lib/media";
   import type { PendingAttachment } from "../../lib/send-media";
 
   let { jid }: { jid: string } = $props();
@@ -26,6 +28,7 @@
   let ta: HTMLTextAreaElement | undefined = $state();
   let lastEditId: string | null = $state(null);
   let lastReplyId: string | null = $state(null);
+  let replyMediaSrc = $state<string | null>(null);
   // In-progress text saved when entering edit mode, restored after the edit is
   // sent or cancelled so a half-typed message isn't lost.
   let draft: string | null = null;
@@ -109,6 +112,21 @@
     }
   });
 
+  $effect(() => {
+    const r = compose.replyTarget;
+    if (r && r.media && !r.thumbnail && (r.kind === "image" || r.kind === "sticker" || r.kind === "video")) {
+      mediaSrc(r.media)
+        .then((url) => {
+          replyMediaSrc = url;
+        })
+        .catch(() => {
+          replyMediaSrc = null;
+        });
+    } else {
+      replyMediaSrc = null;
+    }
+  });
+
   // Focus the composer when a reply is started (once per new reply target).
   $effect(() => {
     const r = compose.replyTarget;
@@ -162,10 +180,11 @@
 
     if (target) {
       const quotedSender = target.fromMe ? (session.jid ?? "") : target.senderJid;
+      const quotedText = formatQuotedText(target);
       const quoted: QuotedDto = {
         id: target.id,
         senderJid: quotedSender,
-        text: target.text,
+        text: quotedText,
         kind: target.kind,
         thumbnail: target.thumbnail,
       };
@@ -173,7 +192,7 @@
       const tempId = addOptimistic(jid, body, quoted);
       touchChat(jid, body, now, false);
       try {
-        const r = await api.sendReply(jid, body, target.id, quotedSender, target.text);
+        const r = await api.sendReply(jid, body, target.id, quotedSender, quotedText);
         confirmOptimistic(jid, tempId, r.messageId);
       } catch (e) {
         console.error("reply failed", e);
@@ -302,10 +321,12 @@
     <div class="reply-bar"></div>
     <div class="reply-body">
       <div class="reply-name">{replyName}</div>
-      <div class="reply-text">{reply.text ?? `[${reply.kind}]`}</div>
+      <div class="reply-text">{formatQuotedText(reply)}</div>
     </div>
     {#if reply.thumbnail}
       <img class="reply-thumb" src={`data:image/jpeg;base64,${reply.thumbnail}`} alt="" />
+    {:else if replyMediaSrc}
+      <img class="reply-thumb" src={replyMediaSrc} alt="" />
     {/if}
     <button class="reply-cancel" aria-label="Cancel reply" onclick={cancelReply}>✕</button>
   </div>

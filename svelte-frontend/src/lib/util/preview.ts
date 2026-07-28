@@ -32,3 +32,23 @@ export function mediaLabel(kind: string): string {
       return "Message";
   }
 }
+
+export function formatQuotedText(msg: {
+  text?: string | null;
+  kind?: string | null;
+  media?: { fileName?: string | null } | null;
+}): string {
+  if (msg.text && msg.text.trim()) {
+    if (msg.kind && msg.kind !== "text") {
+      return `${mediaLabel(msg.kind)} ${msg.text}`;
+    }
+    return msg.text;
+  }
+  if (msg.media?.fileName) {
+    return `📄 ${msg.media.fileName}`;
+  }
+  if (msg.kind) {
+    return mediaLabel(msg.kind);
+  }
+  return "Message";
+}
