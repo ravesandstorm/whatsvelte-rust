@@ -4,6 +4,7 @@
 
 import { api } from "./ipc";
 import { settings } from "./stores/settings.svelte";
+import { markMessageRead } from "./stores/messages.svelte";
 
 interface Pending {
   chatJid: string;
@@ -36,6 +37,7 @@ function ensureObserver(): IntersectionObserver {
 }
 
 function enqueue(p: Pending) {
+  markMessageRead(p.chatJid, p.id);
   if (!settings.sendReadReceipts) return;
   const key = p.chatJid + "|" + p.id;
   if (acked.has(key)) return;

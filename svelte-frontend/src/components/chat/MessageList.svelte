@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick, untrack } from "svelte";
-  import type { UiMessage } from "../../lib/stores/messages.svelte";
+  import { markMessagesRead, type UiMessage } from "../../lib/stores/messages.svelte";
   import { isGroup } from "../../lib/util/jid";
   import { scrollTarget, clearScrollTarget } from "../../lib/stores/scroll.svelte";
   import MessageBubble from "./MessageBubble.svelte";
@@ -21,19 +21,75 @@
   const visible = $derived(messages.slice(Math.max(0, messages.length - limit)));
   const hasOlder = $derived(messages.length > limit);
 
-  // Auto-scroll to the newest message on first render and whenever a message
-  // arrives while parked at the bottom.
+  // Identify the first unread incoming message to render the "Unread" divider above it
+  const firstUnreadId = $derived.by(() => {
+    const first = visible.find((m) => !m.fromMe && m.unread);
+    return first ? first.id : null;
+  });
+
+  const unreadCount = $derived(visible.filter((m) => !m.fromMe && m.unread).length);
+
+  let prevJid = $state<string | null>(null);
+  let prevMsgLen = $state(0);
+
+  // Initial scroll positioning on chat switch or mount
   $effect(() => {
-    visible.length; // track new messages only
-    // Read `pinned` untracked: toggling it (e.g. via jumpToBottom) must not
-    // re-fire this instant jump, which would clobber an in-flight smooth scroll.
-    if (untrack(() => pinned) && el) el.scrollTop = el.scrollHeight;
+    if (chatJid !== prevJid) {
+      prevJid = chatJid;
+      prevMsgLen = visible.length;
+      limit = PAGE;
+      void tick().then(() => {
+        if (!el) return;
+        const unreadMsg = visible.find((m) => !m.fromMe && m.unread);
+        if (unreadMsg) {
+          const divider = el.querySelector("[data-unread-divider]") as HTMLElement | null;
+          if (divider) {
+            divider.scrollIntoView({ block: "start" });
+            pinned = false;
+          } else {
+            el.scrollTop = el.scrollHeight;
+            pinned = true;
+          }
+        } else {
+          el.scrollTop = el.scrollHeight;
+          pinned = true;
+        }
+      });
+    }
+  });
+
+  // Handle auto-scroll logic on new messages:
+  // Outgoing messages auto-scroll to bottom.
+  // Incoming messages stay unread below the scroll point without auto-scrolling down!
+  $effect(() => {
+    const curLen = visible.length;
+    if (chatJid === prevJid && curLen > prevMsgLen) {
+      const isNewArrival = prevMsgLen > 0;
+      prevMsgLen = curLen;
+      if (isNewArrival) {
+        const newest = visible[curLen - 1];
+        if (newest && newest.fromMe) {
+          void tick().then(() => {
+            if (el) el.scrollTop = el.scrollHeight;
+            pinned = true;
+          });
+        } else {
+          pinned = false;
+        }
+      }
+    } else {
+      prevMsgLen = curLen;
+    }
   });
 
   function jumpToBottom() {
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
     pinned = true;
+    const unreadIds = visible.filter((m) => !m.fromMe && m.unread).map((m) => m.id);
+    if (unreadIds.length > 0) {
+      markMessagesRead(chatJid, unreadIds);
+    }
   }
 
   // Briefly highlighted message after a jump (tapping a reply's quoted preview).
@@ -73,7 +129,15 @@
   async function onScroll() {
     const node = el;
     if (!node) return;
-    pinned = node.scrollHeight - node.scrollTop - node.clientHeight < 80;
+    const isAtBottom = node.scrollHeight - node.scrollTop - node.clientHeight < 40;
+    pinned = isAtBottom;
+
+    if (isAtBottom && unreadCount > 0) {
+      const unreadIds = visible.filter((m) => !m.fromMe && m.unread).map((m) => m.id);
+      if (unreadIds.length > 0) {
+        markMessagesRead(chatJid, unreadIds);
+      }
+    }
 
     // Near the top with more history available → reveal an older page and keep
     // the current messages visually in place (no jump).
@@ -96,6 +160,11 @@
         <div class="older">Showing the latest messages — scroll up for more</div>
       {/if}
       {#each visible as m, i (m.id)}
+        {#if m.id === firstUnreadId}
+          <div class="unread-divider" data-unread-divider>
+            <span>Unread</span>
+          </div>
+        {/if}
         <MessageBubble
           message={m}
           group={isGroup(chatJid)}
@@ -107,6 +176,9 @@
   </div>
   {#if !pinned && messages.length > 0}
     <button class="jump" onclick={jumpToBottom} aria-label="Scroll to latest messages">
+      {#if unreadCount > 0}
+        <span class="jump-badge">{unreadCount}</span>
+      {/if}
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
         <path
           d="M12 16.5 4.5 9l1.4-1.4L12 13.7l6.1-6.1L19.5 9z"
@@ -140,6 +212,36 @@
     display: flex;
     flex-direction: column;
   }
+  .unread-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 14px 0;
+    position: relative;
+  }
+  .unread-divider::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    background: var(--wa-border, rgba(255, 255, 255, 0.15));
+    z-index: 1;
+  }
+  .unread-divider span {
+    position: relative;
+    z-index: 2;
+    background: var(--wa-panel, #202c33);
+    color: var(--wa-unread, #00a884);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 14px;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
   .jump {
     position: absolute;
     right: 18px;
@@ -159,6 +261,23 @@
   .jump:hover {
     background: var(--wa-hover);
     color: var(--wa-text);
+  }
+  .jump-badge {
+    position: absolute;
+    top: -4px;
+    right: -2px;
+    background: var(--wa-unread, #00a884);
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 600;
+    height: 18px;
+    min-width: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
   }
   .loading {
     margin: auto;
