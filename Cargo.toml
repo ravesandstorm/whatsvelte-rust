@@ -1,0 +1,31 @@
+[package]
+name = "whatdioxus-rust"
+version = "1.2.0"
+description = "Pure Rust Dioxus desktop application for WhatsApp"
+edition = "2024"
+rust-version = "1.85"
+
+[lib]
+name = "whatdioxus_rust_lib"
+crate-type = ["rlib"]
+
+[[bin]]
+name = "whatdioxus-rust"
+path = "src/main.rs"
+
+[dependencies]
+dioxus = { version = "0.7.9", features = ["desktop"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+anyhow = "1"
+log = "0.4"
+env_logger = "0.11"
+tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros"] }
+async-channel = "2"
+base64 = "0.22"
+dirs = "6.0.0"
+
+
+# Core WhatsApp backend crate (untouched)
+whatsapp-rust = { path = "./rust-backend" }

@@ -1,41 +1,30 @@
-# Common dev commands for whatsvelte-rust (Tauri monolith).
-# Note: `make server` runs the whole app (Rust backend + WebView) via tauri dev. 
+# Common dev commands for whatdioxus-rust (Dioxus Desktop).
 
-.PHONY: help setup server dev build frontend fmt clippy clean
+.PHONY: help run dev build fmt clippy clean
 
 help:
 	@echo "Targets:"
-	@echo "make setup	 - Install the Tauri CLI + JS deps (run once)"
-	@echo "make run    		- Run the app in dev mode (tauri dev) — the continuous dev loop"
-	@echo "make dev       	- Alias for 'server'"
-	@echo "make build     	- Build the single-executable bundle (tauri build, Phase 4)"
-	@echo "make frontend  	- Phase 1: static placeholder (no dev server). Phase 2: vite dev"
-	@echo "make fmt       	- cargo fmt for the Tauri backend"
-	@echo "make clippy    	- cargo clippy for the Tauri backend"
-	@echo "make clean     	- Remove the Tauri target dir"
+	@echo "  make run    - Run the Dioxus desktop app (cargo run)"
+	@echo "  make dev    - Run the Dioxus desktop app with hot reload (dx serve)"
+	@echo "  make build  - Build the release desktop application (cargo build --release)"
+	@echo "  make fmt    - Format Rust code (cargo fmt)"
+	@echo "  make clippy - Lint Rust code (cargo clippy)"
+	@echo "  make clean  - Clean build artifacts (cargo clean)"
 
-setup:
-	npm install
-	npm --prefix svelte-frontend install
-
-# The "continuously running for development" loop: compiles the Rust backend,
-# loads the frontend, and hot-reconnects on change.
 run:
-	npm run tauri dev
+	cargo run
 
-dev: server
+dev:
+	dx serve --platform desktop
 
 build:
-	npm run tauri build
-
-frontend:
-	npm --prefix svelte-frontend run dev
+	cargo build --release
 
 fmt:
-	cd src-tauri && cargo fmt
+	cargo fmt
 
 clippy:
-	cd src-tauri && cargo clippy
+	cargo clippy
 
 clean:
-	cd src-tauri && cargo clean
+	cargo clean
