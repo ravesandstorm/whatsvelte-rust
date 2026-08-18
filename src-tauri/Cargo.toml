@@ -15,6 +15,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+dioxus = { version = "0.6", features = ["desktop"] }
 tauri = { version = "2", features = ["protocol-asset"] }
 # Native file picker (send-media) and scoped fs access (staging in-memory blobs
 # — pastes/recordings — to a temp file so send_media can read them by path).
@@ -38,3 +39,4 @@ base64 = "0.22"
 # The vendored protocol library, pulled in by path. Default features bring the
 # SQLite store, Tokio WebSocket transport, ureq HTTP client and Tokio runtime.
 whatsapp-rust = { path = "../rust-backend" }
+

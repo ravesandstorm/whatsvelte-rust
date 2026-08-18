@@ -4,11 +4,17 @@
 //! operations as Tauri commands, and forwards the library event stream to the
 //! UI as Tauri events. See `docs/ARCHITECTURE.md`.
 
+pub mod app;
+pub mod state;
+pub mod ui;
 mod bridge;
 mod commands;
 mod dto;
 mod error;
 mod session;
+
+
+
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -92,3 +98,8 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
+pub fn run_dioxus() {
+    dioxus::launch(app::App);
+}
+

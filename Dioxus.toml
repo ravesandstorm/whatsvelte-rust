@@ -1,0 +1,6 @@
+[application]
+name = "whatsvelte-rust"
+default_platform = "desktop"
+
+[desktop]
+title = "WhatsApp Desktop (Dioxus)"

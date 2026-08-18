@@ -2,9 +2,10 @@
 //! JS-friendly (camelCase, JIDs as strings) so the frontend never sees prost or
 //! wacore internals.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+
 #[serde(rename_all = "camelCase")]
 pub struct StatusDto {
     pub session_id: String,
@@ -20,7 +21,7 @@ pub struct StatusDto {
     pub push_name: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PairCodeDto {
     pub session_id: String,
@@ -28,7 +29,7 @@ pub struct PairCodeDto {
     pub code: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SendResultDto {
     pub session_id: String,
@@ -38,7 +39,7 @@ pub struct SendResultDto {
 
 /// Everything needed to fetch + decrypt one media payload. All hashes/keys are
 /// base64 (raw bytes don't survive JSON). Mirrors `DownloadParams::encrypted`.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaDescriptorDto {
     pub direct_path: String,
@@ -51,7 +52,7 @@ pub struct MediaDescriptorDto {
 }
 
 /// Display + download info for a media message.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaDto {
     pub kind: String,
@@ -66,7 +67,7 @@ pub struct MediaDto {
 
 /// The message a reply quotes (from `ContextInfo`). Just enough to render the
 /// quoted preview inside the replying bubble.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuotedDto {
     /// Stanza id of the quoted message (links to the original).
@@ -81,7 +82,7 @@ pub struct QuotedDto {
 
 /// One rendered message. Built in `bridge.rs` from either a live
 /// `Event::Message` or a history-sync `WebMessageInfo`.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MessageDto {
     pub id: String,
@@ -103,7 +104,7 @@ pub struct MessageDto {
 }
 
 /// One chat row for the sidebar.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatDto {
     pub jid: String,
@@ -115,7 +116,7 @@ pub struct ChatDto {
 }
 
 /// A history-sync chunk (emitted per conversation on `wa://history`).
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryDto {
     pub chats: Vec<ChatDto>,
@@ -124,7 +125,7 @@ pub struct HistoryDto {
 
 /// A receipt acknowledging one or more of our sent messages (or others'
 /// messages in a chat). Emitted on `wa://receipt`.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReceiptDto {
     pub chat_jid: String,
@@ -138,7 +139,7 @@ pub struct ReceiptDto {
 
 /// A server-synced chat flag change (mute / pin / archive). Each field is set
 /// only when that event carried it. Emitted on `wa://chat/flags`.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatFlagsDto {
     pub jid: String,
@@ -149,7 +150,7 @@ pub struct ChatFlagsDto {
 
 /// A patch to an already-rendered message: a revoke (delete), an edit, or a
 /// reaction. Emitted on `wa://message/update`. References the target by id.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MessageUpdateDto {
     pub chat_jid: String,
@@ -167,7 +168,7 @@ pub struct MessageUpdateDto {
 
 /// Resolved LID ↔ phone-number identities for a JID. Either field may be `None`
 /// if no mapping is known yet.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolveJidDto {
     /// Phone-number JID, e.g. "15551234567@s.whatsapp.net".
@@ -176,7 +177,7 @@ pub struct ResolveJidDto {
     pub lid: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContactDto {
     pub jid: String,
