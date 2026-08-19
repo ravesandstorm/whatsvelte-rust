@@ -20,7 +20,7 @@ pub const DEFAULT_SESSION: &str = "default";
 /// A single booted account: the background run-loop task plus its client.
 pub struct Session {
     /// Aborted on drop so `reset` releases the SQLite handle before deleting it.
-    run_task: JoinHandle<()>,
+    pub run_task: JoinHandle<()>,
     pub client: Arc<Client>,
 }
 
@@ -64,7 +64,11 @@ impl SessionManager {
     pub async fn get_or_create(&self, session_id: &str) -> ApiResult<Arc<Session>> {
         let mut map = self.sessions.lock().await;
         if let Some(existing) = map.get(session_id) {
-            return Ok(existing.clone());
+            if !existing.run_task.is_finished() {
+                return Ok(existing.clone());
+            }
+            log::warn!("[{session_id}] session run task terminated; removing dead session");
+            map.remove(session_id);
         }
         let session = self.boot(session_id).await?;
         map.insert(session_id.to_string(), session.clone());
@@ -125,12 +129,19 @@ impl SessionManager {
 
         let dead_sid = session_id.to_string();
         let dead_client = client.clone();
+        let event_tx_clone = self.event_tx.clone();
+        let base_dir_clone = self.base_dir.clone();
         let run_task = tokio::spawn(async move {
             bot.run().await;
             if dead_client.is_logged_in() {
                 log::info!("[{dead_sid}] run loop ended (logged in)");
             } else {
-                log::warn!("[{dead_sid}] run loop ended while unpaired; QR is dead, restart required");
+                log::warn!("[{dead_sid}] run loop ended while unpaired; cleaning stale database for restart");
+                for suffix in ["", "-shm", "-wal"] {
+                    let path = base_dir_clone.join(format!("whatsapp-{dead_sid}.db{suffix}"));
+                    let _ = std::fs::remove_file(&path);
+                }
+                let _ = event_tx_clone.send((dead_sid, UiEvent::LoggedOut)).await;
             }
         });
 
@@ -140,4 +151,3 @@ impl SessionManager {
         Ok(Arc::new(Session { run_task, client }))
     }
 }
-

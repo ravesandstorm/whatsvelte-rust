@@ -71,6 +71,15 @@ pub fn App() -> Element {
                         };
                         *app_state.chats.write() = Vec::new();
                         *app_state.messages.write() = HashMap::new();
+                        *app_state.qr_code.write() = None;
+                        *app_state.pair_code.write() = None;
+
+                        let mgr_reset = mgr.clone();
+                        spawn(async move {
+                            if let Err(e) = mgr_reset.reset("default").await {
+                                log::error!("Failed to restart session after logout: {e}");
+                            }
+                        });
                     }
                     UiEvent::PushName(name) => {
                         app_state.session.write().push_name = Some(name);
@@ -79,6 +88,7 @@ pub fn App() -> Element {
                         let chat_jid = msg.chat_jid.clone();
                         let text_preview = msg.text.clone();
                         let ts = msg.timestamp;
+                        let push_name = if !msg.from_me { msg.push_name.clone() } else { None };
 
                         app_state.messages.write().entry(chat_jid.clone()).or_default().push(msg);
 
@@ -86,10 +96,13 @@ pub fn App() -> Element {
                         if let Some(existing) = chats.iter_mut().find(|c| c.jid == chat_jid) {
                             existing.last_message = text_preview;
                             existing.timestamp = ts;
+                            if existing.name.is_none() && push_name.is_some() {
+                                existing.name = push_name;
+                            }
                         } else {
                             chats.insert(0, ChatDto {
                                 jid: chat_jid,
-                                name: None,
+                                name: push_name,
                                 last_message: text_preview,
                                 timestamp: ts,
                                 unread: 0,
@@ -116,7 +129,17 @@ pub fn App() -> Element {
                         let mut msgs_map = app_state.messages.write();
                         for h in history {
                             for c in h.chats {
-                                chats_map.insert(c.jid.clone(), c);
+                                chats_map.entry(c.jid.clone())
+                                    .and_modify(|existing: &mut ChatDto| {
+                                        if existing.name.is_none() && c.name.is_some() {
+                                            existing.name = c.name.clone();
+                                        }
+                                        if c.timestamp >= existing.timestamp {
+                                            existing.last_message = c.last_message.clone();
+                                            existing.timestamp = c.timestamp;
+                                        }
+                                    })
+                                    .or_insert(c);
                             }
                             for m in h.messages {
                                 msgs_map.entry(m.chat_jid.clone()).or_default().push(m);
@@ -125,6 +148,15 @@ pub fn App() -> Element {
                         for msgs in msgs_map.values_mut() {
                             msgs.sort_by_key(|m| m.timestamp);
                             msgs.dedup_by(|a, b| a.id == b.id);
+                        }
+                        for (jid, msgs) in msgs_map.iter() {
+                            if let Some(chat) = chats_map.get_mut(jid) {
+                                if chat.name.is_none() {
+                                    if let Some(pname) = msgs.iter().find(|m| !m.from_me).and_then(|m| m.push_name.clone()) {
+                                        chat.name = Some(pname);
+                                    }
+                                }
+                            }
                         }
                         let mut new_chats: Vec<_> = chats_map.into_values().collect();
                         new_chats.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));

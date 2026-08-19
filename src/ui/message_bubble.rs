@@ -1,5 +1,6 @@
 use dioxus::prelude::*;
 use crate::dto::MessageDto;
+use crate::ui::jid_utils::resolve_display_name;
 
 fn format_time(ts: i64) -> String {
     if ts <= 0 {
@@ -21,15 +22,24 @@ pub fn MessageBubble(message: MessageDto) -> Element {
 
     let time_str = format_time(message.timestamp);
 
+    let sender_display = if !message.from_me {
+        let is_group = message.chat_jid.ends_with("@g.us");
+        if is_group || message.push_name.is_some() {
+            Some(resolve_display_name(&message.sender_jid, None, message.push_name.as_deref()))
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
     rsx! {
         div {
             style: "max-width: 65%; padding: 8px 12px; margin: 4px 0; font-size: 14.5px; position: relative; box-shadow: 0 1px 0.5px rgba(11,20,26,0.13); {align_style}",
-            if !message.from_me {
-                if let Some(sender) = message.push_name.as_ref() {
-                    span {
-                        style: "font-size: 12.5px; font-weight: 600; color: #53bdeb; display: block; margin-bottom: 2px;",
-                        "{sender}"
-                    }
+            if let Some(sender) = sender_display {
+                span {
+                    style: "font-size: 12.5px; font-weight: 600; color: #53bdeb; display: block; margin-bottom: 2px;",
+                    "{sender}"
                 }
             }
             if let Some(text) = message.text.as_ref() {

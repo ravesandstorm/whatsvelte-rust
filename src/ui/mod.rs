@@ -1,7 +1,9 @@
+pub mod avatar;
 pub mod chat_list;
 pub mod chat_list_item;
 pub mod connection_status;
 pub mod conversation;
+pub mod jid_utils;
 pub mod loading_screen;
 pub mod main_layout;
 pub mod message_bubble;

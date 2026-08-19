@@ -138,9 +138,16 @@ fn convert_conversation(conv: wa::Conversation) -> HistoryDto {
         .or_else(|| last.map(|m| m.timestamp))
         .unwrap_or(0);
 
+    let other_push_name = messages
+        .iter()
+        .find(|m| !m.from_me)
+        .and_then(|m| m.push_name.clone());
+
+    let resolved_name = conv.name.or(other_push_name);
+
     let chat = ChatDto {
         jid: chat_jid,
-        name: conv.name,
+        name: resolved_name,
         last_message,
         timestamp,
         unread: conv.unread_count.unwrap_or(0),

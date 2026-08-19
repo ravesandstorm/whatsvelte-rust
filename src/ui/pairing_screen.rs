@@ -45,13 +45,16 @@ pub fn PairingScreen() -> Element {
 
     let refresh_qr = {
         let mgr = session_mgr.clone();
+        let mut app_state = app_state;
         move |_| {
             let mgr_clone = mgr.clone();
+            *app_state.qr_code.write() = None;
             spawn(async move {
-                let _ = crate::commands::auth::auth_start_qr(None, &mgr_clone).await;
+                let _ = mgr_clone.reset("default").await;
             });
         }
     };
+
 
     rsx! {
         div {

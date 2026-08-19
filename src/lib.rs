@@ -21,11 +21,12 @@ pub fn run_dioxus() {
 
     let custom_head = r##"
         <style>
-            html, body {
+            html, body, #main, #main > div {
                 margin: 0 !important;
                 padding: 0 !important;
                 width: 100% !important;
                 height: 100% !important;
+                min-height: 0 !important;
                 overflow: hidden !important;
                 background-color: #111b21 !important;
                 color: #e9edef !important;

@@ -2,6 +2,7 @@ use dioxus::prelude::*;
 use crate::state::AppState;
 use crate::ui::chat_list_item::ChatListItem;
 use crate::ui::connection_status::ConnectionStatus;
+use crate::ui::jid_utils::resolve_display_name;
 
 #[component]
 pub fn ChatList() -> Element {
@@ -14,17 +15,18 @@ pub fn ChatList() -> Element {
         if q.is_empty() {
             true
         } else {
-            c.name.as_deref().unwrap_or("").to_lowercase().contains(&q)
+            let resolved = resolve_display_name(&c.jid, c.name.as_deref(), None);
+            resolved.to_lowercase().contains(&q)
                 || c.jid.to_lowercase().contains(&q)
         }
     }).cloned().collect();
 
     rsx! {
         div {
-            style: "width: 30%; min-width: 320px; max-width: 450px; height: 100%; border-right: 1px solid #222e35; background-color: #111b21; display: flex; flex-direction: column;",
+            style: "width: 30%; min-width: 320px; max-width: 450px; height: 100%; min-height: 0; border-right: 1px solid #222e35; background-color: #111b21; display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;",
             // Header Bar
             div {
-                style: "height: 60px; padding: 10px 16px; background-color: #202c33; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #222e35;",
+                style: "height: 60px; min-height: 60px; padding: 10px 16px; background-color: #202c33; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #222e35; flex-shrink: 0; box-sizing: border-box;",
                 h2 { style: "font-size: 20px; font-weight: 600; color: #e9edef; margin: 0;", "Chats" }
                 div {
                     style: "display: flex; align-items: center; gap: 8px;",
@@ -40,7 +42,7 @@ pub fn ChatList() -> Element {
             }
             // Search Bar
             div {
-                style: "padding: 8px 12px; background-color: #111b21;",
+                style: "padding: 8px 12px; background-color: #111b21; flex-shrink: 0;",
                 input {
                     style: "width: 100%; height: 36px; background-color: #202c33; border: none; border-radius: 8px; padding: 0 12px; color: #e9edef; font-size: 14px; outline: none; box-sizing: border-box;",
                     placeholder: "Search or start new chat",
@@ -48,12 +50,12 @@ pub fn ChatList() -> Element {
                     oninput: move |e| search_query.set(e.value())
                 }
             }
-            // Chat List Items Container
+            // Chat List Items Container (Scrollable)
             div {
-                style: "flex: 1; overflow-y: auto;",
+                style: "flex: 1 1 0; min-height: 0; height: 0; overflow-y: auto; overflow-x: hidden;",
                 if filtered_chats.is_empty() {
                     div {
-                        style: "padding: 24px; text-align: center; color: #8696a0; font-size: 14px;",
+                        style: "padding: 32px 16px; text-align: center; color: #8696a0; font-size: 14px;",
                         "No chats found"
                     }
                 } else {
