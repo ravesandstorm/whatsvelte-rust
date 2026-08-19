@@ -2,6 +2,16 @@ use dioxus::prelude::*;
 use crate::dto::ChatDto;
 use crate::state::AppState;
 
+fn format_time(ts: i64) -> String {
+    if ts <= 0 {
+        return String::new();
+    }
+    let secs_in_day = (ts % 86400 + 86400) % 86400;
+    let hours = secs_in_day / 3600;
+    let mins = (secs_in_day % 3600) / 60;
+    format!("{:02}:{:02}", hours, mins)
+}
+
 #[component]
 pub fn ChatListItem(chat: ChatDto) -> Element {
     let mut app_state = use_context::<AppState>();
@@ -11,6 +21,7 @@ pub fn ChatListItem(chat: ChatDto) -> Element {
     let background = if is_active { "#2a3942" } else { "transparent" };
     let chat_clone = chat.clone();
     let jid_clone = chat.jid.clone();
+    let time_str = format_time(chat.timestamp);
 
     rsx! {
         div {
@@ -20,7 +31,7 @@ pub fn ChatListItem(chat: ChatDto) -> Element {
             },
             // Avatar
             div {
-                style: "width: 48px; height: 48px; border-radius: 50%; background-color: #6b7c85; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #ffffff; font-size: 18px;",
+                style: "width: 48px; height: 48px; border-radius: 50%; background-color: #6b7c85; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #ffffff; font-size: 18px; flex-shrink: 0;",
                 "{chat_clone.name.as_deref().and_then(|n| n.chars().next()).unwrap_or('?')}"
             }
             // Chat Details
@@ -32,10 +43,10 @@ pub fn ChatListItem(chat: ChatDto) -> Element {
                         style: "font-size: 16px; font-weight: 500; color: #e9edef; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;",
                         "{chat_clone.name.as_deref().unwrap_or(&chat_clone.jid)}"
                     }
-                    if chat_clone.timestamp > 0 {
+                    if !time_str.is_empty() {
                         span {
-                            style: "font-size: 12px; color: #8696a0;",
-                            "12:00"
+                            style: "font-size: 12px; color: #8696a0; flex-shrink: 0;",
+                            "{time_str}"
                         }
                     }
                 }
@@ -47,7 +58,7 @@ pub fn ChatListItem(chat: ChatDto) -> Element {
                     }
                     if chat_clone.unread > 0 {
                         span {
-                            style: "background-color: #00a884; color: #111b21; font-size: 12px; font-weight: bold; border-radius: 10px; padding: 2px 6px; min-width: 18px; text-align: center;",
+                            style: "background-color: #00a884; color: #111b21; font-size: 12px; font-weight: bold; border-radius: 10px; padding: 2px 6px; min-width: 18px; text-align: center; flex-shrink: 0;",
                             "{chat_clone.unread}"
                         }
                     }

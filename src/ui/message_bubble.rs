@@ -1,6 +1,16 @@
 use dioxus::prelude::*;
 use crate::dto::MessageDto;
 
+fn format_time(ts: i64) -> String {
+    if ts <= 0 {
+        return String::new();
+    }
+    let secs_in_day = (ts % 86400 + 86400) % 86400;
+    let hours = secs_in_day / 3600;
+    let mins = (secs_in_day % 3600) / 60;
+    format!("{:02}:{:02}", hours, mins)
+}
+
 #[component]
 pub fn MessageBubble(message: MessageDto) -> Element {
     let align_style = if message.from_me {
@@ -8,6 +18,8 @@ pub fn MessageBubble(message: MessageDto) -> Element {
     } else {
         "align-self: flex-start; background-color: #202c33; color: #e9edef; border-radius: 0px 8px 8px 8px;"
     };
+
+    let time_str = format_time(message.timestamp);
 
     rsx! {
         div {
@@ -25,7 +37,9 @@ pub fn MessageBubble(message: MessageDto) -> Element {
             }
             div {
                 style: "display: flex; justify-content: flex-end; align-items: center; gap: 4px; margin-top: 4px;",
-                span { style: "font-size: 11px; color: #8696a0;", "12:00" }
+                if !time_str.is_empty() {
+                    span { style: "font-size: 11px; color: #8696a0;", "{time_str}" }
+                }
                 if message.from_me {
                     span { style: "font-size: 11px; color: #53bdeb;", "✓✓" }
                 }

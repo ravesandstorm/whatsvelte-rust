@@ -12,6 +12,8 @@ use whatsapp_rust::wacore::types::events::ChannelEventHandler;
 use crate::bridge;
 use crate::error::{ApiError, ApiResult};
 
+use crate::dto::UiEvent;
+
 /// Session id used when the frontend doesn't specify one.
 pub const DEFAULT_SESSION: &str = "default";
 
@@ -32,14 +34,23 @@ pub struct SessionManager {
     sessions: Mutex<HashMap<String, Arc<Session>>>,
     /// Directory where per-session SQLite files live.
     base_dir: PathBuf,
+    event_tx: async_channel::Sender<(String, UiEvent)>,
+    event_rx: async_channel::Receiver<(String, UiEvent)>,
 }
 
 impl SessionManager {
     pub fn new(base_dir: PathBuf) -> Self {
+        let (event_tx, event_rx) = async_channel::unbounded();
         Self {
             sessions: Mutex::new(HashMap::new()),
             base_dir,
+            event_tx,
+            event_rx,
         }
+    }
+
+    pub fn event_receiver(&self) -> async_channel::Receiver<(String, UiEvent)> {
+        self.event_rx.clone()
     }
 
     /// Normalize an optional id to a concrete session id.
@@ -93,6 +104,10 @@ impl SessionManager {
     }
 
     async fn boot(&self, session_id: &str) -> ApiResult<Arc<Session>> {
+        if let Err(e) = std::fs::create_dir_all(&self.base_dir) {
+            log::warn!("failed to create session directory {}: {e}", self.base_dir.display());
+        }
+
         let db_path = self.base_dir.join(format!("whatsapp-{session_id}.db"));
         let db_str = db_path.to_string_lossy().to_string();
         log::info!("[{session_id}] booting session, db = {db_str}");
@@ -120,8 +135,9 @@ impl SessionManager {
         });
 
         let sid = session_id.to_string();
-        tokio::spawn(bridge::pump(sid, rx));
+        tokio::spawn(bridge::pump(sid, rx, self.event_tx.clone()));
 
         Ok(Arc::new(Session { run_task, client }))
     }
 }
+

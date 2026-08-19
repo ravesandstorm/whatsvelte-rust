@@ -11,7 +11,7 @@ pub fn MainLayout() -> Element {
 
     rsx! {
         div {
-            style: "width: 100vw; height: 100vh; display: flex; overflow: hidden; background-color: #111b21;",
+            style: "width: 100%; height: 100%; display: flex; overflow: hidden; background-color: #111b21;",
             ChatList {}
             Conversation {}
             if active_modal.as_deref() == Some("settings") {

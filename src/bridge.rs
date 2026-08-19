@@ -11,71 +11,82 @@ use std::sync::Arc;
 
 use async_channel::Receiver;
 use base64::Engine;
-use serde_json::{json, Value};
-use whatsapp_rust::prelude::{Event, EventKind, MessageInfo};
+use whatsapp_rust::prelude::{Event, MessageInfo};
 use whatsapp_rust::wacore::proto_helpers::MessageExt;
 use whatsapp_rust::waproto::whatsapp as wa;
 
 use crate::dto::{
     ChatDto, ChatFlagsDto, HistoryDto, MediaDescriptorDto, MediaDto, MessageDto, MessageUpdateDto,
-    QuotedDto, ReceiptDto,
+    QuotedDto, ReceiptDto, UiEvent,
 };
 
-/// Catch-all topic every event (except the noisy/streamed ones) is also emitted on.
-const GLOBAL_TOPIC: &str = "wa://event";
 
-pub async fn pump(session_id: String, rx: Receiver<Arc<Event>>) {
+pub async fn pump(
+    session_id: String,
+    rx: Receiver<Arc<Event>>,
+    ui_tx: async_channel::Sender<(String, UiEvent)>,
+) {
     log::info!("[{session_id}] event bridge started");
     while let Ok(event) = rx.recv().await {
-
-        let kind = event.kind();
-
-        let payload: Value = match event.as_ref() {
+        match event.as_ref() {
             Event::Message(msg, info) => {
                 if let Some(update) = message_update_dto(msg, info) {
                     log::debug!("[{session_id}] MessageUpdate: {update:?}");
+                    let _ = ui_tx.send((session_id.clone(), UiEvent::MessageUpdate(update))).await;
                     continue;
                 }
                 if msg.get_base_message().secret_encrypted_message.is_some() {
                     continue;
                 }
-                serde_json::to_value(message_dto_live(msg, info)).unwrap_or(Value::Null)
+                let dto = message_dto_live(msg, info);
+                let _ = ui_tx.send((session_id.clone(), UiEvent::NewMessage(dto))).await;
             }
             Event::HistorySync(lazy) => {
-                spawn_history_decode(&session_id, lazy);
-                continue;
+                spawn_history_decode(&session_id, lazy, ui_tx.clone());
             }
-            Event::Receipt(r) => match receipt_dto(r) {
-                Some(dto) => serde_json::to_value(dto).unwrap_or(Value::Null),
-                None => continue,
-            },
+            Event::Receipt(r) => {
+                if let Some(dto) = receipt_dto(r) {
+                    let _ = ui_tx.send((session_id.clone(), UiEvent::Receipt(dto))).await;
+                }
+            }
             Event::MuteUpdate(_) | Event::PinUpdate(_) | Event::ArchiveUpdate(_) => {
                 let dto = chat_flags_dto(event.as_ref());
-                log::debug!("[{session_id}] ChatFlags: {dto:?}");
-                continue;
+                let _ = ui_tx.send((session_id.clone(), UiEvent::ChatFlags(dto))).await;
             }
-            Event::DeleteMessageForMeUpdate(u) => {
-                log::debug!("[{session_id}] DeleteForMe: {u:?}");
-                continue;
+            Event::PairingQrCode { code, .. } => {
+                let _ = ui_tx.send((session_id.clone(), UiEvent::QrCode(code.clone()))).await;
             }
-            Event::PairingQrCode { code, timeout } => {
-                json!({ "code": code, "timeoutSecs": timeout.as_secs() })
+            Event::PairingCode { code, .. } => {
+                let _ = ui_tx.send((session_id.clone(), UiEvent::PairCode(code.clone()))).await;
             }
-            Event::PairingCode { code, timeout } => {
-                json!({ "code": code, "timeoutSecs": timeout.as_secs() })
+            Event::PairSuccess(_) => {
+                let _ = ui_tx.send((session_id.clone(), UiEvent::LoggedIn)).await;
             }
-            Event::Notification(_) | Event::RawNode(_) => continue,
-            other => serde_json::to_value(other).unwrap_or(Value::Null),
-        };
+            Event::Connected(_) => {
+                let _ = ui_tx.send((session_id.clone(), UiEvent::Connected)).await;
+            }
+            Event::Disconnected(_) => {
+                let _ = ui_tx.send((session_id.clone(), UiEvent::Disconnected)).await;
+            }
+            Event::LoggedOut(_) => {
+                let _ = ui_tx.send((session_id.clone(), UiEvent::LoggedOut)).await;
+            }
+            Event::PushNameUpdate(u) => {
+                let _ = ui_tx.send((session_id.clone(), UiEvent::PushName(u.message.push_name.clone()))).await;
+            }
 
-        log::debug!("[{session_id}] Event {kind:?}: {payload}");
+            _ => {}
+        }
     }
     log::info!("[{session_id}] event bridge stopped");
 }
 
+
+
 fn spawn_history_decode(
     session_id: &str,
     lazy: &whatsapp_rust::wacore::types::events::LazyHistorySync,
+    ui_tx: async_channel::Sender<(String, UiEvent)>,
 ) {
     let compressed = lazy.compressed_bytes().clone();
     let size = lazy.decompressed_size();
@@ -85,8 +96,10 @@ fn spawn_history_decode(
             .await
             .unwrap_or_default();
         log::info!("[{session_id}] history sync decoded: {} conversation(s)", chunks.len());
+        let _ = ui_tx.send((session_id, UiEvent::HistorySync(chunks))).await;
     });
 }
+
 
 
 fn decode_history(compressed: &[u8], size: usize) -> Vec<HistoryDto> {
@@ -699,25 +712,3 @@ fn thumbnail_b64(msg: &wa::Message) -> Option<String> {
     Some(base64::engine::general_purpose::STANDARD.encode(bytes))
 }
 
-/// Maps an event kind to its dedicated Tauri topic. Kinds without a dedicated
-/// topic fall through to the catch-all only.
-fn topic_for(kind: EventKind) -> &'static str {
-    match kind {
-        EventKind::PairingQrCode => "wa://auth/qr",
-        EventKind::PairingCode => "wa://auth/pair-code",
-        EventKind::PairSuccess => "wa://auth/paired",
-        EventKind::PairError => "wa://auth/pair-error",
-        EventKind::LoggedOut => "wa://auth/logged-out",
-        EventKind::Connected | EventKind::Disconnected => "wa://conn/state",
-        EventKind::Message => "wa://message",
-        EventKind::Receipt => "wa://receipt",
-        EventKind::Presence | EventKind::ChatPresence => "wa://presence",
-        EventKind::GroupUpdate => "wa://group/update",
-        EventKind::ContactUpdated | EventKind::PushNameUpdate => "wa://contact/update",
-        EventKind::IncomingCall => "wa://call",
-        EventKind::StreamError | EventKind::ConnectFailure | EventKind::TemporaryBan => {
-            "wa://error/stream"
-        }
-        _ => GLOBAL_TOPIC,
-    }
-}

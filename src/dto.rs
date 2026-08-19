@@ -190,3 +190,21 @@ pub struct ContactDto {
     pub lid: Option<String>,
     pub picture_url: Option<String>,
 }
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum UiEvent {
+    QrCode(String),
+    PairCode(String),
+    Connected,
+    LoggedIn,
+    Disconnected,
+    LoggedOut,
+    PushName(String),
+    NewMessage(MessageDto),
+    MessageUpdate(MessageUpdateDto),
+    Receipt(ReceiptDto),
+    ChatFlags(ChatFlagsDto),
+    HistorySync(Vec<HistoryDto>),
+}
+

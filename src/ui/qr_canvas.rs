@@ -1,26 +1,32 @@
 use dioxus::prelude::*;
 
 #[component]
-pub fn QrCanvas(code: String) -> Element {
+pub fn QrCanvas(code: ReadSignal<String>) -> Element {
+    use_effect(use_reactive(&code, move |c| {
+        let code_val = c.read().clone();
+        let js = format!(
+            r#"
+            (function() {{
+                function tryRender() {{
+                    if (window.renderQrCode) {{
+                        window.renderQrCode('qr-canvas-holder', {:?});
+                    }}
+                }}
+                tryRender();
+                setTimeout(tryRender, 50);
+            }})();
+            "#,
+            code_val
+        );
+        let _ = document::eval(&js);
+    }));
+
     rsx! {
         div {
-            style: "width: 264px; height: 264px; background: #ffffff; padding: 12px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15);",
-            svg {
-                width: "240",
-                height: "240",
-                view_box: "0 0 100 100",
-                rect { width: "100", height: "100", fill: "#ffffff" }
-                // QR code matrix placeholder rendering
-                text {
-                    x: "50",
-                    y: "50",
-                    dominant_baseline: "middle",
-                    text_anchor: "middle",
-                    fill: "#111b21",
-                    font_size: "6",
-                    font_family: "sans-serif",
-                    "Scan with WhatsApp"
-                }
+            style: "width: 264px; height: 264px; background: #ffffff; padding: 12px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15); box-sizing: border-box;",
+            div {
+                id: "qr-canvas-holder",
+                style: "width: 240px; height: 240px; display: flex; align-items: center; justify-content: center; overflow: hidden;",
             }
         }
     }
