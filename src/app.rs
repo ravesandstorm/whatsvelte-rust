@@ -1,12 +1,23 @@
 use std::sync::Arc;
 use std::collections::HashMap;
 use dioxus::prelude::*;
+use serde::Deserialize;
 use crate::state::AppState;
 use crate::session::SessionManager;
-use crate::dto::{ChatDto, StatusDto, UiEvent};
+use crate::dto::{ChatDto, ContactDto, MessageDto, StatusDto, UiEvent};
 use crate::ui::main_layout::MainLayout;
 use crate::ui::pairing_screen::PairingScreen;
 use crate::ui::loading_screen::LoadingScreen;
+
+#[derive(Deserialize)]
+struct CachedData {
+    #[serde(default)]
+    chats: Vec<ChatDto>,
+    #[serde(default)]
+    messages: Vec<MessageDto>,
+    #[serde(default)]
+    contacts: Vec<ContactDto>,
+}
 
 #[component]
 pub fn App() -> Element {
@@ -19,12 +30,50 @@ pub fn App() -> Element {
     });
 
     let session = app_state.session.read();
+    let has_chats = !app_state.chats.read().is_empty();
 
     use_future(move || {
         let mgr = session_mgr.clone();
         let mut app_state = app_state;
         async move {
-            // Check initial auth status and boot session if needed
+            // 1. Hydrate from IndexedDB cache immediately on startup
+            if let Ok(eval_val) = document::eval("return await window.whatsappDb.loadAll();").await {
+                if let Some(json_str) = eval_val.as_str() {
+                    if let Ok(cached) = serde_json::from_str::<CachedData>(json_str) {
+                        log::info!(
+                            "Hydrated from IndexedDB: {} chats, {} messages, {} contacts",
+                            cached.chats.len(),
+                            cached.messages.len(),
+                            cached.contacts.len()
+                        );
+                        if !cached.chats.is_empty() {
+                            let mut sorted_chats = cached.chats;
+                            sorted_chats.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+                            *app_state.chats.write() = sorted_chats;
+                        }
+                        if !cached.messages.is_empty() {
+                            let mut msgs_map: HashMap<String, Vec<MessageDto>> = HashMap::new();
+                            for m in cached.messages {
+                                msgs_map.entry(m.chat_jid.clone()).or_default().push(m);
+                            }
+                            for msgs in msgs_map.values_mut() {
+                                msgs.sort_by_key(|m| m.timestamp);
+                                msgs.dedup_by(|a, b| a.id == b.id);
+                            }
+                            *app_state.messages.write() = msgs_map;
+                        }
+                        if !cached.contacts.is_empty() {
+                            let mut contacts_map = HashMap::new();
+                            for c in cached.contacts {
+                                contacts_map.insert(c.jid.clone(), c);
+                            }
+                            *app_state.contacts.write() = contacts_map;
+                        }
+                    }
+                }
+            }
+
+            // 2. Check initial auth status and boot session if needed
             match crate::commands::auth::auth_status(None, &mgr).await {
                 Ok(status) => {
                     *app_state.session.write() = status;
@@ -34,6 +83,7 @@ pub fn App() -> Element {
                 }
             }
 
+            // 3. Process reactive events from backend
             let rx = mgr.event_receiver();
             while let Ok((_sid, event)) = rx.recv().await {
                 match event {
@@ -71,8 +121,13 @@ pub fn App() -> Element {
                         };
                         *app_state.chats.write() = Vec::new();
                         *app_state.messages.write() = HashMap::new();
+                        *app_state.contacts.write() = HashMap::new();
                         *app_state.qr_code.write() = None;
                         *app_state.pair_code.write() = None;
+                        *app_state.sync_progress.write() = None;
+
+                        // Clear IndexedDB cache
+                        let _ = document::eval("window.whatsappDb.clearAll();");
 
                         let mgr_reset = mgr.clone();
                         spawn(async move {
@@ -84,29 +139,83 @@ pub fn App() -> Element {
                     UiEvent::PushName(name) => {
                         app_state.session.write().push_name = Some(name);
                     }
+                    UiEvent::SyncProgress(progress) => {
+                        *app_state.sync_progress.write() = Some(progress);
+                    }
+                    UiEvent::ContactUpdate(contact) => {
+                        let jid = contact.jid.clone();
+                        let new_name = contact.verified_name.clone().or_else(|| contact.name.clone());
+                        app_state.contacts.write().insert(jid.clone(), contact.clone());
+
+                        // Update chat title if matching
+                        if let Some(name_str) = new_name {
+                            let mut chats = app_state.chats.write();
+                            if let Some(c) = chats.iter_mut().find(|c| c.jid == jid) {
+                                if c.name.is_none() || c.name.as_deref() == Some(&jid) {
+                                    c.name = Some(name_str);
+                                }
+                            }
+                        }
+
+                        // Persist to IndexedDB
+                        if let Ok(contact_json) = serde_json::to_string(&contact) {
+                            let js = format!("window.whatsappDb.saveContact({contact_json});");
+                            let _ = document::eval(&js);
+                        }
+                    }
+                    UiEvent::PictureUpdate { jid, url } => {
+                        let mut contacts = app_state.contacts.write();
+                        if let Some(c) = contacts.get_mut(&jid) {
+                            c.picture_url = url;
+                        } else {
+                            contacts.insert(
+                                jid.clone(),
+                                ContactDto {
+                                    jid: jid.clone(),
+                                    name: None,
+                                    verified_name: None,
+                                    lid: None,
+                                    picture_url: url,
+                                },
+                            );
+                        }
+                    }
                     UiEvent::NewMessage(msg) => {
                         let chat_jid = msg.chat_jid.clone();
                         let text_preview = msg.text.clone();
                         let ts = msg.timestamp;
                         let push_name = if !msg.from_me { msg.push_name.clone() } else { None };
 
-                        app_state.messages.write().entry(chat_jid.clone()).or_default().push(msg);
+                        app_state.messages.write().entry(chat_jid.clone()).or_default().push(msg.clone());
 
-                        let mut chats = app_state.chats.write();
-                        if let Some(existing) = chats.iter_mut().find(|c| c.jid == chat_jid) {
-                            existing.last_message = text_preview;
-                            existing.timestamp = ts;
-                            if existing.name.is_none() && push_name.is_some() {
-                                existing.name = push_name;
+                        let updated_chat = {
+                            let mut chats = app_state.chats.write();
+                            if let Some(existing) = chats.iter_mut().find(|c| c.jid == chat_jid) {
+                                existing.last_message = text_preview.clone();
+                                existing.timestamp = ts;
+                                if existing.name.is_none() && push_name.is_some() {
+                                    existing.name = push_name.clone();
+                                }
+                                existing.clone()
+                            } else {
+                                let new_chat = ChatDto {
+                                    jid: chat_jid,
+                                    name: push_name,
+                                    last_message: text_preview,
+                                    timestamp: ts,
+                                    unread: 0,
+                                };
+                                chats.insert(0, new_chat.clone());
+                                new_chat
                             }
-                        } else {
-                            chats.insert(0, ChatDto {
-                                jid: chat_jid,
-                                name: push_name,
-                                last_message: text_preview,
-                                timestamp: ts,
-                                unread: 0,
-                            });
+                        };
+
+                        // Persist to IndexedDB
+                        if let (Ok(msg_json), Ok(chat_json)) = (serde_json::to_string(&msg), serde_json::to_string(&updated_chat)) {
+                            let js = format!(
+                                "window.whatsappDb.saveMessages([{msg_json}]); window.whatsappDb.saveChats([{chat_json}]);"
+                            );
+                            let _ = document::eval(&js);
                         }
                     }
                     UiEvent::MessageUpdate(update) => {
@@ -122,6 +231,9 @@ pub fn App() -> Element {
                         }
                     }
                     UiEvent::HistorySync(history) => {
+                        let mut all_new_chats = Vec::new();
+                        let mut all_new_msgs = Vec::new();
+
                         let mut chats_map = HashMap::new();
                         for c in app_state.chats.read().iter() {
                             chats_map.insert(c.jid.clone(), c.clone());
@@ -129,6 +241,7 @@ pub fn App() -> Element {
                         let mut msgs_map = app_state.messages.write();
                         for h in history {
                             for c in h.chats {
+                                all_new_chats.push(c.clone());
                                 chats_map.entry(c.jid.clone())
                                     .and_modify(|existing: &mut ChatDto| {
                                         if existing.name.is_none() && c.name.is_some() {
@@ -142,6 +255,7 @@ pub fn App() -> Element {
                                     .or_insert(c);
                             }
                             for m in h.messages {
+                                all_new_msgs.push(m.clone());
                                 msgs_map.entry(m.chat_jid.clone()).or_default().push(m);
                             }
                         }
@@ -161,6 +275,20 @@ pub fn App() -> Element {
                         let mut new_chats: Vec<_> = chats_map.into_values().collect();
                         new_chats.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
                         *app_state.chats.write() = new_chats;
+
+                        // Update sync progress
+                        let added_count = all_new_msgs.len() as u32;
+                        if let Some(prog) = app_state.sync_progress.write().as_mut() {
+                            prog.loaded = (prog.loaded + added_count).min(prog.total.max(prog.loaded + added_count));
+                        }
+
+                        // Persist to IndexedDB
+                        if let (Ok(chats_json), Ok(msgs_json)) = (serde_json::to_string(&all_new_chats), serde_json::to_string(&all_new_msgs)) {
+                            let js = format!(
+                                "window.whatsappDb.saveChats({chats_json}); window.whatsappDb.saveMessages({msgs_json});"
+                            );
+                            let _ = document::eval(&js);
+                        }
                     }
                     UiEvent::ChatFlags(_) | UiEvent::Receipt(_) => {}
                 }
@@ -169,7 +297,7 @@ pub fn App() -> Element {
     });
 
     rsx! {
-        if session.logged_in {
+        if session.logged_in || (session.registered && has_chats) {
             MainLayout {}
         } else if session.registered {
             LoadingScreen {}

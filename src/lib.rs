@@ -611,6 +611,100 @@ pub fn run_dioxus() {
                     console.error("QR gen error:", e);
                 }
             };
+
+            // IndexedDB persistence for chats, messages, contacts
+            var DB_NAME = "whatsapp_dioxus_db";
+            var DB_VERSION = 1;
+            var _dbInstance = null;
+
+            function openDb() {
+                if (_dbInstance) return Promise.resolve(_dbInstance);
+                return new Promise(function(resolve, reject) {
+                    var req = indexedDB.open(DB_NAME, DB_VERSION);
+                    req.onupgradeneeded = function(e) {
+                        var db = e.target.result;
+                        if (!db.objectStoreNames.contains("chats")) {
+                            db.createObjectStore("chats", { keyPath: "jid" });
+                        }
+                        if (!db.objectStoreNames.contains("messages")) {
+                            var msgStore = db.createObjectStore("messages", { keyPath: "id" });
+                            msgStore.createIndex("chatJid", "chatJid", { unique: false });
+                            msgStore.createIndex("timestamp", "timestamp", { unique: false });
+                        }
+                        if (!db.objectStoreNames.contains("contacts")) {
+                            db.createObjectStore("contacts", { keyPath: "jid" });
+                        }
+                    };
+                    req.onsuccess = function(e) {
+                        _dbInstance = e.target.result;
+                        resolve(_dbInstance);
+                    };
+                    req.onerror = function(e) {
+                        console.error("IndexedDB open error:", e);
+                        reject(e.target.error);
+                    };
+                });
+            }
+
+            window.whatsappDb = {
+                saveChats: function(chats) {
+                    return openDb().then(function(db) {
+                        var tx = db.transaction(["chats"], "readwrite");
+                        var store = tx.objectStore("chats");
+                        for (var i = 0; i < chats.length; i++) {
+                            store.put(chats[i]);
+                        }
+                    }).catch(function(e) { console.error("saveChats error:", e); });
+                },
+                saveMessages: function(messages) {
+                    return openDb().then(function(db) {
+                        var tx = db.transaction(["messages"], "readwrite");
+                        var store = tx.objectStore("messages");
+                        for (var i = 0; i < messages.length; i++) {
+                            store.put(messages[i]);
+                        }
+                    }).catch(function(e) { console.error("saveMessages error:", e); });
+                },
+                saveContact: function(contact) {
+                    return openDb().then(function(db) {
+                        var tx = db.transaction(["contacts"], "readwrite");
+                        var store = tx.objectStore("contacts");
+                        store.put(contact);
+                    }).catch(function(e) { console.error("saveContact error:", e); });
+                },
+                loadAll: async function() {
+                    try {
+                        var db = await openDb();
+                        var chats = await new Promise(function(res) {
+                            var req = db.transaction("chats", "readonly").objectStore("chats").getAll();
+                            req.onsuccess = function() { res(req.result || []); };
+                            req.onerror = function() { res([]); };
+                        });
+                        var messages = await new Promise(function(res) {
+                            var req = db.transaction("messages", "readonly").objectStore("messages").getAll();
+                            req.onsuccess = function() { res(req.result || []); };
+                            req.onerror = function() { res([]); };
+                        });
+                        var contacts = await new Promise(function(res) {
+                            var req = db.transaction("contacts", "readonly").objectStore("contacts").getAll();
+                            req.onsuccess = function() { res(req.result || []); };
+                            req.onerror = function() { res([]); };
+                        });
+                        return JSON.stringify({ chats: chats, messages: messages, contacts: contacts });
+                    } catch(e) {
+                        console.error("loadAll error:", e);
+                        return JSON.stringify({ chats: [], messages: [], contacts: [] });
+                    }
+                },
+                clearAll: function() {
+                    return openDb().then(function(db) {
+                        var tx = db.transaction(["chats", "messages", "contacts"], "readwrite");
+                        tx.objectStore("chats").clear();
+                        tx.objectStore("messages").clear();
+                        tx.objectStore("contacts").clear();
+                    }).catch(function(e) { console.error("clearAll error:", e); });
+                }
+            };
         })();
         </script>
     "##;

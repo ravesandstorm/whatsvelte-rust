@@ -193,6 +193,15 @@ pub struct ContactDto {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SyncProgressDto {
+    pub title: String,
+    pub loaded: u32,
+    pub total: u32,
+    pub is_syncing: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum UiEvent {
     QrCode(String),
     PairCode(String),
@@ -206,5 +215,9 @@ pub enum UiEvent {
     Receipt(ReceiptDto),
     ChatFlags(ChatFlagsDto),
     HistorySync(Vec<HistoryDto>),
+    SyncProgress(SyncProgressDto),
+    ContactUpdate(ContactDto),
+    PictureUpdate { jid: String, url: Option<String> },
 }
+
 

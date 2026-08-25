@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use dioxus::prelude::*;
-use crate::dto::{ChatDto, ContactDto, MessageDto, StatusDto};
+use crate::dto::{ChatDto, ContactDto, MessageDto, StatusDto, SyncProgressDto};
 
 #[derive(Clone, Copy)]
 pub struct AppState {
@@ -11,6 +11,7 @@ pub struct AppState {
     pub active_chat_jid: Signal<Option<String>>,
     pub messages: Signal<HashMap<String, Vec<MessageDto>>>,
     pub contacts: Signal<HashMap<String, ContactDto>>,
+    pub sync_progress: Signal<Option<SyncProgressDto>>,
     pub dark_theme: Signal<bool>,
     pub active_modal: Signal<Option<String>>,
 }
@@ -32,6 +33,7 @@ impl AppState {
             active_chat_jid: Signal::new(None),
             messages: Signal::new(HashMap::new()),
             contacts: Signal::new(HashMap::new()),
+            sync_progress: Signal::new(None),
             dark_theme: Signal::new(true),
             active_modal: Signal::new(None),
         }

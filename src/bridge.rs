@@ -16,8 +16,8 @@ use whatsapp_rust::wacore::proto_helpers::MessageExt;
 use whatsapp_rust::waproto::whatsapp as wa;
 
 use crate::dto::{
-    ChatDto, ChatFlagsDto, HistoryDto, MediaDescriptorDto, MediaDto, MessageDto, MessageUpdateDto,
-    QuotedDto, ReceiptDto, UiEvent,
+    ChatDto, ChatFlagsDto, ContactDto, HistoryDto, MediaDescriptorDto, MediaDto, MessageDto,
+    MessageUpdateDto, QuotedDto, ReceiptDto, SyncProgressDto, UiEvent,
 };
 
 
@@ -43,6 +43,26 @@ pub async fn pump(
             }
             Event::HistorySync(lazy) => {
                 spawn_history_decode(&session_id, lazy, ui_tx.clone());
+            }
+            Event::OfflineSyncPreview(p) => {
+                log::info!("[{session_id}] Offline sync preview: total = {}", p.total);
+                let dto = SyncProgressDto {
+                    title: "Syncing messages...".to_string(),
+                    loaded: 0,
+                    total: p.total.max(0) as u32,
+                    is_syncing: true,
+                };
+                let _ = ui_tx.send((session_id.clone(), UiEvent::SyncProgress(dto))).await;
+            }
+            Event::OfflineSyncCompleted(c) => {
+                log::info!("[{session_id}] Offline sync completed: count = {}", c.count);
+                let dto = SyncProgressDto {
+                    title: "Sync complete".to_string(),
+                    loaded: c.count.max(0) as u32,
+                    total: c.count.max(0) as u32,
+                    is_syncing: false,
+                };
+                let _ = ui_tx.send((session_id.clone(), UiEvent::SyncProgress(dto))).await;
             }
             Event::Receipt(r) => {
                 if let Some(dto) = receipt_dto(r) {
@@ -71,8 +91,35 @@ pub async fn pump(
             Event::LoggedOut(_) => {
                 let _ = ui_tx.send((session_id.clone(), UiEvent::LoggedOut)).await;
             }
+            Event::ContactUpdate(u) => {
+                let jid = normalize_chat_jid(&u.jid.to_string());
+                let name = u.action.full_name.clone().or_else(|| u.action.first_name.clone()).or_else(|| u.action.username.clone());
+                let contact = ContactDto {
+                    jid: jid.clone(),
+                    name,
+                    verified_name: None,
+                    lid: u.action.lid_jid.clone(),
+                    picture_url: None,
+                };
+                let _ = ui_tx.send((session_id.clone(), UiEvent::ContactUpdate(contact))).await;
+            }
             Event::PushNameUpdate(u) => {
-                let _ = ui_tx.send((session_id.clone(), UiEvent::PushName(u.message.push_name.clone()))).await;
+                let jid = normalize_chat_jid(&u.jid.to_string());
+                let push_name = u.message.push_name.clone();
+                let contact = ContactDto {
+                    jid: jid.clone(),
+                    name: Some(push_name.clone()),
+                    verified_name: None,
+                    lid: None,
+                    picture_url: None,
+                };
+                let _ = ui_tx.send((session_id.clone(), UiEvent::ContactUpdate(contact))).await;
+                let _ = ui_tx.send((session_id.clone(), UiEvent::PushName(push_name))).await;
+            }
+            Event::PictureUpdate(u) => {
+                let jid = normalize_chat_jid(&u.jid.to_string());
+                let url = u.picture_id.clone();
+                let _ = ui_tx.send((session_id.clone(), UiEvent::PictureUpdate { jid, url })).await;
             }
 
             _ => {}
