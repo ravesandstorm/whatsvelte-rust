@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use dioxus::prelude::*;
 use serde::Deserialize;
 use crate::dto::MessageDto;
@@ -35,8 +35,17 @@ pub fn Conversation() -> Element {
                 if let Ok(eval_val) = document::eval(&js).await {
                     if let Some(json_str) = eval_val.as_str() {
                         if let Ok(resp) = serde_json::from_str::<MessagesResponse>(json_str) {
+                            let mut seen = HashSet::new();
+                            let mut unique_msgs = Vec::new();
+                            for m in resp.messages {
+                                if m.id.is_empty() || seen.insert(m.id.clone()) {
+                                    unique_msgs.push(m);
+                                }
+                            }
+                            unique_msgs.sort_by_key(|m| m.timestamp);
+
                             let mut map = HashMap::new();
-                            map.insert(jid.clone(), resp.messages);
+                            map.insert(jid.clone(), unique_msgs);
                             *app_state.messages.write() = map;
                             *app_state.has_more_messages.write() = resp.has_more;
                         }
