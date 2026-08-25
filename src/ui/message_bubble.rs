@@ -1,16 +1,7 @@
 use dioxus::prelude::*;
 use crate::dto::MessageDto;
 use crate::ui::jid_utils::resolve_display_name;
-
-fn format_time(ts: i64) -> String {
-    if ts <= 0 {
-        return String::new();
-    }
-    let secs_in_day = (ts % 86400 + 86400) % 86400;
-    let hours = secs_in_day / 3600;
-    let mins = (secs_in_day % 3600) / 60;
-    format!("{:02}:{:02}", hours, mins)
-}
+use crate::ui::time_utils::format_message_time;
 
 #[component]
 pub fn MessageBubble(message: MessageDto) -> Element {
@@ -20,7 +11,7 @@ pub fn MessageBubble(message: MessageDto) -> Element {
         "align-self: flex-start; background-color: #202c33; color: #e9edef; border-radius: 0px 8px 8px 8px;"
     };
 
-    let time_str = format_time(message.timestamp);
+    let time_str = format_message_time(message.timestamp);
 
     let sender_display = if !message.from_me {
         let is_group = message.chat_jid.ends_with("@g.us");

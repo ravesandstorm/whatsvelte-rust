@@ -12,3 +12,4 @@ pub mod message_list;
 pub mod pairing_screen;
 pub mod qr_canvas;
 pub mod settings_panel;
+pub mod time_utils;
