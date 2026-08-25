@@ -86,7 +86,8 @@ pub fn ChatList() -> Element {
             }
             // Chat List Items Container (Scrollable)
             div {
-                style: "flex: 1 1 0; min-height: 0; height: 0; overflow-y: auto; overflow-x: hidden;",
+                id: "chat-list-scroll",
+                style: "flex: 1 1 0; min-height: 0; height: 0; overflow-y: auto; overflow-x: hidden; scroll-behavior: smooth;",
                 if filtered_chats.is_empty() {
                     div {
                         style: "padding: 32px 16px; text-align: center; color: #8696a0; font-size: 14px;",

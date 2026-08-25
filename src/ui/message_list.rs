@@ -11,7 +11,7 @@ pub fn MessageList(messages: Vec<MessageDto>) -> Element {
             (function() {
                 var el = document.getElementById('message-list-scroll');
                 if (el) {
-                    el.scrollTop = el.scrollHeight;
+                    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
                 }
             })();
             "#
@@ -21,7 +21,7 @@ pub fn MessageList(messages: Vec<MessageDto>) -> Element {
     rsx! {
         div {
             id: "message-list-scroll",
-            style: "flex: 1 1 0; min-height: 0; height: 0; overflow-y: auto; overflow-x: hidden; padding: 20px 32px; display: flex; flex-direction: column; gap: 6px; background-color: #0b141a; background-image: radial-gradient(#1f2c34 1px, transparent 0); background-size: 20px 20px; box-sizing: border-box;",
+            style: "flex: 1 1 0; min-height: 0; height: 0; overflow-y: auto; overflow-x: hidden; scroll-behavior: smooth; padding: 20px 32px; display: flex; flex-direction: column; gap: 6px; background-color: #0b141a; background-image: radial-gradient(#1f2c34 1px, transparent 0); background-size: 20px 20px; box-sizing: border-box;",
             if messages.is_empty() {
                 div {
                     style: "margin: auto; text-align: center; color: #8696a0; font-size: 14px; background: rgba(17,27,33,0.8); padding: 10px 18px; border-radius: 8px; max-width: 480px;",

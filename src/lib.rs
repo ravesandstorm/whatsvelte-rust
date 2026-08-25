@@ -33,6 +33,7 @@ pub fn run_dioxus() {
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
                 -webkit-font-smoothing: antialiased;
                 user-select: none;
+                scroll-behavior: smooth;
             }
             *, *::before, *::after {
                 box-sizing: border-box !important;
@@ -41,6 +42,7 @@ pub fn run_dioxus() {
                 from { transform: rotate(0deg); }
                 to { transform: rotate(360deg); }
             }
+            /* Subtle, elegant smooth scrollbars */
             ::-webkit-scrollbar {
                 width: 6px;
                 height: 6px;
@@ -49,11 +51,12 @@ pub fn run_dioxus() {
                 background: transparent;
             }
             ::-webkit-scrollbar-thumb {
-                background: #374248;
-                border-radius: 3px;
+                background: rgba(134, 150, 160, 0.25);
+                border-radius: 4px;
+                transition: background-color 0.2s ease;
             }
             ::-webkit-scrollbar-thumb:hover {
-                background: #4a575e;
+                background: rgba(134, 150, 160, 0.45);
             }
             input, textarea, button {
                 font-family: inherit;
@@ -658,10 +661,38 @@ pub fn run_dioxus() {
                 },
                 saveMessages: function(messages) {
                     return openDb().then(function(db) {
-                        var tx = db.transaction(["messages"], "readwrite");
-                        var store = tx.objectStore("messages");
+                        var tx = db.transaction(["messages", "chats"], "readwrite");
+                        var msgStore = tx.objectStore("messages");
+                        var chatStore = tx.objectStore("chats");
                         for (var i = 0; i < messages.length; i++) {
-                            store.put(messages[i]);
+                            var m = messages[i];
+                            msgStore.put(m);
+                            if (m && m.chatJid) {
+                                (function(msg) {
+                                    var getReq = chatStore.get(msg.chatJid);
+                                    getReq.onsuccess = function() {
+                                        var existing = getReq.result;
+                                        if (existing) {
+                                            if (msg.timestamp >= (existing.timestamp || 0)) {
+                                                existing.lastMessage = msg.text || existing.lastMessage;
+                                                existing.timestamp = msg.timestamp;
+                                            }
+                                            if (!existing.name && msg.pushName && !msg.fromMe) {
+                                                existing.name = msg.pushName;
+                                            }
+                                            chatStore.put(existing);
+                                        } else {
+                                            chatStore.put({
+                                                jid: msg.chatJid,
+                                                name: (!msg.fromMe && msg.pushName) ? msg.pushName : null,
+                                                lastMessage: msg.text || null,
+                                                timestamp: msg.timestamp || 0,
+                                                unread: 0
+                                            });
+                                        }
+                                    };
+                                })(m);
+                            }
                         }
                     }).catch(function(e) { console.error("saveMessages error:", e); });
                 },
@@ -690,6 +721,22 @@ pub fn run_dioxus() {
                             req.onsuccess = function() { res(req.result || []); };
                             req.onerror = function() { res([]); };
                         });
+                        // Cross-reference any chats in messages that might not be in chats store
+                        var chatMap = {};
+                        for (var c of chats) { chatMap[c.jid] = c; }
+                        for (var m of messages) {
+                            if (m.chatJid && !chatMap[m.chatJid]) {
+                                var newChat = {
+                                    jid: m.chatJid,
+                                    name: (!m.fromMe && m.pushName) ? m.pushName : null,
+                                    lastMessage: m.text || null,
+                                    timestamp: m.timestamp || 0,
+                                    unread: 0
+                                };
+                                chatMap[m.chatJid] = newChat;
+                                chats.push(newChat);
+                            }
+                        }
                         return JSON.stringify({ chats: chats, messages: messages, contacts: contacts });
                     } catch(e) {
                         console.error("loadAll error:", e);

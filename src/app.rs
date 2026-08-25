@@ -46,22 +46,19 @@ pub fn App() -> Element {
                             cached.messages.len(),
                             cached.contacts.len()
                         );
-                        if !cached.chats.is_empty() {
-                            let mut sorted_chats = cached.chats;
-                            sorted_chats.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
-                            *app_state.chats.write() = sorted_chats;
+
+                        // 1. Process messages first so all conversation histories are indexed
+                        let mut msgs_map: HashMap<String, Vec<MessageDto>> = HashMap::new();
+                        for m in cached.messages {
+                            msgs_map.entry(m.chat_jid.clone()).or_default().push(m);
                         }
-                        if !cached.messages.is_empty() {
-                            let mut msgs_map: HashMap<String, Vec<MessageDto>> = HashMap::new();
-                            for m in cached.messages {
-                                msgs_map.entry(m.chat_jid.clone()).or_default().push(m);
-                            }
-                            for msgs in msgs_map.values_mut() {
-                                msgs.sort_by_key(|m| m.timestamp);
-                                msgs.dedup_by(|a, b| a.id == b.id);
-                            }
-                            *app_state.messages.write() = msgs_map;
+                        for msgs in msgs_map.values_mut() {
+                            msgs.sort_by_key(|m| m.timestamp);
+                            msgs.dedup_by(|a, b| a.id == b.id);
                         }
+                        *app_state.messages.write() = msgs_map.clone();
+
+                        // 2. Process contacts
                         if !cached.contacts.is_empty() {
                             let mut contacts_map = HashMap::new();
                             for c in cached.contacts {
@@ -69,6 +66,40 @@ pub fn App() -> Element {
                             }
                             *app_state.contacts.write() = contacts_map;
                         }
+
+                        // 3. Build comprehensive chat list from cached chats AND message histories
+                        let mut chats_map: HashMap<String, ChatDto> = HashMap::new();
+                        for c in cached.chats {
+                            chats_map.insert(c.jid.clone(), c);
+                        }
+
+                        for (jid, msgs) in msgs_map.iter() {
+                            if let Some(last_msg) = msgs.last() {
+                                chats_map.entry(jid.clone())
+                                    .and_modify(|c| {
+                                        if last_msg.timestamp >= c.timestamp {
+                                            c.last_message = last_msg.text.clone().or(c.last_message.clone());
+                                            c.timestamp = last_msg.timestamp;
+                                        }
+                                        if c.name.is_none() {
+                                            c.name = msgs.iter().find(|m| !m.from_me).and_then(|m| m.push_name.clone());
+                                        }
+                                    })
+                                    .or_insert_with(|| {
+                                        ChatDto {
+                                            jid: jid.clone(),
+                                            name: msgs.iter().find(|m| !m.from_me).and_then(|m| m.push_name.clone()),
+                                            last_message: last_msg.text.clone(),
+                                            timestamp: last_msg.timestamp,
+                                            unread: 0,
+                                        }
+                                    });
+                            }
+                        }
+
+                        let mut sorted_chats: Vec<_> = chats_map.into_values().collect();
+                        sorted_chats.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+                        *app_state.chats.write() = sorted_chats;
                     }
                 }
             }
