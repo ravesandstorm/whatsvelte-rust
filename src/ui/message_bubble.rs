@@ -42,6 +42,13 @@ pub fn MessageBubble(message: MessageDto) -> Element {
                     "{sender}"
                 }
             }
+            if let Some(thumb) = message.thumbnail.as_ref().filter(|t| !t.is_empty()) {
+                img {
+                    src: "data:image/jpeg;base64,{thumb}",
+                    alt: "Photo",
+                    style: "max-width: 100%; max-height: 280px; border-radius: 6px; object-fit: contain; margin-bottom: 6px; display: block; background-color: #111b21;",
+                }
+            }
             if let Some(text) = message.text.as_ref() {
                 p { style: "margin: 0; white-space: pre-wrap; word-break: break-word;", "{text}" }
             }

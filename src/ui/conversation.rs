@@ -1,17 +1,56 @@
+use std::collections::HashMap;
 use dioxus::prelude::*;
+use serde::Deserialize;
+use crate::dto::MessageDto;
 use crate::state::AppState;
 use crate::ui::avatar::Avatar;
 use crate::ui::jid_utils::resolve_display_name;
 use crate::ui::message_list::MessageList;
 use crate::ui::message_composer::MessageComposer;
 
+#[derive(Deserialize)]
+struct MessagesResponse {
+    #[serde(default)]
+    messages: Vec<MessageDto>,
+    #[serde(rename = "hasMore", default)]
+    has_more: bool,
+}
+
 #[component]
 pub fn Conversation() -> Element {
-    let app_state = use_context::<AppState>();
-    let active_jid = app_state.active_chat_jid.read();
+    let mut app_state = use_context::<AppState>();
+    let active_jid = app_state.active_chat_jid.read().clone();
     let chats = app_state.chats.read();
     let messages_map = app_state.messages.read();
     let contacts = app_state.contacts.read();
+
+    // Dynamically load initial 50 messages from IndexedDB whenever active chat changes
+    let active_jid_clone = active_jid.clone();
+    use_effect(use_reactive(&active_jid_clone, move |jid_opt| {
+        let mut app_state = app_state;
+        if let Some(jid) = jid_opt {
+            spawn(async move {
+                *app_state.is_loading_messages.write() = true;
+                let js = format!("return await window.whatsappDb.loadChatMessages({:?}, 50, null);", jid);
+                if let Ok(eval_val) = document::eval(&js).await {
+                    if let Some(json_str) = eval_val.as_str() {
+                        if let Ok(resp) = serde_json::from_str::<MessagesResponse>(json_str) {
+                            let mut map = HashMap::new();
+                            map.insert(jid.clone(), resp.messages);
+                            *app_state.messages.write() = map;
+                            *app_state.has_more_messages.write() = resp.has_more;
+                        }
+                    }
+                }
+                *app_state.is_loading_messages.write() = false;
+            });
+        } else {
+            // When chat is closed, clear messages from memory to minimize RAM usage
+            *app_state.messages.write() = HashMap::new();
+            *app_state.has_more_messages.write() = false;
+            *app_state.is_loading_messages.write() = false;
+        }
+    }));
 
     if let Some(jid) = active_jid.as_ref() {
         let active_chat = chats.iter().find(|c| c.jid == *jid);
@@ -32,6 +71,7 @@ pub fn Conversation() -> Element {
                         Avatar {
                             jid: jid.clone(),
                             name: Some(display_name.clone()),
+                            picture_url: contact.and_then(|c| c.picture_url.clone()),
                             size: 40,
                         }
                         div {
@@ -42,9 +82,17 @@ pub fn Conversation() -> Element {
                             }
                         }
                     }
+                    button {
+                        style: "background: none; border: none; font-size: 18px; color: #8696a0; cursor: pointer; padding: 6px; border-radius: 50%; display: flex; align-items: center; justify-content: center;",
+                        onclick: move |_| {
+                            *app_state.active_chat_jid.write() = None;
+                            *app_state.messages.write() = HashMap::new();
+                        },
+                        "✕"
+                    }
                 }
-                // Message List Area (Scrollable flex item)
-                MessageList { messages: message_history }
+                // Message List Area (Scrollable flex item with dynamic pagination)
+                MessageList { chat_jid: jid.clone(), messages: message_history }
                 // Message Input Composer (Locked at bottom)
                 MessageComposer {}
             }

@@ -44,6 +44,7 @@ fn extract_initials(name: &str) -> Option<String> {
 pub fn Avatar(
     jid: String,
     name: Option<String>,
+    #[props(default = None)] picture_url: Option<String>,
     #[props(default = 48)] size: u32,
 ) -> Element {
     let bg_color = get_avatar_color(&jid);
@@ -56,7 +57,13 @@ pub fn Avatar(
     rsx! {
         div {
             style: "width: {size}px; height: {size}px; border-radius: 50%; background-color: {bg_color}; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #ffffff; font-size: {font_size}px; flex-shrink: 0; position: relative; overflow: hidden; user-select: none; box-shadow: 0 1px 3px rgba(0,0,0,0.2);",
-            if is_group {
+            if let Some(url) = picture_url.as_ref().filter(|u| !u.is_empty()) {
+                img {
+                    src: "{url}",
+                    alt: "Profile photo",
+                    style: "width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block;",
+                }
+            } else if is_group {
                 // Group Icon
                 svg {
                     view_box: "0 0 24 24",

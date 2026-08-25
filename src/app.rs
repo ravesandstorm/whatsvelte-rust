@@ -1,10 +1,11 @@
 use std::sync::Arc;
 use std::collections::HashMap;
+use std::time::Duration;
 use dioxus::prelude::*;
 use serde::Deserialize;
 use crate::state::AppState;
 use crate::session::SessionManager;
-use crate::dto::{ChatDto, ContactDto, MessageDto, StatusDto, UiEvent};
+use crate::dto::{ChatDto, ContactDto, StatusDto, UiEvent};
 use crate::ui::main_layout::MainLayout;
 use crate::ui::pairing_screen::PairingScreen;
 use crate::ui::loading_screen::LoadingScreen;
@@ -13,8 +14,6 @@ use crate::ui::loading_screen::LoadingScreen;
 struct CachedData {
     #[serde(default)]
     chats: Vec<ChatDto>,
-    #[serde(default)]
-    messages: Vec<MessageDto>,
     #[serde(default)]
     contacts: Vec<ContactDto>,
 }
@@ -36,29 +35,16 @@ pub fn App() -> Element {
         let mgr = session_mgr.clone();
         let mut app_state = app_state;
         async move {
-            // 1. Hydrate from IndexedDB cache immediately on startup
+            // 1. Hydrate chats and contacts from IndexedDB cache immediately on startup (keep messages unloaded)
             if let Ok(eval_val) = document::eval("return await window.whatsappDb.loadAll();").await {
                 if let Some(json_str) = eval_val.as_str() {
                     if let Ok(cached) = serde_json::from_str::<CachedData>(json_str) {
                         log::info!(
-                            "Hydrated from IndexedDB: {} chats, {} messages, {} contacts",
+                            "Hydrated from IndexedDB: {} chats, {} contacts",
                             cached.chats.len(),
-                            cached.messages.len(),
                             cached.contacts.len()
                         );
 
-                        // 1. Process messages first so all conversation histories are indexed
-                        let mut msgs_map: HashMap<String, Vec<MessageDto>> = HashMap::new();
-                        for m in cached.messages {
-                            msgs_map.entry(m.chat_jid.clone()).or_default().push(m);
-                        }
-                        for msgs in msgs_map.values_mut() {
-                            msgs.sort_by_key(|m| m.timestamp);
-                            msgs.dedup_by(|a, b| a.id == b.id);
-                        }
-                        *app_state.messages.write() = msgs_map.clone();
-
-                        // 2. Process contacts
                         if !cached.contacts.is_empty() {
                             let mut contacts_map = HashMap::new();
                             for c in cached.contacts {
@@ -67,39 +53,11 @@ pub fn App() -> Element {
                             *app_state.contacts.write() = contacts_map;
                         }
 
-                        // 3. Build comprehensive chat list from cached chats AND message histories
-                        let mut chats_map: HashMap<String, ChatDto> = HashMap::new();
-                        for c in cached.chats {
-                            chats_map.insert(c.jid.clone(), c);
+                        if !cached.chats.is_empty() {
+                            let mut sorted_chats = cached.chats;
+                            sorted_chats.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+                            *app_state.chats.write() = sorted_chats;
                         }
-
-                        for (jid, msgs) in msgs_map.iter() {
-                            if let Some(last_msg) = msgs.last() {
-                                chats_map.entry(jid.clone())
-                                    .and_modify(|c| {
-                                        if last_msg.timestamp >= c.timestamp {
-                                            c.last_message = last_msg.text.clone().or(c.last_message.clone());
-                                            c.timestamp = last_msg.timestamp;
-                                        }
-                                        if c.name.is_none() {
-                                            c.name = msgs.iter().find(|m| !m.from_me).and_then(|m| m.push_name.clone());
-                                        }
-                                    })
-                                    .or_insert_with(|| {
-                                        ChatDto {
-                                            jid: jid.clone(),
-                                            name: msgs.iter().find(|m| !m.from_me).and_then(|m| m.push_name.clone()),
-                                            last_message: last_msg.text.clone(),
-                                            timestamp: last_msg.timestamp,
-                                            unread: 0,
-                                        }
-                                    });
-                            }
-                        }
-
-                        let mut sorted_chats: Vec<_> = chats_map.into_values().collect();
-                        sorted_chats.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
-                        *app_state.chats.write() = sorted_chats;
                     }
                 }
             }
@@ -107,7 +65,19 @@ pub fn App() -> Element {
             // 2. Check initial auth status and boot session if needed
             match crate::commands::auth::auth_status(None, &mgr).await {
                 Ok(status) => {
+                    let is_reg = status.registered;
                     *app_state.session.write() = status;
+
+                    // Safety timeout: If registered and chats exist, transition to logged_in smoothly
+                    if is_reg {
+                        let mut app_state_inner = app_state;
+                        spawn(async move {
+                            tokio::time::sleep(Duration::from_secs(3)).await;
+                            if !app_state_inner.chats.read().is_empty() {
+                                app_state_inner.session.write().logged_in = true;
+                            }
+                        });
+                    }
                 }
                 Err(e) => {
                     log::error!("Initial auth status error: {e}");
@@ -171,7 +141,17 @@ pub fn App() -> Element {
                         app_state.session.write().push_name = Some(name);
                     }
                     UiEvent::SyncProgress(progress) => {
-                        *app_state.sync_progress.write() = Some(progress);
+                        let is_done = !progress.is_syncing || (progress.total > 0 && progress.loaded >= progress.total);
+                        *app_state.sync_progress.write() = Some(progress.clone());
+
+                        if is_done {
+                            app_state.session.write().logged_in = true;
+                            let mut app_state_inner = app_state;
+                            spawn(async move {
+                                tokio::time::sleep(Duration::from_millis(1500)).await;
+                                *app_state_inner.sync_progress.write() = None;
+                            });
+                        }
                     }
                     UiEvent::ContactUpdate(contact) => {
                         let jid = contact.jid.clone();
@@ -217,7 +197,11 @@ pub fn App() -> Element {
                         let ts = msg.timestamp;
                         let push_name = if !msg.from_me { msg.push_name.clone() } else { None };
 
-                        app_state.messages.write().entry(chat_jid.clone()).or_default().push(msg.clone());
+                        // Only append to in-memory messages if this is the active chat
+                        let is_active = app_state.active_chat_jid.read().as_deref() == Some(&chat_jid);
+                        if is_active {
+                            app_state.messages.write().entry(chat_jid.clone()).or_default().push(msg.clone());
+                        }
 
                         let updated_chat = {
                             let mut chats = app_state.chats.write();
@@ -240,6 +224,9 @@ pub fn App() -> Element {
                                 new_chat
                             }
                         };
+
+                        // Sort chats so active chat rises to top
+                        app_state.chats.write().sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
 
                         // Persist to IndexedDB
                         if let (Ok(msg_json), Ok(chat_json)) = (serde_json::to_string(&msg), serde_json::to_string(&updated_chat)) {
@@ -264,12 +251,13 @@ pub fn App() -> Element {
                     UiEvent::HistorySync(history) => {
                         let mut all_new_chats = Vec::new();
                         let mut all_new_msgs = Vec::new();
+                        let active_jid = app_state.active_chat_jid.read().clone();
 
                         let mut chats_map = HashMap::new();
                         for c in app_state.chats.read().iter() {
                             chats_map.insert(c.jid.clone(), c.clone());
                         }
-                        let mut msgs_map = app_state.messages.write();
+
                         for h in history {
                             for c in h.chats {
                                 all_new_chats.push(c.clone());
@@ -286,26 +274,19 @@ pub fn App() -> Element {
                                     .or_insert(c);
                             }
                             for m in h.messages {
-                                all_new_msgs.push(m.clone());
-                                msgs_map.entry(m.chat_jid.clone()).or_default().push(m);
-                            }
-                        }
-                        for msgs in msgs_map.values_mut() {
-                            msgs.sort_by_key(|m| m.timestamp);
-                            msgs.dedup_by(|a, b| a.id == b.id);
-                        }
-                        for (jid, msgs) in msgs_map.iter() {
-                            if let Some(chat) = chats_map.get_mut(jid) {
-                                if chat.name.is_none() {
-                                    if let Some(pname) = msgs.iter().find(|m| !m.from_me).and_then(|m| m.push_name.clone()) {
-                                        chat.name = Some(pname);
+                                // Only keep in memory if it belongs to currently open active chat
+                                if let Some(active) = active_jid.as_ref() {
+                                    if &m.chat_jid == active {
+                                        app_state.messages.write().entry(m.chat_jid.clone()).or_default().push(m.clone());
                                     }
                                 }
+                                all_new_msgs.push(m);
                             }
                         }
+
                         let mut new_chats: Vec<_> = chats_map.into_values().collect();
                         new_chats.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
-                        *app_state.chats.write() = new_chats;
+                        *app_state.chats.write() = new_chats.clone();
 
                         // Update sync progress
                         let added_count = all_new_msgs.len() as u32;
@@ -314,7 +295,7 @@ pub fn App() -> Element {
                         }
 
                         // Persist to IndexedDB
-                        if let (Ok(chats_json), Ok(msgs_json)) = (serde_json::to_string(&all_new_chats), serde_json::to_string(&all_new_msgs)) {
+                        if let (Ok(chats_json), Ok(msgs_json)) = (serde_json::to_string(&new_chats), serde_json::to_string(&all_new_msgs)) {
                             let js = format!(
                                 "window.whatsappDb.saveChats({chats_json}); window.whatsappDb.saveMessages({msgs_json});"
                             );

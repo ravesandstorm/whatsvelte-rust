@@ -40,6 +40,7 @@ pub fn ChatListItem(chat: ChatDto) -> Element {
             Avatar {
                 jid: chat_clone.jid.clone(),
                 name: Some(display_name.clone()),
+                picture_url: contact.and_then(|c| c.picture_url.clone()),
                 size: 48,
             }
             // Chat Details

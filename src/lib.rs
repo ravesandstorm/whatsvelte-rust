@@ -703,6 +703,32 @@ pub fn run_dioxus() {
                         store.put(contact);
                     }).catch(function(e) { console.error("saveContact error:", e); });
                 },
+                loadChatMessages: async function(chatJid, limit, beforeTimestamp) {
+                    try {
+                        var db = await openDb();
+                        var tx = db.transaction("messages", "readonly");
+                        var store = tx.objectStore("messages");
+                        var index = store.index("chatJid");
+                        var req = index.getAll(chatJid);
+                        var allMsgs = await new Promise(function(res) {
+                            req.onsuccess = function() { res(req.result || []); };
+                            req.onerror = function() { res([]); };
+                        });
+                        allMsgs.sort(function(a, b) { return a.timestamp - b.timestamp; });
+                        if (beforeTimestamp && beforeTimestamp > 0) {
+                            allMsgs = allMsgs.filter(function(m) { return m.timestamp < beforeTimestamp; });
+                        }
+                        var count = allMsgs.length;
+                        var lim = limit || 50;
+                        var start = Math.max(0, count - lim);
+                        var slice = allMsgs.slice(start, count);
+                        var hasMore = start > 0;
+                        return JSON.stringify({ messages: slice, hasMore: hasMore });
+                    } catch(e) {
+                        console.error("loadChatMessages error:", e);
+                        return JSON.stringify({ messages: [], hasMore: false });
+                    }
+                },
                 loadAll: async function() {
                     try {
                         var db = await openDb();
@@ -711,36 +737,15 @@ pub fn run_dioxus() {
                             req.onsuccess = function() { res(req.result || []); };
                             req.onerror = function() { res([]); };
                         });
-                        var messages = await new Promise(function(res) {
-                            var req = db.transaction("messages", "readonly").objectStore("messages").getAll();
-                            req.onsuccess = function() { res(req.result || []); };
-                            req.onerror = function() { res([]); };
-                        });
                         var contacts = await new Promise(function(res) {
                             var req = db.transaction("contacts", "readonly").objectStore("contacts").getAll();
                             req.onsuccess = function() { res(req.result || []); };
                             req.onerror = function() { res([]); };
                         });
-                        // Cross-reference any chats in messages that might not be in chats store
-                        var chatMap = {};
-                        for (var c of chats) { chatMap[c.jid] = c; }
-                        for (var m of messages) {
-                            if (m.chatJid && !chatMap[m.chatJid]) {
-                                var newChat = {
-                                    jid: m.chatJid,
-                                    name: (!m.fromMe && m.pushName) ? m.pushName : null,
-                                    lastMessage: m.text || null,
-                                    timestamp: m.timestamp || 0,
-                                    unread: 0
-                                };
-                                chatMap[m.chatJid] = newChat;
-                                chats.push(newChat);
-                            }
-                        }
-                        return JSON.stringify({ chats: chats, messages: messages, contacts: contacts });
+                        return JSON.stringify({ chats: chats, contacts: contacts });
                     } catch(e) {
                         console.error("loadAll error:", e);
-                        return JSON.stringify({ chats: [], messages: [], contacts: [] });
+                        return JSON.stringify({ chats: [], contacts: [] });
                     }
                 },
                 clearAll: function() {
