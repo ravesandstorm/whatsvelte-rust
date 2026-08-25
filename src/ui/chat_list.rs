@@ -8,14 +8,25 @@ use crate::ui::jid_utils::resolve_display_name;
 pub fn ChatList() -> Element {
     let mut app_state = use_context::<AppState>();
     let chats = app_state.chats.read();
+    let sync_progress = app_state.sync_progress.read();
+    let contacts = app_state.contacts.read();
     let mut search_query = use_signal(String::new);
+
+    let sync_pct = sync_progress.as_ref().map(|p| {
+        if p.total > 0 {
+            ((p.loaded as f32 / p.total as f32) * 100.0).min(100.0) as u32
+        } else {
+            0
+        }
+    }).unwrap_or(0);
 
     let filtered_chats: Vec<_> = chats.iter().filter(|c| {
         let q = search_query.read().to_lowercase();
         if q.is_empty() {
             true
         } else {
-            let resolved = resolve_display_name(&c.jid, c.name.as_deref(), None);
+            let contact_name = contacts.get(&c.jid).and_then(|contact| contact.verified_name.as_deref().or(contact.name.as_deref()));
+            let resolved = resolve_display_name(&c.jid, contact_name.or(c.name.as_deref()), None);
             resolved.to_lowercase().contains(&q)
                 || c.jid.to_lowercase().contains(&q)
         }
@@ -37,6 +48,29 @@ pub fn ChatList() -> Element {
                             *app_state.active_modal.write() = Some("settings".to_string());
                         },
                         "⚙"
+                    }
+                }
+            }
+            // Syncing Status Banner (if background sync is active)
+            if let Some(p) = sync_progress.as_ref() {
+                if p.is_syncing {
+                    div {
+                        style: "background-color: #1f2c34; padding: 6px 12px; border-bottom: 1px solid #222e35; display: flex; flex-direction: column; gap: 4px; flex-shrink: 0;",
+                        div {
+                            style: "display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: #53bdeb;",
+                            span { "🔄 {p.title}" }
+                            if p.total > 0 {
+                                span { "{p.loaded}/{p.total} ({sync_pct}%)" }
+                            }
+                        }
+                        if p.total > 0 {
+                            div {
+                                style: "width: 100%; height: 3px; background-color: #111b21; border-radius: 2px; overflow: hidden;",
+                                div {
+                                    style: "height: 100%; width: {sync_pct}%; background-color: #00a884; transition: width 0.2s ease;",
+                                }
+                            }
+                        }
                     }
                 }
             }

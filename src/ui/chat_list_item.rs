@@ -19,13 +19,16 @@ pub fn ChatListItem(chat: ChatDto) -> Element {
     let mut app_state = use_context::<AppState>();
     let active_jid = app_state.active_chat_jid.read();
     let is_active = active_jid.as_deref() == Some(&chat.jid);
+    let contacts = app_state.contacts.read();
     
     let background = if is_active { "#2a3942" } else { "transparent" };
     let chat_clone = chat.clone();
     let jid_clone = chat.jid.clone();
     let time_str = format_time(chat.timestamp);
 
-    let display_name = resolve_display_name(&chat.jid, chat.name.as_deref(), None);
+    let contact = contacts.get(&chat.jid);
+    let contact_name = contact.and_then(|c| c.verified_name.as_deref().or(c.name.as_deref()));
+    let display_name = resolve_display_name(&chat.jid, contact_name.or(chat.name.as_deref()), None);
 
     rsx! {
         div {

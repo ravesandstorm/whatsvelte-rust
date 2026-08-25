@@ -11,12 +11,15 @@ pub fn Conversation() -> Element {
     let active_jid = app_state.active_chat_jid.read();
     let chats = app_state.chats.read();
     let messages_map = app_state.messages.read();
+    let contacts = app_state.contacts.read();
 
     if let Some(jid) = active_jid.as_ref() {
         let active_chat = chats.iter().find(|c| c.jid == *jid);
+        let contact = contacts.get(jid);
+        let contact_name = contact.and_then(|c| c.verified_name.as_deref().or(c.name.as_deref()));
         let message_history = messages_map.get(jid).cloned().unwrap_or_default();
         let fallback_push = message_history.iter().find(|m| !m.from_me).and_then(|m| m.push_name.as_deref());
-        let display_name = resolve_display_name(jid, active_chat.and_then(|c| c.name.as_deref()), fallback_push);
+        let display_name = resolve_display_name(jid, contact_name.or(active_chat.and_then(|c| c.name.as_deref())), fallback_push);
 
         rsx! {
             div {
