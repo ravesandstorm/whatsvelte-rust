@@ -38,6 +38,7 @@ pub fn MessageComposer() -> Element {
                     thumbnail: None,
                     media: None,
                     quoted: None,
+                    status: Some("sent".to_string()),
                 };
 
                 // Optimistic UI update

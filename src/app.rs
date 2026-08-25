@@ -177,7 +177,7 @@ pub fn App() -> Element {
                     UiEvent::PictureUpdate { jid, url } => {
                         let mut contacts = app_state.contacts.write();
                         if let Some(c) = contacts.get_mut(&jid) {
-                            c.picture_url = url;
+                            c.picture_url = url.clone();
                         } else {
                             contacts.insert(
                                 jid.clone(),
@@ -186,9 +186,12 @@ pub fn App() -> Element {
                                     name: None,
                                     verified_name: None,
                                     lid: None,
-                                    picture_url: url,
+                                    picture_url: url.clone(),
                                 },
                             );
+                        }
+                        if let Ok(c_json) = serde_json::to_string(&contacts.get(&jid)) {
+                            let _ = document::eval(&format!("window.whatsappDb.saveContact({c_json});"));
                         }
                     }
                     UiEvent::NewMessage(msg) => {
@@ -225,7 +228,7 @@ pub fn App() -> Element {
                             }
                         };
 
-                        // Sort chats so active chat rises to top
+                        // Sort chats by date and time (newest timestamp first)
                         app_state.chats.write().sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
 
                         // Persist to IndexedDB
@@ -302,7 +305,17 @@ pub fn App() -> Element {
                             let _ = document::eval(&js);
                         }
                     }
-                    UiEvent::ChatFlags(_) | UiEvent::Receipt(_) => {}
+                    UiEvent::Receipt(receipt) => {
+                        let mut messages_map = app_state.messages.write();
+                        if let Some(msgs) = messages_map.get_mut(&receipt.chat_jid) {
+                            for msg in msgs.iter_mut() {
+                                if receipt.message_ids.contains(&msg.id) {
+                                    msg.status = Some(receipt.status.clone());
+                                }
+                            }
+                        }
+                    }
+                    UiEvent::ChatFlags(_) => {}
                 }
             }
         }

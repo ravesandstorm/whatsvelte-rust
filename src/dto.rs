@@ -101,6 +101,9 @@ pub struct MessageDto {
     pub media: Option<MediaDto>,
     /// The quoted message, when this is a reply.
     pub quoted: Option<QuotedDto>,
+    /// "pending" | "sent" | "delivered" | "read" | "played"
+    #[serde(default)]
+    pub status: Option<String>,
 }
 
 /// One chat row for the sidebar.

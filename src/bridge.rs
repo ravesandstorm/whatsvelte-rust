@@ -301,6 +301,7 @@ fn message_dto_live(msg: &wa::Message, info: &MessageInfo) -> MessageDto {
         thumbnail: thumbnail_b64(msg),
         media: media_dto(msg),
         quoted: quoted_dto(msg),
+        status: Some(if info.source.is_from_me { "sent".to_string() } else { "delivered".to_string() }),
     }
 }
 
@@ -336,6 +337,7 @@ fn message_dto_history(chat_jid: &str, wmi: &wa::WebMessageInfo) -> MessageDto {
         thumbnail,
         media,
         quoted,
+        status: Some(if from_me { "read".to_string() } else { "delivered".to_string() }),
     }
 }
 

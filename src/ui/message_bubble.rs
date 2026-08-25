@@ -33,6 +33,8 @@ pub fn MessageBubble(message: MessageDto) -> Element {
         None
     };
 
+    let status_str = message.status.as_deref().unwrap_or("sent");
+
     rsx! {
         div {
             style: "max-width: 65%; padding: 8px 12px; margin: 4px 0; font-size: 14.5px; position: relative; box-shadow: 0 1px 0.5px rgba(11,20,26,0.13); {align_style}",
@@ -58,7 +60,12 @@ pub fn MessageBubble(message: MessageDto) -> Element {
                     span { style: "font-size: 11px; color: #8696a0;", "{time_str}" }
                 }
                 if message.from_me {
-                    span { style: "font-size: 11px; color: #53bdeb;", "✓✓" }
+                    match status_str {
+                        "read" | "played" => rsx! { span { style: "font-size: 11px; color: #53bdeb;", "✓✓" } },
+                        "delivered" => rsx! { span { style: "font-size: 11px; color: #8696a0;", "✓✓" } },
+                        "pending" => rsx! { span { style: "font-size: 10px; color: #8696a0;", "🕒" } },
+                        _ => rsx! { span { style: "font-size: 11px; color: #8696a0;", "✓" } },
+                    }
                 }
             }
         }

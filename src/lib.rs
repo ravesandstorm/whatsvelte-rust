@@ -33,7 +33,10 @@ pub fn run_dioxus() {
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
                 -webkit-font-smoothing: antialiased;
                 user-select: none;
-                scroll-behavior: smooth;
+            }
+            #chat-list-scroll, #message-list-scroll {
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior: contain;
             }
             *, *::before, *::after {
                 box-sizing: border-box !important;

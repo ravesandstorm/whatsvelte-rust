@@ -1,8 +1,10 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use dioxus::prelude::*;
 use serde::Deserialize;
-use crate::dto::MessageDto;
+use crate::dto::{ContactDto, MessageDto};
 use crate::state::AppState;
+use crate::session::SessionManager;
 use crate::ui::avatar::Avatar;
 use crate::ui::jid_utils::resolve_display_name;
 use crate::ui::message_list::MessageList;
@@ -19,6 +21,7 @@ struct MessagesResponse {
 #[component]
 pub fn Conversation() -> Element {
     let mut app_state = use_context::<AppState>();
+    let session_mgr = use_context::<Arc<SessionManager>>();
     let active_jid = app_state.active_chat_jid.read().clone();
     let chats = app_state.chats.read();
     let messages_map = app_state.messages.read();
@@ -28,7 +31,9 @@ pub fn Conversation() -> Element {
     let active_jid_clone = active_jid.clone();
     use_effect(use_reactive(&active_jid_clone, move |jid_opt| {
         let mut app_state = app_state;
+        let mgr = session_mgr.clone();
         if let Some(jid) = jid_opt {
+            let jid_for_pic = jid.clone();
             spawn(async move {
                 *app_state.is_loading_messages.write() = true;
                 let js = format!("return await window.whatsappDb.loadChatMessages({:?}, 50, null);", jid);
@@ -52,6 +57,28 @@ pub fn Conversation() -> Element {
                     }
                 }
                 *app_state.is_loading_messages.write() = false;
+
+                // Also fetch profile picture if missing
+                let has_pic = app_state.contacts.read().get(&jid_for_pic).and_then(|c| c.picture_url.as_ref()).is_some();
+                if !has_pic {
+                    if let Ok(Some(url)) = crate::commands::contacts::get_profile_picture_url(jid_for_pic.clone(), Some(true), None, &mgr).await {
+                        let mut contacts = app_state.contacts.write();
+                        if let Some(c) = contacts.get_mut(&jid_for_pic) {
+                            c.picture_url = Some(url.clone());
+                        } else {
+                            contacts.insert(jid_for_pic.clone(), ContactDto {
+                                jid: jid_for_pic.clone(),
+                                name: None,
+                                verified_name: None,
+                                lid: None,
+                                picture_url: Some(url.clone()),
+                            });
+                        }
+                        if let Ok(c_json) = serde_json::to_string(&contacts.get(&jid_for_pic)) {
+                            let _ = document::eval(&format!("window.whatsappDb.saveContact({c_json});"));
+                        }
+                    }
+                }
             });
         } else {
             // When chat is closed, clear messages from memory to minimize RAM usage

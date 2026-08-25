@@ -20,58 +20,68 @@ pub fn MessageList(chat_jid: String, messages: Vec<MessageDto>) -> Element {
     let is_loading = *app_state.is_loading_messages.read();
     let has_more = *app_state.has_more_messages.read();
 
-    // 1. Instant bottom snap on chat open/switch
+    // 1. Instant bottom snap on chat open/switch with multi-frame layout settling
     let chat_jid_key = chat_jid.clone();
     use_effect(use_reactive(&chat_jid_key, move |_| {
         let _ = document::eval(
             r#"
             (function() {
                 var el = document.getElementById('message-list-scroll');
-                if (el) {
-                    el.scrollTop = el.scrollHeight;
-                    el.dataset.prevHeight = el.scrollHeight;
-                    el.dataset.isLoadingOlder = 'false';
-                    el.dataset.hasScrolledDown = 'false';
-                    // Re-assert bottom after sub-renders
-                    setTimeout(function() {
-                        if (el) {
-                            el.scrollTop = el.scrollHeight;
-                        }
-                    }, 30);
-                    setTimeout(function() {
-                        if (el) {
-                            el.scrollTop = el.scrollHeight;
-                        }
-                    }, 100);
+                if (!el) return;
+                el.dataset.readyForTopLoad = 'false';
+                el.dataset.isLoadingOlder = 'false';
+                
+                function snapToBottom() {
+                    if (el) {
+                        el.scrollTop = el.scrollHeight;
+                        el.dataset.prevHeight = el.scrollHeight;
+                    }
                 }
+                snapToBottom();
+                requestAnimationFrame(function() {
+                    snapToBottom();
+                    requestAnimationFrame(snapToBottom);
+                });
+                setTimeout(snapToBottom, 40);
+                setTimeout(snapToBottom, 120);
+                setTimeout(function() {
+                    snapToBottom();
+                    if (el) {
+                        el.dataset.readyForTopLoad = 'true';
+                    }
+                }, 300);
             })();
             "#
         );
     }));
 
-    // 2. Adjust scroll position when older messages are loaded or auto-scroll for new live message
+    // 2. Adjust scroll position when older messages are prepended or auto-scroll down on new live message
     use_effect(use_reactive(&msg_count, move |_| {
         let _ = document::eval(
             r#"
             (function() {
                 var el = document.getElementById('message-list-scroll');
-                if (el) {
-                    var prevHeight = parseInt(el.dataset.prevHeight || '0', 10);
-                    var newHeight = el.scrollHeight;
-                    el.dataset.prevHeight = newHeight;
-                    
-                    if (el.dataset.isLoadingOlder === 'true') {
-                        // Keep viewport anchored to exact previous scroll point
-                        var diff = newHeight - prevHeight;
-                        if (diff > 0) {
-                            el.scrollTop = diff;
-                        }
-                        el.dataset.isLoadingOlder = 'false';
-                    } else {
-                        var distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-                        if (distanceFromBottom < 150) {
-                            el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-                        }
+                if (!el) return;
+                var prevHeight = parseInt(el.dataset.prevHeight || '0', 10);
+                var newHeight = el.scrollHeight;
+                el.dataset.prevHeight = newHeight;
+                
+                if (el.dataset.isLoadingOlder === 'true') {
+                    // Reposition scroll to the exact relative message point after prepending 50 older messages
+                    var diff = newHeight - prevHeight;
+                    if (diff > 0) {
+                        el.scrollTop = diff + 15;
+                    }
+                    el.dataset.isLoadingOlder = 'false';
+                    setTimeout(function() {
+                        if (el) el.dataset.readyForTopLoad = 'true';
+                    }, 200);
+                } else if (el.dataset.readyForTopLoad !== 'true') {
+                    el.scrollTop = el.scrollHeight;
+                } else {
+                    var distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+                    if (distanceFromBottom < 250) {
+                        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
                     }
                 }
             })();
@@ -95,6 +105,7 @@ pub fn MessageList(chat_jid: String, messages: Vec<MessageDto>) -> Element {
                     var el = document.getElementById('message-list-scroll');
                     if (el) {
                         el.dataset.isLoadingOlder = 'true';
+                        el.dataset.readyForTopLoad = 'false';
                         el.dataset.prevHeight = el.scrollHeight;
                     }
                     "#
@@ -128,37 +139,38 @@ pub fn MessageList(chat_jid: String, messages: Vec<MessageDto>) -> Element {
         }
     };
 
+    let load_older_on_scroll = load_older.clone();
+
     rsx! {
         div {
             id: "message-list-scroll",
-            style: "flex: 1 1 0; min-height: 0; height: 0; overflow-y: auto; overflow-x: hidden; padding: 20px 32px; display: flex; flex-direction: column; gap: 6px; background-color: #0b141a; background-image: radial-gradient(#1f2c34 1px, transparent 0); background-size: 20px 20px; box-sizing: border-box;",
+            style: "flex: 1 1 0; min-height: 0; height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 20px 32px; display: flex; flex-direction: column; gap: 6px; background-color: #0b141a; background-image: radial-gradient(#1f2c34 1px, transparent 0); background-size: 20px 20px; box-sizing: border-box;",
             onscroll: move |_| {
-                // Track user scroll state
                 let _ = document::eval(
                     r#"
-                    var el = document.getElementById('message-list-scroll');
-                    if (el) {
-                        var distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-                        if (distanceFromBottom > 200) {
-                            el.dataset.hasScrolledDown = 'true';
+                    (function() {
+                        var el = document.getElementById('message-list-scroll');
+                        if (el && el.dataset.readyForTopLoad === 'true' && el.dataset.isLoadingOlder !== 'true') {
+                            if (el.scrollTop <= 5 && el.scrollHeight > el.clientHeight + 100) {
+                                el.dataset.isLoadingOlder = 'true';
+                                el.dataset.readyForTopLoad = 'false';
+                                el.dataset.prevHeight = el.scrollHeight;
+                                return true;
+                            }
                         }
-                    }
+                        return false;
+                    })();
                     "#
                 );
+                // Trigger auto load older ONLY when user scrolls to the absolute top (< 5px)
+                if has_more && !is_loading && msg_count >= 50 {
+                    load_older_on_scroll();
+                }
             },
-            if has_more {
+            if is_loading && has_more {
                 div {
-                    style: "display: flex; justify-content: center; padding: 10px 0; margin-bottom: 6px;",
-                    button {
-                        style: "background-color: #202c33; border: 1px solid #374248; border-radius: 18px; color: #53bdeb; font-size: 12.5px; font-weight: 500; padding: 6px 18px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); transition: all 0.15s ease;",
-                        disabled: is_loading,
-                        onclick: move |_| load_older(),
-                        if is_loading {
-                            span { "Loading older messages..." }
-                        } else {
-                            span { "↑ Load older messages (50 more)" }
-                        }
-                    }
+                    style: "display: flex; justify-content: center; padding: 6px 0; font-size: 12px; color: #53bdeb;",
+                    span { "Loading older messages..." }
                 }
             }
             if messages.is_empty() {
