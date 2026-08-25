@@ -67,7 +67,7 @@ pub fn run_dioxus() {
         </style>
         <script>
         (function() {
-            // Desktop Smooth Mousewheel Scroller
+            // Desktop Smooth Mousewheel Scroller (Smooths discrete wheel steps while preserving trackpad inertia)
             function enableSmoothScroll(container) {
                 if (!container || container._smoothScrollAttached) return;
                 container._smoothScrollAttached = true;
@@ -85,12 +85,18 @@ pub fn run_dioxus() {
                         isAnimating = false;
                         return;
                     }
-                    currentScrollTop += diff * 0.22;
+                    currentScrollTop += diff * 0.25;
                     container.scrollTop = currentScrollTop;
                     animId = requestAnimationFrame(step);
                 }
 
                 container.addEventListener('wheel', function(e) {
+                    var isDiscrete = e.deltaMode !== 0 || Math.abs(e.deltaY) >= 40;
+                    if (!isDiscrete) {
+                        // Let native trackpad momentum scroll cleanly
+                        return;
+                    }
+
                     var maxScroll = container.scrollHeight - container.clientHeight;
                     if (maxScroll <= 0) return;
 
@@ -113,12 +119,57 @@ pub fn run_dioxus() {
                 }, { passive: false });
             }
 
+            window.setupTopSentinelObserver = function() {
+                var container = document.getElementById('message-list-scroll');
+                var sentinel = document.getElementById('top-scroll-sentinel');
+                if (!container || !sentinel) return;
+
+                if (container._sentinelObserver) {
+                    container._sentinelObserver.disconnect();
+                }
+
+                container._sentinelObserver = new IntersectionObserver(function(entries) {
+                    if (!entries || !entries[0]) return;
+                    if (entries[0].isIntersecting) {
+                        if (container.dataset.ready === 'true' && container.dataset.loading !== 'true') {
+                            container.dataset.loading = 'true';
+                            container.dataset.ready = 'false';
+                            container.dataset.prevHeight = container.scrollHeight;
+                            var btn = document.getElementById('load-older-hidden-btn');
+                            if (btn) btn.click();
+                        }
+                    }
+                }, {
+                    root: container,
+                    rootMargin: '40px 0px 0px 0px',
+                    threshold: 0.01
+                });
+
+                container._sentinelObserver.observe(sentinel);
+
+                if (!container._scrollFallbackAttached) {
+                    container._scrollFallbackAttached = true;
+                    container.addEventListener('scroll', function() {
+                        if (container.scrollTop <= 20 && container.dataset.ready === 'true' && container.dataset.loading !== 'true' && container.scrollHeight > container.clientHeight + 60) {
+                            container.dataset.loading = 'true';
+                            container.dataset.ready = 'false';
+                            container.dataset.prevHeight = container.scrollHeight;
+                            var btn = document.getElementById('load-older-hidden-btn');
+                            if (btn) btn.click();
+                        }
+                    }, { passive: true });
+                }
+            };
+
             setInterval(function() {
                 var c1 = document.getElementById('chat-list-scroll');
                 var c2 = document.getElementById('message-list-scroll');
                 if (c1) enableSmoothScroll(c1);
-                if (c2) enableSmoothScroll(c2);
-            }, 300);
+                if (c2) {
+                    enableSmoothScroll(c2);
+                    window.setupTopSentinelObserver();
+                }
+            }, 400);
         })();
 
         (function() {
