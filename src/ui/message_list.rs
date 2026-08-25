@@ -20,7 +20,7 @@ pub fn MessageList(chat_jid: String, messages: Vec<MessageDto>) -> Element {
     let is_loading = *app_state.is_loading_messages.read();
     let has_more = *app_state.has_more_messages.read();
 
-    // 1. Instant bottom snap on chat open/switch with multi-frame layout settling
+    // 1. Initial bottom pinning when chat opens or changes
     let chat_jid_key = chat_jid.clone();
     use_effect(use_reactive(&chat_jid_key, move |_| {
         let _ = document::eval(
@@ -28,26 +28,23 @@ pub fn MessageList(chat_jid: String, messages: Vec<MessageDto>) -> Element {
             (function() {
                 var el = document.getElementById('message-list-scroll');
                 if (!el) return;
-                el.dataset.readyForTopLoad = 'false';
-                el.dataset.isLoadingOlder = 'false';
+                el.dataset.ready = 'false';
+                el.dataset.loading = 'false';
                 
-                function snapToBottom() {
+                function pinToBottom() {
                     if (el) {
                         el.scrollTop = el.scrollHeight;
                         el.dataset.prevHeight = el.scrollHeight;
                     }
                 }
-                snapToBottom();
-                requestAnimationFrame(function() {
-                    snapToBottom();
-                    requestAnimationFrame(snapToBottom);
-                });
-                setTimeout(snapToBottom, 40);
-                setTimeout(snapToBottom, 120);
+                pinToBottom();
+                requestAnimationFrame(pinToBottom);
+                setTimeout(pinToBottom, 30);
+                setTimeout(pinToBottom, 100);
                 setTimeout(function() {
-                    snapToBottom();
+                    pinToBottom();
                     if (el) {
-                        el.dataset.readyForTopLoad = 'true';
+                        el.dataset.ready = 'true';
                     }
                 }, 300);
             })();
@@ -55,7 +52,7 @@ pub fn MessageList(chat_jid: String, messages: Vec<MessageDto>) -> Element {
         );
     }));
 
-    // 2. Adjust scroll position when older messages are prepended or auto-scroll down on new live message
+    // 2. Reposition scroll when older messages arrive or smooth scroll down for new live messages
     use_effect(use_reactive(&msg_count, move |_| {
         let _ = document::eval(
             r#"
@@ -66,107 +63,107 @@ pub fn MessageList(chat_jid: String, messages: Vec<MessageDto>) -> Element {
                 var newHeight = el.scrollHeight;
                 el.dataset.prevHeight = newHeight;
                 
-                if (el.dataset.isLoadingOlder === 'true') {
-                    // Reposition scroll to the exact relative message point after prepending 50 older messages
+                if (el.dataset.loading === 'true') {
+                    // Reposition scroll to the exact position before prepend (+30px out of top trigger)
                     var diff = newHeight - prevHeight;
                     if (diff > 0) {
-                        el.scrollTop = diff + 15;
+                        el.scrollTop = diff + 30;
                     }
-                    el.dataset.isLoadingOlder = 'false';
+                    el.dataset.loading = 'false';
                     setTimeout(function() {
-                        if (el) el.dataset.readyForTopLoad = 'true';
-                    }, 200);
-                } else if (el.dataset.readyForTopLoad !== 'true') {
+                        if (el) el.dataset.ready = 'true';
+                    }, 250);
+                } else if (el.dataset.ready !== 'true') {
                     el.scrollTop = el.scrollHeight;
-                } else {
-                    var distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-                    if (distanceFromBottom < 250) {
-                        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-                    }
                 }
             })();
             "#
         );
     }));
 
-    let load_older = {
-        let chat_jid = chat_jid.clone();
-        let oldest_ts = messages.first().map(|m| m.timestamp).unwrap_or(0);
-        move || {
-            if is_loading || !has_more || oldest_ts <= 0 {
-                return;
-            }
-            let jid = chat_jid.clone();
-            let mut app_state = app_state;
-            spawn(async move {
-                *app_state.is_loading_messages.write() = true;
-                let _ = document::eval(
-                    r#"
-                    var el = document.getElementById('message-list-scroll');
-                    if (el) {
-                        el.dataset.isLoadingOlder = 'true';
-                        el.dataset.readyForTopLoad = 'false';
+    // 3. Listen exclusively for the top-scroll event emitted from JavaScript
+    let chat_jid_for_stream = chat_jid.clone();
+    use_future(move || {
+        let chat_jid = chat_jid_for_stream.clone();
+        let mut app_state = app_state;
+        async move {
+            let js = r#"
+                var el = document.getElementById('message-list-scroll');
+                if (!el) return;
+                
+                if (el._topScrollHandler) {
+                    el.removeEventListener('scroll', el._topScrollHandler);
+                }
+                
+                el._topScrollHandler = function() {
+                    if (el.dataset.ready !== 'true' || el.dataset.loading === 'true') return;
+                    // Trigger ONLY when user is at the very top (scrollTop <= 5px) and container is scrollable
+                    if (el.scrollTop <= 5 && el.scrollHeight > el.clientHeight + 80) {
+                        el.dataset.loading = 'true';
+                        el.dataset.ready = 'false';
                         el.dataset.prevHeight = el.scrollHeight;
+                        dioxus.send("load_older");
                     }
-                    "#
-                );
-                let js = format!("return await window.whatsappDb.loadChatMessages({:?}, 50, {});", jid, oldest_ts);
-                if let Ok(eval_val) = document::eval(&js).await {
-                    if let Some(json_str) = eval_val.as_str() {
-                        if let Ok(resp) = serde_json::from_str::<MessagesResponse>(json_str) {
-                            if !resp.messages.is_empty() {
-                                let mut map = app_state.messages.write();
-                                if let Some(current) = map.get_mut(&jid) {
-                                    let mut combined = resp.messages;
-                                    combined.append(current);
-                                    let mut seen = HashSet::new();
-                                    let mut deduplicated = Vec::new();
-                                    for m in combined {
-                                        if m.id.is_empty() || seen.insert(m.id.clone()) {
-                                            deduplicated.push(m);
+                };
+                
+                el.addEventListener('scroll', el._topScrollHandler, { passive: true });
+            "#;
+            
+            let mut eval = document::eval(js);
+            while let Ok(msg) = eval.recv::<String>().await {
+                if msg == "load_older" {
+                    let has_more_val = *app_state.has_more_messages.read();
+                    let is_loading_val = *app_state.is_loading_messages.read();
+                    if !has_more_val || is_loading_val {
+                        let _ = document::eval("var el = document.getElementById('message-list-scroll'); if (el) { el.dataset.loading = 'false'; el.dataset.ready = 'true'; }");
+                        continue;
+                    }
+                    
+                    let oldest_ts = app_state.messages.read().get(&chat_jid)
+                        .and_then(|msgs| msgs.first())
+                        .map(|m| m.timestamp)
+                        .unwrap_or(0);
+                    
+                    if oldest_ts <= 0 {
+                        let _ = document::eval("var el = document.getElementById('message-list-scroll'); if (el) { el.dataset.loading = 'false'; el.dataset.ready = 'true'; }");
+                        continue;
+                    }
+                    
+                    *app_state.is_loading_messages.write() = true;
+                    let fetch_js = format!("return await window.whatsappDb.loadChatMessages({:?}, 50, {});", chat_jid, oldest_ts);
+                    if let Ok(eval_val) = document::eval(&fetch_js).await {
+                        if let Some(json_str) = eval_val.as_str() {
+                            if let Ok(resp) = serde_json::from_str::<MessagesResponse>(json_str) {
+                                if !resp.messages.is_empty() {
+                                    let mut map = app_state.messages.write();
+                                    if let Some(current) = map.get_mut(&chat_jid) {
+                                        let mut combined = resp.messages;
+                                        combined.append(current);
+                                        let mut seen = HashSet::new();
+                                        let mut deduplicated = Vec::new();
+                                        for m in combined {
+                                            if m.id.is_empty() || seen.insert(m.id.clone()) {
+                                                deduplicated.push(m);
+                                            }
                                         }
+                                        deduplicated.sort_by_key(|m| m.timestamp);
+                                        *current = deduplicated;
                                     }
-                                    deduplicated.sort_by_key(|m| m.timestamp);
-                                    *current = deduplicated;
                                 }
+                                *app_state.has_more_messages.write() = resp.has_more;
                             }
-                            *app_state.has_more_messages.write() = resp.has_more;
                         }
                     }
+                    *app_state.is_loading_messages.write() = false;
                 }
-                *app_state.is_loading_messages.write() = false;
-            });
+            }
         }
-    };
-
-    let load_older_on_scroll = load_older.clone();
+    });
 
     rsx! {
         div {
             id: "message-list-scroll",
-            style: "flex: 1 1 0; min-height: 0; height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 20px 32px; display: flex; flex-direction: column; gap: 6px; background-color: #0b141a; background-image: radial-gradient(#1f2c34 1px, transparent 0); background-size: 20px 20px; box-sizing: border-box;",
-            onscroll: move |_| {
-                let _ = document::eval(
-                    r#"
-                    (function() {
-                        var el = document.getElementById('message-list-scroll');
-                        if (el && el.dataset.readyForTopLoad === 'true' && el.dataset.isLoadingOlder !== 'true') {
-                            if (el.scrollTop <= 5 && el.scrollHeight > el.clientHeight + 100) {
-                                el.dataset.isLoadingOlder = 'true';
-                                el.dataset.readyForTopLoad = 'false';
-                                el.dataset.prevHeight = el.scrollHeight;
-                                return true;
-                            }
-                        }
-                        return false;
-                    })();
-                    "#
-                );
-                // Trigger auto load older ONLY when user scrolls to the absolute top (< 5px)
-                if has_more && !is_loading && msg_count >= 50 {
-                    load_older_on_scroll();
-                }
-            },
+            style: "flex: 1 1 0; min-height: 0; height: 0; overflow-y: auto; overflow-x: hidden; padding: 20px 32px; display: flex; flex-direction: column; gap: 6px; background-color: #0b141a; background-image: radial-gradient(#1f2c34 1px, transparent 0); background-size: 20px 20px; box-sizing: border-box;",
             if is_loading && has_more {
                 div {
                     style: "display: flex; justify-content: center; padding: 6px 0; font-size: 12px; color: #53bdeb;",

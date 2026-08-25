@@ -67,6 +67,61 @@ pub fn run_dioxus() {
         </style>
         <script>
         (function() {
+            // Desktop Smooth Mousewheel Scroller
+            function enableSmoothScroll(container) {
+                if (!container || container._smoothScrollAttached) return;
+                container._smoothScrollAttached = true;
+                
+                var targetScrollTop = container.scrollTop;
+                var currentScrollTop = container.scrollTop;
+                var isAnimating = false;
+                var animId = null;
+
+                function step() {
+                    var diff = targetScrollTop - currentScrollTop;
+                    if (Math.abs(diff) < 0.5) {
+                        currentScrollTop = targetScrollTop;
+                        container.scrollTop = currentScrollTop;
+                        isAnimating = false;
+                        return;
+                    }
+                    currentScrollTop += diff * 0.22;
+                    container.scrollTop = currentScrollTop;
+                    animId = requestAnimationFrame(step);
+                }
+
+                container.addEventListener('wheel', function(e) {
+                    var maxScroll = container.scrollHeight - container.clientHeight;
+                    if (maxScroll <= 0) return;
+
+                    if (!isAnimating) {
+                        currentScrollTop = container.scrollTop;
+                        targetScrollTop = container.scrollTop;
+                    }
+
+                    var delta = e.deltaY;
+                    if (e.deltaMode === 1) delta *= 28;
+                    if (e.deltaMode === 2) delta *= 280;
+
+                    targetScrollTop = Math.max(0, Math.min(maxScroll, targetScrollTop + delta));
+
+                    if (!isAnimating) {
+                        isAnimating = true;
+                        animId = requestAnimationFrame(step);
+                    }
+                    e.preventDefault();
+                }, { passive: false });
+            }
+
+            setInterval(function() {
+                var c1 = document.getElementById('chat-list-scroll');
+                var c2 = document.getElementById('message-list-scroll');
+                if (c1) enableSmoothScroll(c1);
+                if (c2) enableSmoothScroll(c2);
+            }, 300);
+        })();
+
+        (function() {
             function QR8bitByte(data) {
                 this.mode = 4;
                 this.data = data;
