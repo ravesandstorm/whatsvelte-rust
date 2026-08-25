@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
@@ -87,10 +88,14 @@ impl SessionManager {
         {
             let mut map = self.sessions.lock().await;
             if let Some(old) = map.remove(session_id) {
+                old.run_task.abort();
                 old.client.disconnect().await;
                 drop(old);
             }
         }
+        // Give SQLite file descriptors and background thread pools time to flush & close
+        tokio::time::sleep(Duration::from_millis(150)).await;
+
         for suffix in ["", "-shm", "-wal"] {
             let path = self.base_dir.join(format!("whatsapp-{session_id}.db{suffix}"));
             if let Err(e) = std::fs::remove_file(&path) {
@@ -130,17 +135,12 @@ impl SessionManager {
         let dead_sid = session_id.to_string();
         let dead_client = client.clone();
         let event_tx_clone = self.event_tx.clone();
-        let base_dir_clone = self.base_dir.clone();
         let run_task = tokio::spawn(async move {
             bot.run().await;
             if dead_client.is_logged_in() {
                 log::info!("[{dead_sid}] run loop ended (logged in)");
             } else {
-                log::warn!("[{dead_sid}] run loop ended while unpaired; cleaning stale database for restart");
-                for suffix in ["", "-shm", "-wal"] {
-                    let path = base_dir_clone.join(format!("whatsapp-{dead_sid}.db{suffix}"));
-                    let _ = std::fs::remove_file(&path);
-                }
+                log::warn!("[{dead_sid}] run loop ended while unpaired; requesting session reset");
                 let _ = event_tx_clone.send((dead_sid, UiEvent::LoggedOut)).await;
             }
         });
