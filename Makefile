@@ -3,7 +3,7 @@
 
 APP := slint-client
 
-.PHONY: help setup run dev build package demo test fmt clippy clean release-major release-minor release-patch
+.PHONY: help setup run dev build package demo check test fmt clippy clean release-major release-minor release-patch
 
 help:
 	@echo "Targets:"
@@ -11,8 +11,10 @@ help:
 	@echo "make run                             - Build and run the app (debug)"
 	@echo "make dev                             - Alias for 'run'"
 	@echo "make demo                            - Run with sample chats, no account/network (debug only)"
+	@echo "                                       DEMO_OPEN=settings|reactions|delete|album|viewer|reply|suggest opens an overlay"
 	@echo "make build                           - Optimized release binary"
 	@echo "make package                         - Release installers (dmg/app, nsis, deb, AppImage)"
+	@echo "make check                           - fmt check + clippy + tests (pre-commit gate)"
 	@echo "make test                            - Unit tests for the client"
 	@echo "make fmt                             - cargo fmt for the client"
 	@echo "make clippy                          - cargo clippy for the client"
@@ -28,7 +30,10 @@ run:
 dev: run
 
 demo:
-	cd $(APP) && WA_DEMO=1 cargo run
+	cd $(APP) && WA_DEMO=$(or $(THEME),1) WA_DEMO_OPEN=$(DEMO_OPEN) cargo run
+
+check:
+	cd $(APP) && cargo fmt --check && cargo clippy -- -D warnings && cargo test
 
 build:
 	cd $(APP) && cargo build --release
