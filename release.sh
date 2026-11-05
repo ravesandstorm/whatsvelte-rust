@@ -61,8 +61,26 @@ _bump_version() {
     # Safely update the JSON file using jq arguments
     jq --arg v "$new" '.version = $v' "$conf" > "$conf.tmp" && mv "$conf.tmp" "$conf" || return 1
 
+    # Sync workspace package versions (root + svelte-frontend):
+    #   1. package.json            .version
+    #   2. package-lock.json       .version
+    #   3. package-lock.json       .packages[""].version
+    local root pkg_files=() f
+    root="$(git rev-parse --show-toplevel)"
+    for f in package.json package-lock.json svelte-frontend/package.json svelte-frontend/package-lock.json; do
+        if [ ! -f "$root/$f" ]; then
+            echo "X Error: $root/$f not found!"
+            return 1
+        fi
+        jq --arg v "$new" --arg k "" '
+            .version = $v
+            | if (.packages? // {} | has($k)) then .packages[$k].version = $v else . end
+        ' "$root/$f" > "$root/$f.tmp" && mv "$root/$f.tmp" "$root/$f" || return 1
+        pkg_files+=("$root/$f")
+    done
+
     # Git Operations
-    git add "$conf" && \
+    git add "$conf" "${pkg_files[@]}" && \
     git commit -m "chore: bump version to v$new" && \
     git tag "v$new" && \
     git push origin main && \

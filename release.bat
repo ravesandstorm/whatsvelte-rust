@@ -98,9 +98,29 @@ if %errorlevel% neq 0 (
 
 move /y "%conf%.tmp" "%conf%" >nul
 
+:: Sync workspace package versions (root + svelte-frontend):
+::   1. package.json       .version
+::   2. package-lock.json  .version
+::   3. package-lock.json  .packages[""].version
+set "PKG_FILES="
+for %%f in (package.json package-lock.json svelte-frontend\package.json svelte-frontend\package-lock.json) do (
+    if not exist "%GIT_ROOT%\%%f" (
+        echo X Error: %GIT_ROOT%\%%f not found!
+        exit /b 1
+    )
+    jq --arg v "%new%" --arg k "" "if (.packages? // {} | has($k)) then .packages[$k].version = $v else . end | .version = $v" "%GIT_ROOT%\%%f" > "%GIT_ROOT%\%%f.tmp"
+    if !errorlevel! neq 0 (
+        echo X Error: Failed to update %%f using jq.
+        if exist "%GIT_ROOT%\%%f.tmp" del "%GIT_ROOT%\%%f.tmp"
+        exit /b 1
+    )
+    move /y "%GIT_ROOT%\%%f.tmp" "%GIT_ROOT%\%%f" >nul
+    set PKG_FILES=!PKG_FILES! "%GIT_ROOT%\%%f"
+)
+
 :: Git Operations
-:: Note: Because we verified the tree is clean, `git add` will now ONLY stage the tauri.conf.json update
-git add "%conf%" && ^
+:: Because we verified the tree is clean, `git add` will ONLY stage the version updates
+git add "%conf%" !PKG_FILES! && ^
 git commit -m "chore: bump version to v%new%" && ^
 git tag "v%new%" && ^
 git push origin main && ^
