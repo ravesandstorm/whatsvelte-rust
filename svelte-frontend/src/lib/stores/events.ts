@@ -26,12 +26,13 @@ import {
   touchChat,
   upsertChatFromDto,
 } from "./chats.svelte";
-import { canonicalJid, clearLidMap, loadLidMap, unifyLid } from "./lid";
+import { canonicalJid, clearLidMap, learnLidMapping, loadLidMap, unifyLid } from "./lid";
 import { clearNameCache, learnName, loadNameCache } from "./contacts.svelte";
 import {
   clearAll,
   discardPending,
   enablePersistence,
+  isBlankMessage,
   loadSnapshot,
   loadTails,
   movePersistedChat,
@@ -137,6 +138,7 @@ export async function startEventBridge() {
     // switched addressing form lands in the one existing conversation, and group
     // participants resolve to a real phone/name instead of a raw `@lid`.
     const cm = canonicalMessage(m);
+    if (isBlankMessage(cm)) return; // protocol traffic: nothing to show
     const jid = cm.chatJid;
     const senderJid = cm.senderJid;
     addMessage(cm);
@@ -335,6 +337,8 @@ export async function refreshStatus() {
     session.loggedIn = s.loggedIn;
     session.connected = s.connected;
     session.jid = s.jid;
+    session.lid = s.lid;
+    if (s.lid && s.jid) learnLidMapping(s.lid, s.jid);
     session.registered = s.registered;
     session.pushName = s.pushName;
   } catch (e) {
@@ -351,6 +355,7 @@ export async function resetAll() {
   session.registered = false;
   session.clientDead = false;
   session.jid = null;
+  session.lid = null;
   session.pushName = null;
   session.hydrating = false;
   session.hydrateTotal = 0;

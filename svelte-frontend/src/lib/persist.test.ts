@@ -104,6 +104,49 @@ describe("v1 → v2 migration", () => {
   });
 });
 
+describe("v2 → v3: blank [other] rows", () => {
+  beforeEach(async () => {
+    // A v2 database holding protocol traffic stored as blank "other" rows.
+    await new Promise<void>((res, rej) => {
+      const r = indexedDB.open("whatsvelte", 2);
+      r.onupgradeneeded = () => {
+        const db = r.result;
+        db.createObjectStore("chats", { keyPath: "jid" });
+        db.createObjectStore("meta", { keyPath: "k" });
+        const msgs = db.createObjectStore("msgs", { keyPath: ["chatJid", "id"] });
+        msgs.createIndex("byChatTime", ["chatJid", "timestamp"]);
+      };
+      r.onsuccess = () => {
+        const db = r.result;
+        const t = db.transaction(["msgs"], "readwrite");
+        const s = t.objectStore("msgs");
+        s.put(mk(A, 1));
+        s.put(mk(A, 2, { kind: "other", text: null }));
+        s.put(mk(A, 3, { kind: "other", text: null, deleted: true }));
+        s.put(mk(A, 4, { kind: "other", text: "readable" }));
+        t.oncomplete = () => {
+          db.close();
+          res();
+        };
+        t.onerror = () => rej(t.error);
+      };
+    });
+  });
+
+  it("drops rows with nothing to render, keeps tombstones and text", async () => {
+    const ids = (await persist.loadLatestMessages(A, 100)).map((m) => m.id);
+    expect(ids).toEqual(["m0001", "m0003", "m0004"]);
+  });
+
+  it("never stores or shows a new blank message", async () => {
+    persist.enablePersistence();
+    msgs.addMessage(mk(C, 9, { kind: "other", text: null }));
+    await persist.flushPendingWrites();
+    expect(msgs.messagesFor(C)).toHaveLength(0);
+    expect(await persist.loadLatestMessages(C, 10)).toHaveLength(0);
+  });
+});
+
 describe("boot and paging", () => {
   beforeEach(async () => {
     await seed(Array.from({ length: 60 }, (_, i) => mk(A, i)));

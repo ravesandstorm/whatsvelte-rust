@@ -13,6 +13,8 @@
 // never cached, so a later event re-attempts it.
 
 import { api } from "../ipc";
+import { normalizeJid } from "../util/jid";
+import { session } from "./session.svelte";
 import { chats, mergeChats } from "./chats.svelte";
 import { messagesByChat, mergeMessages } from "./messages.svelte";
 import { movePersistedChat, schedulePersistChats } from "../persist";
@@ -38,14 +40,15 @@ export function loadLidMap(account: string | null) {
   lsKey = account ? `lid-pn-map:${account}` : null;
   if (!lsKey) return;
   try {
-    const raw = localStorage.getItem(lsKey);
-    if (!raw) return;
+    const raw = localStorage.getItem(lsKey) ?? "{}";
     for (const [lid, pn] of Object.entries(JSON.parse(raw) as Record<string, string>)) {
       lidToPn.set(lid, pn);
     }
   } catch (e) {
     console.error("load lid map failed", e);
   }
+  // Our own LID is reported by the backend, never learned from events.
+  if (session.lid && session.jid) lidToPn.set(normalizeJid(session.lid), normalizeJid(session.jid));
 }
 
 /** Forget all mappings (logout / different account linked). */
@@ -79,6 +82,17 @@ function applyMerge(lid: string, pn: string) {
   // Re-key the persisted history (most of it isn't resident in memory).
   void movePersistedChat(lid, pn);
   schedulePersistChats();
+}
+
+/** Record a known LID → PN pair (e.g. our own account) and merge any chat
+ * already split under the LID. */
+export function learnLidMapping(lid: string, pn: string) {
+  const l = normalizeJid(lid);
+  const p = normalizeJid(pn);
+  if (!l.endsWith("@lid") || lidToPn.get(l) === p) return;
+  lidToPn.set(l, p);
+  saveLidMap();
+  applyMerge(l, p);
 }
 
 /** Ensure `jid` (if a LID) is unified with its PN form. Learns the mapping on

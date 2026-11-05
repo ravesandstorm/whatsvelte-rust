@@ -12,6 +12,8 @@ pub struct StatusDto {
     pub connected: bool,
     /// Our own phone-number JID once paired, e.g. "15551234567@s.whatsapp.net".
     pub jid: Option<String>,
+    /// Our own LID, once known (the self chat can be addressed by it).
+    pub lid: Option<String>,
     /// Persistent "already paired" flag (survives restarts even before the
     /// connection's <success> sets logged_in). Lets the UI show a loading screen
     /// instead of the QR on relaunch.
@@ -100,6 +102,9 @@ pub struct MessageDto {
     pub media: Option<MediaDto>,
     /// The quoted message, when this is a reply.
     pub quoted: Option<QuotedDto>,
+    /// For an item of a media album: the id of the album's parent message.
+    /// Items sharing it render as one grid.
+    pub album_parent_id: Option<String>,
 }
 
 /// One chat row for the sidebar.

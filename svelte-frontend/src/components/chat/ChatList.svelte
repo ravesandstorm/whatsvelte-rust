@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { chatTitle } from "../../lib/stores/session.svelte";
   import {
     archivedChats,
     channelChats,
@@ -68,7 +69,7 @@
     const q = query.trim().toLowerCase();
     if (!q) return base;
     return base.filter((c) => {
-      const name = displayName(c.jid, c.name ?? contactFor(c.jid)?.name).toLowerCase();
+      const name = chatTitle(c.jid, c.name ?? contactFor(c.jid)?.name).toLowerCase();
       return (
         name.includes(q) ||
         jidUser(c.jid).toLowerCase().includes(q) ||

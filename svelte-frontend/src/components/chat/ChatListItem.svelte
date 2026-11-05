@@ -4,14 +4,15 @@
   import { contactFor } from "../../lib/stores/contacts.svelte";
   import { messagesFor, type MessageStatus } from "../../lib/stores/messages.svelte";
   import { api } from "../../lib/ipc";
-  import { displayName, formatPhone, isGroup } from "../../lib/util/jid";
+  import { formatPhone, isGroup } from "../../lib/util/jid";
+  import { chatTitle } from "../../lib/stores/session.svelte";
   import { mediaLabel } from "../../lib/util/preview";
   import { formatChatTime } from "../../lib/util/time";
   import Avatar from "../common/Avatar.svelte";
 
   let { chat }: { chat: Chat } = $props();
   const group = $derived(isGroup(chat.jid));
-  const name = $derived(displayName(chat.jid, chat.name ?? contactFor(chat.jid)?.name));
+  const name = $derived(chatTitle(chat.jid, chat.name ?? contactFor(chat.jid)?.name));
 
   // Derive the preview from the chat's latest message (it already carries
   // sender/fromMe/kind/status) so we get ticks, a "You:"/sender prefix and media

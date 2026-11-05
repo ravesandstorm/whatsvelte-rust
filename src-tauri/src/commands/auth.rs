@@ -23,6 +23,7 @@ pub async fn auth_status(session_id: Option<String>, mgr: Mgr<'_>) -> ApiResult<
         logged_in: session.client.is_logged_in(),
         connected: session.client.is_connected(),
         jid: session.client.get_pn().map(|j| j.to_string()),
+        lid: session.client.get_lid().map(|j| j.to_string()),
         registered: device.is_registered(),
         push_name: if push_name.is_empty() { None } else { Some(push_name) },
     })

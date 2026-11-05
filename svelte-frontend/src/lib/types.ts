@@ -5,6 +5,7 @@ export interface StatusDto {
   loggedIn: boolean;
   connected: boolean;
   jid: string | null;
+  lid: string | null;
   registered: boolean;
   pushName: string | null;
 }
@@ -84,6 +85,8 @@ export interface MessageDto {
   media: MediaDto | null;
   /** The quoted message, when this is a reply. */
   quoted: QuotedDto | null;
+  /** For an item of a media album: the album's parent message id. */
+  albumParentId?: string | null;
 }
 
 export interface ChatDto {

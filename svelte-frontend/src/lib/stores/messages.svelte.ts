@@ -10,6 +10,7 @@ import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import type { MessageDto, QuotedDto } from "../types";
 import {
   getPersistedMessage,
+  isBlankMessage,
   loadLatestMessages,
   patchPersistedMessage,
   persistMessage,
@@ -145,6 +146,7 @@ export function syncUnreadFlagForChat(jid: string) {
 }
 
 export function addMessage(m: UiMessage) {
+  if (isBlankMessage(m)) return;
   const arr = ensure(m.chatJid);
 
   // Incoming messages start unread by default unless explicitly marked read
@@ -220,6 +222,7 @@ export function addHistoryMessages(list: MessageDto[], opts: { persist?: boolean
   const persist = opts.persist ?? true;
   const touched = new Map<string, Set<string>>();
   for (const m of list) {
+    if (isBlankMessage(m)) continue;
     const arr = ensure(m.chatJid);
     let seen = touched.get(m.chatJid);
     if (!seen) {

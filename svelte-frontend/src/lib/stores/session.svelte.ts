@@ -1,9 +1,13 @@
 // Connection / auth state. A single reactive object mutated from events.ts.
 
+import { displayName, isSelf } from "../util/jid";
+
 export const session = $state({
   loggedIn: false,
   connected: false,
   jid: null as string | null,
+  /** Our own LID (the self chat may be keyed by it before LID→PN is learned). */
+  lid: null as string | null,
   /** Persistent "already paired" flag — show a loading screen (not the QR) on
    * relaunch while the connection comes up. */
   registered: false,
@@ -36,3 +40,14 @@ export const session = $state({
    * a debounce once the chunks stop. Drives a subtle spinner in the chat header. */
   historySyncing: false,
 });
+
+/** The "message yourself" chat (by phone number or LID). */
+export function isOwnChat(jid: string): boolean {
+  return isSelf(jid, session.jid) || isSelf(jid, session.lid);
+}
+
+/** Title for a chat row/header: "<Name> (You)" for the self chat. */
+export function chatTitle(jid: string, name?: string | null): string {
+  if (isOwnChat(jid)) return `${session.pushName || name || displayName(session.jid ?? jid)} (You)`;
+  return displayName(jid, name);
+}

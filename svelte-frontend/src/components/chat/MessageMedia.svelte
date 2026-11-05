@@ -3,7 +3,7 @@
   import type { MediaDto } from "../../lib/types";
   import { api } from "../../lib/ipc";
   import { formatDuration, mediaSrc } from "../../lib/media";
-  import { ui } from "../../lib/stores/ui.svelte";
+  import { openLightbox as openViewer } from "../../lib/stores/ui.svelte";
 
   let { media, thumbnail }: { media: MediaDto; thumbnail: string | null } = $props();
 
@@ -69,8 +69,7 @@
   // Pass the thumbnail too so the viewer shows it instantly while the
   // full-resolution media downloads.
   function openLightbox() {
-    ui.lightboxThumbnail = thumbnail;
-    ui.lightboxMedia = media;
+    openViewer(media, thumbnail);
   }
 
   // Audio starts playing only right after the user asked for it (the load
