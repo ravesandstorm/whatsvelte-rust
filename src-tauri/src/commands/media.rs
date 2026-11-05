@@ -55,17 +55,51 @@ fn media_type_of(s: &str) -> MediaType {
     }
 }
 
-fn ext_for(mimetype: Option<&str>, media_type: &str) -> &'static str {
-    match mimetype {
-        Some(m) if m.starts_with("image/png") => "png",
-        Some(m) if m.starts_with("image/webp") => "webp",
-        Some(m) if m.starts_with("image/gif") => "gif",
+/// Extension of a document's display name, when it is a plain, short one.
+fn name_ext(file_name: Option<&str>) -> Option<String> {
+    let name = file_name?.rsplit(['/', '\\']).next()?;
+    let (stem, ext) = name.rsplit_once('.')?;
+    if stem.is_empty() || ext.is_empty() || ext.len() > 10 {
+        return None;
+    }
+    ext.chars()
+        .all(|c| c.is_ascii_alphanumeric())
+        .then(|| ext.to_ascii_lowercase())
+}
+
+/// File extension for a cached payload. Documents keep their own extension
+/// (from the display name, else the mimetype) so the OS can open the cached copy
+/// with the right app instead of seeing an opaque `.bin`.
+fn ext_for(mimetype: Option<&str>, media_type: &str, file_name: Option<&str>) -> String {
+    if media_type == "document" {
+        if let Some(ext) = name_ext(file_name) {
+            return ext;
+        }
+    }
+    let mime = mimetype.map(|m| m.split(';').next().unwrap_or(m).trim());
+    let ext = match mime {
+        Some("image/png") => "png",
+        Some("image/webp") => "webp",
+        Some("image/gif") => "gif",
         Some(m) if m.starts_with("image/") => "jpg",
+        Some("video/webm") => "webm",
+        Some("video/quicktime") => "mov",
         Some(m) if m.starts_with("video/") => "mp4",
-        Some(m) if m.starts_with("audio/ogg") => "ogg",
-        Some(m) if m.starts_with("audio/mpeg") => "mp3",
+        Some("audio/ogg") => "ogg",
+        Some("audio/mpeg") => "mp3",
         Some(m) if m.starts_with("audio/") => "m4a",
         Some("application/pdf") => "pdf",
+        Some("application/msword") => "doc",
+        Some("application/vnd.openxmlformats-officedocument.wordprocessingml.document") => "docx",
+        Some("application/vnd.ms-excel") => "xls",
+        Some("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") => "xlsx",
+        Some("application/vnd.ms-powerpoint") => "ppt",
+        Some("application/vnd.openxmlformats-officedocument.presentationml.presentation") => "pptx",
+        Some("application/zip") | Some("application/x-zip-compressed") => "zip",
+        Some("application/json") => "json",
+        Some("text/plain") => "txt",
+        Some("text/csv") => "csv",
+        Some("text/html") => "html",
         _ => match media_type {
             "video" => "mp4",
             "audio" => "ogg",
@@ -73,7 +107,8 @@ fn ext_for(mimetype: Option<&str>, media_type: &str) -> &'static str {
             "document" => "bin",
             _ => "jpg",
         },
-    }
+    };
+    ext.to_string()
 }
 
 /// Max media downloads in flight at once. Scrolling a media-heavy chat mounts
@@ -99,6 +134,7 @@ async fn ensure_cached(
     session: &Session,
     descriptor: MediaDescriptorIn,
     mimetype: Option<&str>,
+    file_name: Option<&str>,
 ) -> ApiResult<PathBuf> {
     let media_key = b64_decode(&descriptor.media_key)?;
     let file_sha256 = b64_decode(&descriptor.file_sha256)?;
@@ -106,7 +142,7 @@ async fn ensure_cached(
 
     // Content-addressed filename (url-safe so it's filesystem-legal).
     let stem = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&file_sha256);
-    let ext = ext_for(mimetype, &descriptor.media_type);
+    let ext = ext_for(mimetype, &descriptor.media_type, file_name);
 
     let mut dir = app
         .path()
@@ -176,23 +212,63 @@ async fn ensure_cached(
 pub async fn download_media(
     descriptor: MediaDescriptorIn,
     mimetype: Option<String>,
+    file_name: Option<String>,
     session_id: Option<String>,
     app: AppHandle,
     mgr: Mgr<'_>,
 ) -> ApiResult<String> {
     let (_, session) = mgr.session(session_id).await?;
-    let path = ensure_cached(&app, &session, descriptor, mimetype.as_deref()).await?;
+    let path = ensure_cached(
+        &app,
+        &session,
+        descriptor,
+        mimetype.as_deref(),
+        file_name.as_deref(),
+    )
+    .await?;
     Ok(path.to_string_lossy().into_owned())
 }
 
-/// Sanitize a user-supplied display name into a single, safe filename component
-/// (no path separators, no traversal) so the copy lands inside Downloads.
+/// Sanitize a sender-supplied display name into a single, safe filename
+/// component so the copy always lands directly inside Downloads.
+///
+/// Strips any directory part (both separators), and everything Windows treats
+/// specially: a drive prefix (`C:evil.dll` is drive-relative and would resolve
+/// outside Downloads), `:` (alternate data streams), reserved characters,
+/// control characters, trailing dots/spaces and reserved device names.
 fn safe_file_name(name: &str) -> Option<String> {
-    let base = name.rsplit(['/', '\\']).next().unwrap_or(name).trim();
-    if base.is_empty() || base == "." || base == ".." {
+    let base = name.rsplit(['/', '\\']).next().unwrap_or(name);
+    let mut out: String = base
+        .chars()
+        .map(|c| match c {
+            '<' | '>' | ':' | '"' | '|' | '?' | '*' => '_',
+            c if c.is_control() => '_',
+            c => c,
+        })
+        .collect();
+    out = out.trim().trim_end_matches(['.', ' ']).to_string();
+    if out.is_empty() || out.chars().all(|c| c == '.' || c == '_') {
         return None;
     }
-    Some(base.to_string())
+    let stem = out.split('.').next().unwrap_or("").trim().to_ascii_uppercase();
+    let reserved = matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || ((stem.starts_with("COM") || stem.starts_with("LPT"))
+            && stem.len() == 4
+            && stem.as_bytes()[3].is_ascii_digit());
+    if reserved {
+        out.insert(0, '_');
+    }
+    // Keep names well under path-length limits (char-boundary safe).
+    if out.chars().count() > 180 {
+        let ext = std::path::Path::new(&out)
+            .extension()
+            .map(|e| format!(".{}", e.to_string_lossy()))
+            .filter(|e| e.len() <= 11)
+            .unwrap_or_default();
+        let keep: String = out.chars().take(180 - ext.chars().count()).collect();
+        out = format!("{keep}{ext}");
+    }
+    Some(out)
 }
 
 /// Copy a media payload into the user's OS Downloads folder, downloading and
@@ -212,12 +288,19 @@ pub async fn save_media_to_downloads(
     let (_, session) = mgr.session(session_id).await?;
 
     // Display-name fallback: the cache file's own name (content hash + ext).
-    let ext = ext_for(mimetype.as_deref(), &descriptor.media_type);
+    let ext = ext_for(mimetype.as_deref(), &descriptor.media_type, filename.as_deref());
     let file_sha256 = b64_decode(&descriptor.file_sha256)?;
     let stem = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&file_sha256);
 
     // Shares download_media's cache, so an already-viewed item copies instantly.
-    let cached = ensure_cached(&app, &session, descriptor, mimetype.as_deref()).await?;
+    let cached = ensure_cached(
+        &app,
+        &session,
+        descriptor,
+        mimetype.as_deref(),
+        filename.as_deref(),
+    )
+    .await?;
 
     let downloads = app
         .path()
@@ -252,6 +335,10 @@ pub async fn save_media_to_downloads(
         }
     }
 
+    // Belt and braces: the sanitized name must resolve directly inside Downloads.
+    if dest.parent() != Some(downloads.as_path()) {
+        return Err(ApiError::library("refusing to save outside Downloads"));
+    }
     std::fs::copy(&cached, &dest).map_err(ApiError::library)?;
     Ok(dest.to_string_lossy().into_owned())
 }
@@ -271,6 +358,9 @@ pub struct MediaSendOptionsIn {
     pub ptt: Option<bool>,
     /// base64 JPEG inline thumbnail (image/video).
     pub jpeg_thumbnail: Option<String>,
+    /// Video only: loop silently inline like a GIF. The payload must still be
+    /// an MP4 — WhatsApp clients can't play GIF bytes inside a video message.
+    pub gif_playback: Option<bool>,
 }
 
 /// Upload a local file and send it as a media message. The bytes are read from a
@@ -288,6 +378,12 @@ pub async fn send_media(
     let (id, session) = mgr.session(session_id).await?;
     let to = parse_jid(&jid)?;
     let opts = options.unwrap_or_default();
+    // WhatsApp clients can't play GIF bytes inside a video message.
+    if media_type == "video" && opts.mimetype.as_deref().is_some_and(|m| m.starts_with("image/gif")) {
+        return Err(ApiError::library(
+            "GIF bytes can't be sent as a video; send an MP4 with gifPlayback",
+        ));
+    }
 
     let bytes = std::fs::read(&path).map_err(ApiError::library)?;
     let thumb = match opts.jpeg_thumbnail.as_deref() {
@@ -303,12 +399,9 @@ pub async fn send_media(
 
     let msg = match media_type.as_str() {
         "video" => {
-            // Animated GIFs are sent as videos with the gif-playback flag so they
-            // auto-loop inline (WhatsApp behaviour); regular videos leave it unset.
-            let gif_playback = match opts.mimetype.as_deref() {
-                Some(m) if m.starts_with("image/gif") => Some(true),
-                _ => None,
-            };
+            // Animated GIFs are sent as MP4 videos with the gif-playback flag so
+            // they auto-loop inline (WhatsApp behaviour).
+            let gif_playback = opts.gif_playback.filter(|g| *g);
             media::video_message(
                 upload,
                 VideoOptions {
@@ -361,4 +454,43 @@ pub async fn send_media(
         message_id: result.message_id,
         to: result.to.to_string(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn safe_file_name_stays_a_single_component() {
+        assert_eq!(safe_file_name("report.pdf").as_deref(), Some("report.pdf"));
+        assert_eq!(safe_file_name("../../x.dll").as_deref(), Some("x.dll"));
+        assert_eq!(safe_file_name("C:\\Windows\\x.dll").as_deref(), Some("x.dll"));
+        assert_eq!(safe_file_name("C:x.dll").as_deref(), Some("C_x.dll"));
+        assert_eq!(safe_file_name("a.txt:stream").as_deref(), Some("a.txt_stream"));
+        assert_eq!(safe_file_name("CON.txt").as_deref(), Some("_CON.txt"));
+        assert_eq!(safe_file_name("com1").as_deref(), Some("_com1"));
+        assert_eq!(safe_file_name("name. . ").as_deref(), Some("name"));
+        assert_eq!(safe_file_name(".."), None);
+        assert_eq!(safe_file_name("  "), None);
+        let long = format!("{}.pdf", "a".repeat(400));
+        let s = safe_file_name(&long).unwrap();
+        assert_eq!(s.chars().count(), 180);
+        assert!(s.ends_with(".pdf"));
+    }
+
+    #[test]
+    fn documents_keep_their_extension() {
+        assert_eq!(ext_for(None, "document", Some("Q3.XLSX")), "xlsx");
+        assert_eq!(ext_for(Some("application/pdf"), "document", None), "pdf");
+        assert_eq!(
+            ext_for(
+                Some("application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+                "document",
+                Some("noext")
+            ),
+            "docx"
+        );
+        assert_eq!(ext_for(None, "document", Some("weird.e x e")), "bin");
+        assert_eq!(ext_for(Some("image/png"), "image", Some("x.exe")), "png");
+    }
 }

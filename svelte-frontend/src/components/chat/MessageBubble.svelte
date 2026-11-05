@@ -1,5 +1,13 @@
 <script lang="ts">
-  import { messagesFor, type UiMessage } from "../../lib/stores/messages.svelte";
+  import {
+    isPending,
+    messagesFor,
+    protoChatJid,
+    protoSenderJid,
+    restoreMessage,
+    type UiMessage,
+  } from "../../lib/stores/messages.svelte";
+  import { showToast } from "../../lib/stores/toast.svelte";
   import { formatTime } from "../../lib/util/time";
   import { formatPhone, isGroup, normalizeJid } from "../../lib/util/jid";
   import { contactFor, ensureContact } from "../../lib/stores/contacts.svelte";
@@ -56,17 +64,20 @@
     // Toggle off if we already reacted with this same emoji.
     const current = me ? message.reactions?.[me] : undefined;
     const next = current === emoji ? "" : emoji;
+    const before = message;
     applyReaction(message.chatJid, message.id, me, next); // optimistic
     try {
       await api.sendReaction(
-        message.chatJid,
-        message.id,
-        message.fromMe,
+        protoChatJid(before),
+        before.id,
+        before.fromMe,
         next,
-        isGroup(message.chatJid) ? message.senderJid : null,
+        isGroup(before.chatJid) && !before.fromMe ? protoSenderJid(before) : null,
       );
     } catch (e) {
       console.error("react failed", e);
+      restoreMessage(before);
+      showToast("Couldn't send reaction");
     }
   }
 
@@ -174,12 +185,13 @@
   class:grouped={sameSenderAsPrev}
   class:highlighted
   data-mid={message.id}
-  ondblclick={() => startReply(message)}
+  ondblclick={() => !isPending(message) && !message.deleted && startReply(message)}
   oncontextmenu={onContext}
   use:trackRead={{
     chatJid: message.chatJid,
+    wireChatJid: protoChatJid(message),
     id: message.id,
-    senderJid: isGroup(message.chatJid) ? message.senderJid : null,
+    senderJid: isGroup(message.chatJid) ? protoSenderJid(message) : null,
     fromMe: message.fromMe,
   }}
 >
@@ -224,7 +236,7 @@
         {/each}
       </div>
     {/if}
-    {#if !message.deleted}
+    {#if !message.deleted && !isPending(message)}
       <div class="actions">
         <button class="react-btn" aria-label="Reply" onclick={() => startReply(message)}>↩</button>
         {#if message.fromMe && message.text && !message.media}
@@ -252,6 +264,8 @@
       {#if message.fromMe}
         {#if message.status === "sending"}
           <span class="tick">🕓</span>
+        {:else if message.status === "failed"}
+          <span class="tick failed" title="Not sent">!</span>
         {:else if message.status === "read" || message.status === "played"}
           <span class="tick read">
             <svg viewBox="0 0 100 100" class="tick-svg"
@@ -479,6 +493,10 @@
     font-size: 11px;
     color: var(--wa-text-muted);
     margin-top: 2px;
+  }
+  .tick.failed {
+    color: #f15c6d;
+    font-weight: 700;
   }
   .tick {
     display: inline-flex;

@@ -7,13 +7,17 @@ import { settings } from "./stores/settings.svelte";
 import { markMessageRead } from "./stores/messages.svelte";
 
 interface Pending {
-  chatJid: string;
-  senderJid: string | null; // null for DMs; the sender's JID for groups
+  chatJid: string; // canonical key (local state)
+  wireChatJid: string; // as the server addressed it (the receipt goes here)
+  senderJid: string | null; // null for DMs; the sender's wire JID for groups
   id: string;
 }
 
 // Already-acknowledged messages (chatJid|id) so we never resend a receipt.
+// Bounded (oldest dropped first): a long session would otherwise grow it by one
+// entry per message ever read. A dropped entry only risks a duplicate receipt.
 const acked = new Set<string>();
+const ACKED_MAX = 5000;
 const queue: Pending[] = [];
 let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -42,6 +46,7 @@ function enqueue(p: Pending) {
   const key = p.chatJid + "|" + p.id;
   if (acked.has(key)) return;
   acked.add(key);
+  if (acked.size > ACKED_MAX) acked.delete(acked.values().next().value!);
   queue.push(p);
   if (!timer) timer = setTimeout(flush, 600);
 }
@@ -53,10 +58,10 @@ async function flush() {
   // The library marks per (chat, sender), so group accordingly.
   const groups = new Map<string, { chatJid: string; senderJid: string | null; ids: string[] }>();
   for (const p of batch) {
-    const k = p.chatJid + "||" + (p.senderJid ?? "");
+    const k = p.wireChatJid + "||" + (p.senderJid ?? "");
     let g = groups.get(k);
     if (!g) {
-      g = { chatJid: p.chatJid, senderJid: p.senderJid, ids: [] };
+      g = { chatJid: p.wireChatJid, senderJid: p.senderJid, ids: [] };
       groups.set(k, g);
     }
     g.ids.push(p.id);
@@ -73,10 +78,21 @@ async function flush() {
 /** Svelte action: ack an incoming bubble once it scrolls into view. */
 export function trackRead(
   node: HTMLElement,
-  params: { chatJid: string; id: string; senderJid: string | null; fromMe: boolean },
+  params: {
+    chatJid: string;
+    wireChatJid: string;
+    id: string;
+    senderJid: string | null;
+    fromMe: boolean;
+  },
 ) {
   if (!params.fromMe && params.id) {
-    meta.set(node, { chatJid: params.chatJid, id: params.id, senderJid: params.senderJid });
+    meta.set(node, {
+      chatJid: params.chatJid,
+      wireChatJid: params.wireChatJid,
+      id: params.id,
+      senderJid: params.senderJid,
+    });
     ensureObserver().observe(node);
   }
   return {

@@ -249,12 +249,17 @@ export async function loadTails(jids: string[], n: number): Promise<Map<string, 
 
 /** Move a chat's persisted messages (and chat row) from one key to another —
  * LID→PN unification. Pending writes for the old key are re-keyed too. */
-export async function movePersistedChat(fromJid: string, toJid: string): Promise<void> {
+export function movePersistedChat(fromJid: string, toJid: string): Promise<void> {
+  return track(movePersistedChatImpl(fromJid, toJid));
+}
+
+async function movePersistedChatImpl(fromJid: string, toJid: string): Promise<void> {
   if (fromJid === toJid) return;
+  const started = epoch;
   for (const [k, op] of [...pending]) {
     if (op.op !== "del" && op.m.chatJid === fromJid) {
       pending.delete(k);
-      const m = { ...op.m, chatJid: toJid };
+      const m = { ...op.m, chatJid: toJid, wireChatJid: op.m.wireChatJid ?? fromJid };
       pending.set(pendingKey(toJid, m.id), { op: op.op, m });
     } else if (op.op === "del" && op.chatJid === fromJid) {
       pending.delete(k);
@@ -262,13 +267,15 @@ export async function movePersistedChat(fromJid: string, toJid: string): Promise
   }
   try {
     const db = await openDb();
+    if (epoch !== started) return;
     const t = db.transaction([STORE_CHATS, STORE_MSGS], "readwrite");
     const msgs = t.objectStore(STORE_MSGS);
     const cursorReq = msgs.openCursor(chatKeyRange(fromJid));
     cursorReq.onsuccess = () => {
       const cursor = cursorReq.result;
       if (!cursor) return;
-      msgs.put({ ...(cursor.value as UiMessage), chatJid: toJid });
+      const row = cursor.value as UiMessage;
+      msgs.put({ ...row, chatJid: toJid, wireChatJid: row.wireChatJid ?? fromJid });
       cursor.delete();
       cursor.continue();
     };
@@ -279,8 +286,18 @@ export async function movePersistedChat(fromJid: string, toJid: string): Promise
   }
 }
 
-/** Wipe the cache (logout, or a different account was linked). */
+/** Wipe the cache (logout, or a different account was linked).
+ *
+ * Drops queued writes and waits for any write already in flight, so nothing
+ * from the old session can land after the wipe (a flush that captured its ops
+ * before the reset would otherwise write old messages back). */
 export async function clearAll(): Promise<void> {
+  epoch++;
+  pending.clear();
+  if (msgTimer) clearTimeout(msgTimer);
+  if (chatsTimer) clearTimeout(chatsTimer);
+  msgTimer = chatsTimer = null;
+  await Promise.allSettled([...inflight]);
   const db = await openDb();
   const t = db.transaction([STORE_CHATS, STORE_MSGS, STORE_META], "readwrite");
   t.objectStore(STORE_CHATS).clear();
@@ -315,6 +332,16 @@ type PendingOp =
 // before persistence turns on — is still written once it is enabled.
 const pending = new Map<string, PendingOp>();
 let enabled = false;
+/** Bumped by `clearAll`; a write that started in an older epoch stops. */
+let epoch = 0;
+/** Writes currently running, so `clearAll` can wait them out. */
+const inflight = new Set<Promise<unknown>>();
+
+function track<T>(p: Promise<T>): Promise<T> {
+  inflight.add(p);
+  void p.finally(() => inflight.delete(p)).catch(() => {});
+  return p;
+}
 let chatsTimer: ReturnType<typeof setTimeout> | null = null;
 let msgTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -331,13 +358,15 @@ export function enablePersistence() {
 /** Drop queued, unwritten message ops (full reset). */
 export function discardPending() {
   pending.clear();
+  if (msgTimer) clearTimeout(msgTimer);
+  msgTimer = null;
 }
 
 export function schedulePersistChats() {
   if (!enabled || chatsTimer) return;
   chatsTimer = setTimeout(() => {
     chatsTimer = null;
-    void flushChats();
+    void track(flushChats());
   }, DEBOUNCE_MS);
 }
 
@@ -345,7 +374,7 @@ function scheduleFlushMessages() {
   if (!enabled || msgTimer || pending.size === 0) return;
   msgTimer = setTimeout(() => {
     msgTimer = null;
-    void flushMessages();
+    void track(flushMessages());
   }, DEBOUNCE_MS);
 }
 
@@ -396,11 +425,20 @@ export function persistMessageDelete(chatJid: string, id: string) {
  * `fn` returning null leaves the record unchanged. Resolves to the updated
  * message, or undefined when no such message is persisted.
  */
-export async function patchPersistedMessage(
+export function patchPersistedMessage(
   chatJid: string,
   id: string,
   fn: (m: UiMessage) => UiMessage | null,
 ): Promise<UiMessage | undefined> {
+  return track(patchPersistedMessageImpl(chatJid, id, fn));
+}
+
+async function patchPersistedMessageImpl(
+  chatJid: string,
+  id: string,
+  fn: (m: UiMessage) => UiMessage | null,
+): Promise<UiMessage | undefined> {
+  const started = epoch;
   const k = pendingKey(chatJid, id);
   const queued = pending.get(k);
   if (queued?.op === "put") {
@@ -411,6 +449,7 @@ export async function patchPersistedMessage(
   if (queued?.op === "del") return undefined;
   try {
     const db = await openDb();
+    if (epoch !== started) return undefined;
     const t = db.transaction([STORE_MSGS], "readwrite");
     const done = txDone(t);
     const store = t.objectStore(STORE_MSGS);
@@ -435,8 +474,10 @@ export async function patchPersistedMessage(
 }
 
 async function flushChats() {
+  const started = epoch;
   try {
     const db = await openDb();
+    if (epoch !== started) return;
     const t = db.transaction([STORE_CHATS], "readwrite");
     const store = t.objectStore(STORE_CHATS);
     // Additive put per chat — never clear(). An empty/partly-hydrated in-memory
@@ -455,15 +496,17 @@ export async function flushPendingWrites(): Promise<void> {
     clearTimeout(msgTimer);
     msgTimer = null;
   }
-  await flushMessages();
+  await track(flushMessages());
 }
 
 async function flushMessages() {
   const ops = [...pending.values()];
   pending.clear();
+  const started = epoch;
   try {
     const db = await openDb();
     for (let i = 0; i < ops.length; i += FLUSH_SLICE) {
+      if (epoch !== started) return; // reset meanwhile: these ops are stale
       const t = db.transaction([STORE_MSGS], "readwrite");
       const store = t.objectStore(STORE_MSGS);
       for (const op of ops.slice(i, i + FLUSH_SLICE)) {

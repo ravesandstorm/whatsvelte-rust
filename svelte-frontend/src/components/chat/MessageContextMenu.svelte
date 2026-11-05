@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { UiMessage } from "../../lib/stores/messages.svelte";
+  import { isPending, type UiMessage } from "../../lib/stores/messages.svelte";
   import { startReply, startEdit } from "../../lib/stores/compose.svelte";
 
   let {
@@ -16,9 +16,14 @@
     ondelete: () => void;
   } = $props();
 
-  const canReply = $derived(!message.deleted);
-  const canEdit = $derived(message.fromMe && !!message.text && !message.media && !message.deleted);
-  const canDelete = $derived(!message.deleted);
+  // A bubble the server hasn't accepted has no real id to act on; a failed one
+  // can only be dismissed locally.
+  const pending = $derived(isPending(message));
+  const canReply = $derived(!message.deleted && !pending);
+  const canEdit = $derived(
+    message.fromMe && !!message.text && !message.media && !message.deleted && !pending,
+  );
+  const canDelete = $derived(!message.deleted && (!pending || message.status === "failed"));
 
   // Keep the menu on-screen (approximate menu box ~ 210x150).
   const px = $derived(Math.max(8, Math.min(x, window.innerWidth - 214)));

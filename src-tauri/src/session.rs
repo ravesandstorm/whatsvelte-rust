@@ -24,14 +24,26 @@ pub const DEFAULT_SESSION: &str = "default";
 
 /// A single booted account: the background run-loop task plus its client.
 pub struct Session {
-    /// Aborted on drop so `reset` releases the SQLite handle before deleting it.
-    run_task: tauri::async_runtime::JoinHandle<()>,
+    /// The run loop. `reset` takes it, aborts it and waits for it to finish, so
+    /// the SQLite handle it owns is closed before the files are deleted.
+    run_task: std::sync::Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
     pub client: Arc<Client>,
+}
+
+impl Session {
+    fn take_run_task(&self) -> Option<tauri::async_runtime::JoinHandle<()>> {
+        self.run_task
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .take()
+    }
 }
 
 impl Drop for Session {
     fn drop(&mut self) {
-        self.run_task.abort();
+        if let Some(task) = self.take_run_task() {
+            task.abort();
+        }
     }
 }
 
@@ -82,30 +94,55 @@ impl SessionManager {
     /// that will emit a new QR. Used by logout and by stale-data recovery — if
     /// the on-disk key is stale the QR never generates, so we wipe and recreate.
     pub async fn reset(&self, session_id: &str) -> ApiResult<Arc<Session>> {
-        {
-            let mut map = self.sessions.lock().await;
-            if let Some(old) = map.remove(session_id) {
-                old.client.disconnect().await;
-                // Dropping the map's strong ref aborts the run loop (BotHandle in
-                // Session), releasing the SQLite handle before we delete the file.
-                drop(old);
+        // Hold the map lock for the whole reset, so a command arriving meanwhile
+        // can't boot a client on the half-deleted database.
+        let mut map = self.sessions.lock().await;
+        if let Some(old) = map.remove(session_id) {
+            old.client.disconnect().await;
+            // `abort` only requests cancellation; wait for the task to actually
+            // end so it drops the bot (and with it the SQLite pool).
+            if let Some(task) = old.take_run_task() {
+                task.abort();
+                let _ = task.await;
             }
+            drop(old);
         }
-        // Delete the db plus its WAL/SHM sidecars; a missing file is not an error.
-        for suffix in ["", "-shm", "-wal"] {
-            let path = self.base_dir.join(format!("whatsapp-{session_id}.db{suffix}"));
-            if let Err(e) = std::fs::remove_file(&path) {
-                if e.kind() != std::io::ErrorKind::NotFound {
-                    log::warn!("[{session_id}] failed to delete {}: {e}", path.display());
+        self.delete_db_files(session_id).await;
+        let session = self.boot(session_id).await?;
+        map.insert(session_id.to_string(), session.clone());
+        Ok(session)
+    }
+
+    /// Delete the db plus its WAL/SHM sidecars; a missing file is not an error.
+    /// Windows refuses to delete a file that still has an open handle (e.g. a
+    /// command that was mid-query when the reset began), so retry briefly.
+    async fn delete_db_files(&self, session_id: &str) {
+        let paths: Vec<PathBuf> = ["", "-shm", "-wal"]
+            .iter()
+            .map(|suffix| self.base_dir.join(format!("whatsapp-{session_id}.db{suffix}")))
+            .collect();
+        for attempt in 0..30 {
+            let mut busy = false;
+            for path in &paths {
+                match std::fs::remove_file(path) {
+                    Ok(()) => {}
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(e) => {
+                        busy = true;
+                        if attempt == 29 {
+                            log::warn!(
+                                "[{session_id}] failed to delete {}: {e}",
+                                path.display()
+                            );
+                        }
+                    }
                 }
             }
+            if !busy {
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         }
-        let session = self.boot(session_id).await?;
-        self.sessions
-            .lock()
-            .await
-            .insert(session_id.to_string(), session.clone());
-        Ok(session)
     }
 
     async fn boot(&self, session_id: &str) -> ApiResult<Arc<Session>> {
@@ -152,6 +189,9 @@ impl SessionManager {
         let sid = session_id.to_string();
         tauri::async_runtime::spawn(bridge::pump(app, sid, rx));
 
-        Ok(Arc::new(Session { run_task, client }))
+        Ok(Arc::new(Session {
+            run_task: std::sync::Mutex::new(Some(run_task)),
+            client,
+        }))
     }
 }

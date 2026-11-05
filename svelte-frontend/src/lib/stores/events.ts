@@ -15,6 +15,7 @@ import {
   clearMessages,
   removeMessage,
   type MessageStatus,
+  type UiMessage,
 } from "./messages.svelte";
 import {
   applyChatFlags,
@@ -135,10 +136,9 @@ export async function startEventBridge() {
     // Canonicalize the chat key AND the sender key (LID→PN) so a contact that
     // switched addressing form lands in the one existing conversation, and group
     // participants resolve to a real phone/name instead of a raw `@lid`.
-    const jid = canonicalJid(m.chatJid);
-    const senderJid = canonicalJid(m.senderJid);
-    const cm =
-      jid === m.chatJid && senderJid === m.senderJid ? m : { ...m, chatJid: jid, senderJid };
+    const cm = canonicalMessage(m);
+    const jid = cm.chatJid;
+    const senderJid = cm.senderJid;
     addMessage(cm);
     touchChat(jid, cm.text, cm.timestamp, !cm.fromMe);
     if (cm.pushName && !cm.fromMe) {
@@ -163,20 +163,25 @@ export async function startEventBridge() {
     }
     addHistoryMessages(
       h.messages.map((m) => {
-        const jid = canonicalJid(m.chatJid);
-        const senderJid = canonicalJid(m.senderJid);
-        if (m.pushName && !m.fromMe) learnName(senderJid || jid, m.pushName);
+        const cm = canonicalMessage(m);
+        if (m.pushName && !m.fromMe) learnName(cm.senderJid || cm.chatJid, m.pushName);
         if (m.senderJid && m.senderJid !== m.chatJid) void unifyLid(m.senderJid);
-        return jid === m.chatJid && senderJid === m.senderJid
-          ? m
-          : { ...m, chatJid: jid, senderJid };
+        return cm;
       }),
     );
   });
 
   await on<ReceiptDto>("wa://receipt", (r) => {
-    applyReceipt(canonicalJid(r.chatJid), r.messageIds, r.status as MessageStatus);
-    void unifyLid(r.chatJid);
+    const jid = canonicalJid(r.chatJid);
+    if (jid.endsWith("@lid")) {
+      // Mapping not learned yet: the messages live under the PN key, so applying
+      // now would miss them. Resolve first, then apply under whatever key wins.
+      void unifyLid(r.chatJid).then(() =>
+        applyReceipt(canonicalJid(r.chatJid), r.messageIds, r.status as MessageStatus),
+      );
+      return;
+    }
+    applyReceipt(jid, r.messageIds, r.status as MessageStatus);
   });
 
   await on<ChatFlagsDto>("wa://chat/flags", (f) => {
@@ -310,6 +315,18 @@ export async function startEventBridge() {
   // If we're already connected at boot, seed the Channels section now (a later
   // wa://conn/state would also trigger this, but at startup it may not fire).
   void maybeFetchNewsletters();
+}
+
+/** Re-key a message to its canonical (LID→PN) chat/sender, remembering the
+ * original addressing for protocol actions on it. */
+function canonicalMessage(m: MessageDto): UiMessage {
+  const jid = canonicalJid(m.chatJid);
+  const senderJid = canonicalJid(m.senderJid);
+  if (jid === m.chatJid && senderJid === m.senderJid) return m;
+  const out: UiMessage = { ...m, chatJid: jid, senderJid };
+  if (jid !== m.chatJid) out.wireChatJid = m.chatJid;
+  if (senderJid !== m.senderJid) out.wireSenderJid = m.senderJid;
+  return out;
 }
 
 export async function refreshStatus() {

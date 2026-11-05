@@ -17,7 +17,7 @@ import {
   persistMessageInsert,
 } from "../persist";
 
-export type MessageStatus = "sending" | "sent" | "delivered" | "read" | "played";
+export type MessageStatus = "sending" | "failed" | "sent" | "delivered" | "read" | "played";
 
 export interface UiMessage extends MessageDto {
   status?: MessageStatus;
@@ -29,6 +29,27 @@ export interface UiMessage extends MessageDto {
   reactions?: Record<string, string>;
   /** True if this incoming message hasn't been scrolled into view / read yet. */
   unread?: boolean;
+  /** The chat/sender JIDs exactly as the server addressed this message, when
+   * they differ from the canonical (LID→PN) keys above. Protocol actions on the
+   * message (receipts, reactions, deletes, quotes) must use these. */
+  wireChatJid?: string;
+  wireSenderJid?: string;
+}
+
+/** An outgoing message that the server hasn't accepted (yet). It has no real
+ * id, so it can't be reacted to, replied to, edited or deleted remotely. */
+export function isPending(m: UiMessage): boolean {
+  return m.id.startsWith("tmp-") || m.status === "sending" || m.status === "failed";
+}
+
+/** The chat JID to address protocol actions on `m` to. */
+export function protoChatJid(m: UiMessage): string {
+  return m.wireChatJid ?? m.chatJid;
+}
+
+/** The sender JID as the server knows it (for message-key participants). */
+export function protoSenderJid(m: UiMessage): string {
+  return m.wireSenderJid ?? m.senderJid;
 }
 
 import { chats, chatUi, decrementUnread } from "./chats.svelte";
@@ -42,6 +63,7 @@ const MAX_INITIAL = 500;
 
 // Monotonic ordering so a later out-of-order receipt can't downgrade status.
 const STATUS_RANK: Record<MessageStatus, number> = {
+  failed: 0,
   sending: 0,
   sent: 1,
   delivered: 2,
@@ -55,6 +77,21 @@ export const messagesByChat = new SvelteMap<string, UiMessage[]>();
 const exhausted = new SvelteSet<string>();
 /** In-flight `loadOlder` per chat, so concurrent scroll events share one read. */
 const loadingOlder = new Map<string, Promise<number>>();
+/** Receipts for ids we don't know yet — typically our own send, acked by the
+ * server before `send_*` returned and `confirmOptimistic` swapped in the real
+ * id. Applied on confirm. Bounded; entries are tiny. */
+const earlyReceipts = new Map<string, MessageStatus>();
+const EARLY_RECEIPTS_MAX = 500;
+
+function rememberEarlyReceipt(id: string, status: MessageStatus) {
+  const prev = earlyReceipts.get(id);
+  if (prev && STATUS_RANK[prev] >= STATUS_RANK[status]) return;
+  earlyReceipts.delete(id);
+  earlyReceipts.set(id, status);
+  if (earlyReceipts.size > EARLY_RECEIPTS_MAX) {
+    earlyReceipts.delete(earlyReceipts.keys().next().value!);
+  }
+}
 
 function ensure(jid: string): UiMessage[] {
   let arr = messagesByChat.get(jid);
@@ -127,9 +164,18 @@ export function addMessage(m: UiMessage) {
     }
   }
 
-  // Reconcile the server echo of our own send with the optimistic bubble.
+  // Reconcile the server echo of our own send with the optimistic bubble. Match
+  // on kind, text and quoted target — text alone pairs any two media sends
+  // (both null) or the wrong one of two identical texts' replies.
   if (msgToAdd.fromMe) {
-    const tmp = arr.findIndex((x) => x.status === "sending" && x.text === msgToAdd.text);
+    const tmp = arr.findIndex(
+      (x) =>
+        x.status === "sending" &&
+        x.id.startsWith("tmp-") &&
+        x.kind === msgToAdd.kind &&
+        (x.text ?? null) === (msgToAdd.text ?? null) &&
+        (x.quoted?.id ?? null) === (msgToAdd.quoted?.id ?? null),
+    );
     if (tmp >= 0) {
       arr[tmp] = { ...msgToAdd, status: "sent" };
       persistMessage(arr[tmp]);
@@ -277,11 +323,44 @@ export function confirmOptimistic(jid: string, tempId: string, realId: string) {
   const arr = messagesByChat.get(jid);
   if (!arr) return;
   const idx = arr.findIndex((x) => x.id === tempId);
-  if (idx >= 0) {
-    arr[idx] = { ...arr[idx], id: realId, status: "sent" };
-    persistMessage(arr[idx]);
+  if (idx < 0) return;
+  // The server echo may already be resident under the real id.
+  if (arr.some((x) => x.id === realId)) {
+    arr.splice(idx, 1);
     commit(jid, arr);
+    return;
   }
+  const early = earlyReceipts.get(realId);
+  earlyReceipts.delete(realId);
+  const status: MessageStatus = early && STATUS_RANK[early] > STATUS_RANK.sent ? early : "sent";
+  arr[idx] = { ...arr[idx], id: realId, status };
+  persistMessage(arr[idx]);
+  commit(jid, arr);
+}
+
+/** Mark an optimistic bubble as not sent (the send call failed). It stays in
+ * memory only — failed bubbles aren't persisted. */
+export function failOptimistic(jid: string, tempId: string) {
+  const arr = messagesByChat.get(jid);
+  const idx = arr ? arr.findIndex((x) => x.id === tempId) : -1;
+  if (!arr || idx < 0) return;
+  arr[idx] = { ...arr[idx], status: "failed" };
+  messagesByChat.set(jid, [...arr]);
+}
+
+/** Put back a message as it was before an optimistic change that the server
+ * then rejected (edit, reaction, revoke, delete-for-me). */
+export function restoreMessage(original: UiMessage) {
+  const arr = messagesByChat.get(original.chatJid);
+  if (arr && arr.some((m) => m.id === original.id)) {
+    updateMessage(original.chatJid, original.id, () => original);
+    return;
+  }
+  // It was removed (delete-for-me): put it back.
+  persistMessage(original);
+  const cur = ensure(original.chatJid);
+  cur.push(original);
+  commit(original.chatJid, cur);
 }
 
 export function messagesFor(jid: string): UiMessage[] {
@@ -370,6 +449,7 @@ export function trimChat(jid: string, keep: number) {
 
 /** Forget everything in memory (logout / reset). */
 export function clearMessages() {
+  earlyReceipts.clear();
   messagesByChat.clear();
   exhausted.clear();
   loadingOlder.clear();
@@ -387,7 +467,7 @@ export function mergeMessages(fromJid: string, toJid: string) {
   const seen = new Set(to.map((m) => m.id));
   for (const m of from) {
     if (m.id && seen.has(m.id)) continue;
-    to.push({ ...m, chatJid: toJid });
+    to.push({ ...m, chatJid: toJid, wireChatJid: m.wireChatJid ?? fromJid });
     if (m.id) seen.add(m.id);
   }
   // The merged-in rows may predate what's resident for `toJid`.
@@ -509,6 +589,11 @@ export function applyReceipt(jid: string, ids: string[], status: MessageStatus) 
     }
     if (changed) messagesByChat.set(jid, [...arr]);
   }
-  // Receipts for messages no longer resident still update the stored copy.
-  for (const id of missing) void patchPersistedMessage(jid, id, upgrade);
+  // Receipts for messages no longer resident still update the stored copy; ids
+  // we don't know at all are kept for a send that hasn't been confirmed yet.
+  for (const id of missing) {
+    void patchPersistedMessage(jid, id, upgrade).then((found) => {
+      if (!found) rememberEarlyReceipt(id, status);
+    });
+  }
 }
