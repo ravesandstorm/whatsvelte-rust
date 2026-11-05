@@ -1,6 +1,11 @@
 <script lang="ts">
   import { api } from "../../lib/ipc";
-  import { addOptimisticMedia, confirmOptimistic } from "../../lib/stores/messages.svelte";
+  import {
+    addOptimisticMedia,
+    confirmOptimistic,
+    failOptimistic,
+  } from "../../lib/stores/messages.svelte";
+  import { showToast } from "../../lib/stores/toast.svelte";
   import { touchChat } from "../../lib/stores/chats.svelte";
   import type { MediaSendOptions } from "../../lib/types";
   import {
@@ -24,6 +29,10 @@
   let sending = $state(false);
 
   const isImage = $derived(attachment.kind === "image");
+  const isGif = $derived(
+    attachment.kind === "image" &&
+      (attachment.blob?.type === "image/gif" || /\.gif$/i.test(attachment.fileName ?? "")),
+  );
   const title = $derived(
     attachment.kind === "image"
       ? "Send photo"
@@ -46,7 +55,14 @@
     let label: string;
 
     try {
-      if (attachment.kind === "image" && attachment.blob) {
+      if (attachment.kind === "image" && attachment.blob && isGif) {
+        // Re-encoding to JPEG would flatten it to one frame; send the file as-is.
+        thumb = await makeImageThumbnail(attachment.blob);
+        tempPath = await blobToTempFile(attachment.blob, "gif");
+        path = tempPath;
+        opts = { caption: caption || null, mimetype: "image/gif", jpegThumbnail: thumb };
+        label = caption || "📷 Photo";
+      } else if (attachment.kind === "image" && attachment.blob) {
         const out = await compressImage(attachment.blob, hd);
         thumb = await makeImageThumbnail(out);
         tempPath = await blobToTempFile(out, "jpg");
@@ -95,7 +111,13 @@
         confirmOptimistic(jid, tempId, r.messageId);
       } catch (e) {
         console.error("send media failed", e);
+        failOptimistic(jid, tempId);
+        showToast("Attachment not sent");
       }
+    } catch (e) {
+      // Preparing the file (compress / thumbnail / staging) failed.
+      console.error("prepare media failed", e);
+      showToast("Couldn't prepare the attachment");
     } finally {
       if (tempPath) await cleanupTemp(tempPath);
       sending = false;
@@ -142,7 +164,7 @@
     </div>
 
     <div class="controls">
-      {#if isImage}
+      {#if isImage && !isGif}
         <label class="hd">
           <input type="checkbox" bind:checked={hd} />
           <span>HD quality</span>

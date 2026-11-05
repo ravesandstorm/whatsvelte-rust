@@ -52,6 +52,8 @@ export interface MediaSendOptions {
   ptt?: boolean | null;
   /** base64 JPEG inline thumbnail (image/video). */
   jpegThumbnail?: string | null;
+  /** Video only: loop silently inline like a GIF (payload must be MP4). */
+  gifPlayback?: boolean | null;
 }
 
 export interface QuotedDto {

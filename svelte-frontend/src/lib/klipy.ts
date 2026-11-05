@@ -4,8 +4,8 @@
 // never hardcoded. Set it in `svelte-frontend/.env` (or the shell) before
 // building, e.g. `VITE_KLIPY_API_KEY=your_key_here`.
 //
-// The webview has no CSP (tauri.conf.json `csp: null`), so these requests and
-// the returned GIF media URLs load directly from KLIPY's CDN.
+// The CSP (tauri.conf.json) allows https: for images/media and *.klipy.com for
+// fetch, so these requests and the returned media load straight from the CDN.
 
 const API_KEY: string = import.meta.env.VITE_KLIPY_API_KEY ?? "";
 const BASE = "https://api.klipy.com/api/v1";
@@ -19,8 +19,10 @@ export interface Gif {
   id: string;
   /** Small looping preview shown in the grid. */
   previewUrl: string;
-  /** Full-size GIF used when sending. */
+  /** Full-size GIF (fallback when no MP4 rendition exists). */
   gifUrl: string;
+  /** MP4 rendition used when sending — WhatsApp plays GIFs as looping MP4s. */
+  mp4Url: string | null;
   width: number;
   height: number;
 }
@@ -39,6 +41,7 @@ interface KlipyFormat {
 interface KlipyTier {
   gif?: KlipyFormat;
   webp?: KlipyFormat;
+  mp4?: KlipyFormat;
 }
 interface KlipyItem {
   id: number | string;
@@ -55,11 +58,13 @@ function normalize(item: KlipyItem): Gif | null {
   // missing size doesn't drop an otherwise-usable result.
   const preview = f.sm?.webp ?? f.sm?.gif ?? f.md?.webp ?? f.md?.gif ?? f.xs?.gif;
   const full = f.md?.gif ?? f.hd?.gif ?? f.sm?.gif ?? preview;
+  const mp4 = f.md?.mp4 ?? f.hd?.mp4 ?? f.sm?.mp4;
   if (!preview?.url || !full?.url) return null;
   return {
     id: String(item.id),
     previewUrl: preview.url,
     gifUrl: full.url,
+    mp4Url: mp4?.url ?? null,
     width: preview.width ?? 0,
     height: preview.height ?? 0,
   };
