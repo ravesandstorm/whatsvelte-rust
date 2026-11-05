@@ -1,7 +1,7 @@
 <script lang="ts">
   import { api } from "../../lib/ipc";
   import { mediaSrc } from "../../lib/media";
-  import { ui } from "../../lib/stores/ui.svelte";
+  import { stepLightbox, ui } from "../../lib/stores/ui.svelte";
 
   // The viewer is driven entirely by ui.lightboxMedia; rendering is gated on it
   // in MainLayout, but we read it reactively here too so a change re-resolves.
@@ -63,7 +63,13 @@
   function close() {
     ui.lightboxMedia = null;
     ui.lightboxThumbnail = null;
+    ui.lightboxSet = null;
+    ui.lightboxIndex = 0;
   }
+
+  const total = $derived(ui.lightboxSet?.length ?? 0);
+  const hasPrev = $derived(total > 1 && ui.lightboxIndex > 0);
+  const hasNext = $derived(total > 1 && ui.lightboxIndex < total - 1);
 
   function onBackdropClick(e: MouseEvent) {
     // Close only when the click lands on the empty backdrop, not on the image,
@@ -116,7 +122,11 @@
   }
 
   function onKey(e: KeyboardEvent) {
-    if (e.key === "Escape") close();
+    if (e.key === "Escape") {
+      e.stopImmediatePropagation();
+      close();
+    } else if (e.key === "ArrowLeft") stepLightbox(-1);
+    else if (e.key === "ArrowRight") stepLightbox(1);
   }
 </script>
 
@@ -141,6 +151,32 @@
       </button>
       <button class="tbtn close" onclick={close} aria-label="Close" title="Close (Esc)">✕</button>
     </div>
+
+    {#if total > 1}
+      <div class="counter">{ui.lightboxIndex + 1} / {total}</div>
+      {#if hasPrev}
+        <button
+          class="nav prev"
+          onclick={(e) => {
+            e.stopPropagation();
+            stepLightbox(-1);
+          }}
+          onpointerdown={(e) => e.stopPropagation()}
+          aria-label="Previous">‹</button
+        >
+      {/if}
+      {#if hasNext}
+        <button
+          class="nav next"
+          onclick={(e) => {
+            e.stopPropagation();
+            stepLightbox(1);
+          }}
+          onpointerdown={(e) => e.stopPropagation()}
+          aria-label="Next">›</button
+        >
+      {/if}
+    {/if}
 
     <!-- Full-resolution media. Mounted as soon as the asset URL resolves; its
          load/error events drive the overlay below. -->
@@ -225,6 +261,42 @@
   .tbtn:disabled {
     opacity: 0.6;
     cursor: default;
+  }
+  .counter {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #fff;
+    font-size: 13px;
+    background: rgba(0, 0, 0, 0.55);
+    padding: 5px 12px;
+    border-radius: 14px;
+    z-index: 1;
+  }
+  .nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 48px;
+    height: 48px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font-size: 30px;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 1;
+  }
+  .nav:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+  .nav.prev {
+    left: 18px;
+  }
+  .nav.next {
+    right: 18px;
   }
   .tbtn.close {
     padding: 8px 12px;
