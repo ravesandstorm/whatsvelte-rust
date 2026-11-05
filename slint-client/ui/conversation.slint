@@ -214,7 +214,7 @@ component Bubble inherits Rectangle {
 
                     if msg.show-sender: Text {
                         text: msg.sender;
-                        color: msg.tint;
+                        color: Theme.accent;
                         font-size: Theme.fs-small;
                         font-weight: 600;
                         overflow: elide;
@@ -537,11 +537,11 @@ export component ConversationPane inherits Rectangle {
 
     // ---- empty state
     if AppState.active-jid == "": Rectangle {
-        background: Theme.panel-alt;
+        background: Theme.chat-bg;
         VerticalLayout {
             alignment: center;
             spacing: 12px;
-            Text { text: "Wha.rs.app"; color: Theme.text; font-size: 32px * Theme.zoom; font-weight: 300; horizontal-alignment: center; }
+            Text { text: "WhatSvelte Rust"; color: Theme.accent; font-size: 24px * Theme.zoom; font-weight: 500; horizontal-alignment: center; }
             Text {
                 text: "Select a chat to start messaging.";
                 color: Theme.text-muted;
@@ -576,19 +576,6 @@ export component ConversationPane inherits Rectangle {
                     alignment: center;
                     horizontal-stretch: 1;
                     Text { text: AppState.active-title; color: Theme.text; font-size: Theme.fs-large; overflow: elide; }
-                    if AppState.active-subtitle != "": Text { text: AppState.active-subtitle; color: Theme.text-muted; font-size: Theme.fs-small; overflow: elide; }
-                }
-                VerticalLayout {
-                    alignment: center;
-                    IconButton { icon: AppState.active-muted ? "🔇" : "🔔"; active: AppState.active-muted; clicked => { AppState.toggle-mute(); } }
-                }
-                VerticalLayout {
-                    alignment: center;
-                    IconButton { icon: "📌"; active: AppState.active-pinned; clicked => { AppState.toggle-pin(); } }
-                }
-                VerticalLayout {
-                    alignment: center;
-                    IconButton { icon: "🗄"; active: AppState.active-archived; clicked => { AppState.toggle-archive(); } }
                 }
             }
         }
