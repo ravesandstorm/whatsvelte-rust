@@ -1,0 +1,355 @@
+// Modal overlays: delete confirmation, reaction picker, media preview,
+// recorder, album sheet, lightbox and toasts.
+import { CheckBox, Spinner } from "std-widgets.slint";
+import { AppState, Theme, AlbumTile } from "state.slint";
+import { IconButton, PrimaryButton, TextField } from "widgets.slint";
+import { EmojiPanelBody } from "conversation.slint";
+
+component Scrim inherits Rectangle {
+    callback dismiss();
+    background: Theme.scrim;
+    TouchArea { clicked => { root.dismiss(); } }
+}
+
+component Card inherits Rectangle {
+    background: Theme.panel;
+    border-radius: 10px;
+    drop-shadow-blur: 20px;
+    drop-shadow-color: #00000055;
+    // swallow clicks so they don't reach the scrim
+    TouchArea { }
+    @children
+}
+
+export component DeleteModal inherits Rectangle {
+    Scrim { dismiss => { AppState.delete-open = false; } }
+    Card {
+        width: 340px;
+        height: col.preferred-height;
+        col := VerticalLayout {
+            padding: 22px;
+            spacing: 10px;
+            Text { text: "Delete message?"; color: Theme.text; font-size: Theme.fs-large; font-weight: 600; }
+            Rectangle { height: 6px; }
+            if AppState.delete-can-everyone: PrimaryButton {
+                label: "Delete for everyone";
+                danger: true;
+                clicked => { AppState.delete-open = false; AppState.delete-for-everyone(AppState.delete-id); }
+            }
+            PrimaryButton {
+                label: "Delete for me";
+                danger: true;
+                clicked => { AppState.delete-open = false; AppState.delete-for-me(AppState.delete-id); }
+            }
+            PrimaryButton {
+                label: "Cancel";
+                clicked => { AppState.delete-open = false; }
+            }
+        }
+    }
+}
+
+export component ReactionPicker inherits Rectangle {
+    Scrim { dismiss => { AppState.reaction-open = false; } }
+    Card {
+        width: 320px;
+        height: 380px;
+        VerticalLayout {
+            padding: 10px;
+            spacing: 8px;
+            HorizontalLayout {
+                alignment: center;
+                spacing: 4px;
+                for e in ["👍", "❤️", "😂", "😮", "😢", "🙏"]: Rectangle {
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 20px;
+                    background: e == AppState.reaction-current ? Theme.selected : qta.has-hover ? Theme.hover : transparent;
+                    Text { text: e; font-size: 24px; horizontal-alignment: center; vertical-alignment: center; }
+                    qta := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { AppState.reaction-open = false; AppState.react(AppState.reaction-id, e); }
+                    }
+                }
+            }
+            Rectangle { height: 1px; background: Theme.divider; }
+            EmojiPanelBody {
+                vertical-stretch: 1;
+                highlight: AppState.reaction-current;
+                picked(e) => { AppState.reaction-open = false; AppState.react(AppState.reaction-id, e); }
+            }
+        }
+    }
+}
+
+export component MediaPreview inherits Rectangle {
+    Scrim { dismiss => { AppState.preview-cancel(); } }
+    Card {
+        width: min(parent.width - 48px, 520px);
+        height: col.preferred-height;
+        col := VerticalLayout {
+            padding: 18px;
+            spacing: 12px;
+            HorizontalLayout {
+                Text { text: AppState.preview-title; color: Theme.text; font-size: Theme.fs-large; font-weight: 600; horizontal-stretch: 1; vertical-alignment: center; }
+                IconButton { icon: "×"; clicked => { AppState.preview-cancel(); } }
+            }
+            if AppState.preview-has-image: Rectangle {
+                height: 300px;
+                background: Theme.quote-bg;
+                border-radius: 6px;
+                clip: true;
+                Image { width: parent.width; height: parent.height; source: AppState.preview-image; image-fit: contain; }
+                if AppState.preview-kind == "video": Text { text: "▶"; color: #ffffff; font-size: 40px; horizontal-alignment: center; vertical-alignment: center; }
+            }
+            if AppState.preview-kind == "audio": HorizontalLayout {
+                spacing: 10px;
+                IconButton { icon: AppState.preview-playing ? "⏸" : "▶"; fg: Theme.accent; clicked => { AppState.preview-play(); } }
+                Text { text: AppState.preview-name; color: Theme.text; font-size: Theme.fs; vertical-alignment: center; }
+            }
+            if AppState.preview-kind == "document" || (AppState.preview-kind == "video" && !AppState.preview-has-image): Rectangle {
+                height: 64px;
+                background: Theme.quote-bg;
+                border-radius: 6px;
+                Text { text: (AppState.preview-kind == "video" ? "🎬 " : "📄 ") + AppState.preview-name; color: Theme.text; font-size: Theme.fs; horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
+            }
+            if AppState.preview-hd-available: CheckBox {
+                text: "HD quality";
+                checked <=> AppState.preview-hd;
+            }
+            if AppState.preview-kind != "audio": TextField {
+                placeholder: "Add a caption…";
+                text <=> AppState.preview-caption;
+                accepted => { AppState.preview-send(AppState.preview-caption, AppState.preview-hd); }
+            }
+            HorizontalLayout {
+                alignment: end;
+                spacing: 8px;
+                PrimaryButton { label: "Cancel"; clicked => { AppState.preview-cancel(); } }
+                PrimaryButton { label: "Send"; clicked => { AppState.preview-send(AppState.preview-caption, AppState.preview-hd); } }
+            }
+        }
+    }
+}
+
+export component Recorder inherits Rectangle {
+    Scrim { dismiss => { AppState.rec-cancel(); } }
+    Card {
+        width: AppState.rec-mode == "photo" ? min(parent.width - 48px, 560px) : 360px;
+        height: col.preferred-height;
+        col := VerticalLayout {
+            padding: 18px;
+            spacing: 14px;
+            HorizontalLayout {
+                Text {
+                    text: AppState.rec-mode == "photo" ? "Take photo" : "Record voice";
+                    color: Theme.text; font-size: Theme.fs-large; font-weight: 600; horizontal-stretch: 1; vertical-alignment: center;
+                }
+                IconButton { icon: "×"; clicked => { AppState.rec-cancel(); } }
+            }
+            if AppState.rec-error != "": VerticalLayout {
+                spacing: 6px;
+                Text {
+                    text: AppState.rec-mode == "photo" ? "Couldn't access your camera." : "Couldn't access your microphone.";
+                    color: Theme.danger; font-size: Theme.fs; font-weight: 600;
+                }
+                Text { text: AppState.rec-error; color: Theme.text-muted; font-size: Theme.fs-small; wrap: word-wrap; }
+                HorizontalLayout { alignment: end; PrimaryButton { label: "Close"; clicked => { AppState.rec-cancel(); } } }
+            }
+            if AppState.rec-error == "" && AppState.rec-mode == "photo": Rectangle {
+                height: 320px;
+                background: #000000;
+                border-radius: 6px;
+                clip: true;
+                if AppState.rec-has-frame: Image { width: parent.width; height: parent.height; source: AppState.rec-frame; image-fit: contain; }
+                if !AppState.rec-has-frame: Spinner { width: 40px; height: 40px; indeterminate: true; }
+            }
+            if AppState.rec-error == "" && AppState.rec-mode == "photo": HorizontalLayout {
+                alignment: center;
+                PrimaryButton { label: "Capture"; enabled: AppState.rec-has-frame; clicked => { AppState.rec-capture(); } }
+            }
+            if AppState.rec-error == "" && AppState.rec-mode == "voice": HorizontalLayout {
+                alignment: center;
+                spacing: 10px;
+                Rectangle { width: 12px; height: 12px; y: (parent.height - 12px) / 2; border-radius: 6px; background: Theme.danger; }
+                Text { text: AppState.rec-elapsed; color: Theme.text; font-size: 28px; }
+            }
+            if AppState.rec-error == "" && AppState.rec-mode == "voice": HorizontalLayout {
+                alignment: center;
+                PrimaryButton { label: "Stop & preview"; clicked => { AppState.rec-stop(); } }
+            }
+        }
+    }
+}
+
+component SheetTile inherits Rectangle {
+    in property <AlbumTile> tile;
+    border-radius: 6px;
+    clip: true;
+    background: Theme.quote-bg;
+    if tile.has-image: Image { width: parent.width; height: parent.height; source: tile.image; image-fit: cover; }
+    if !tile.has-image: Text { text: tile.is-video ? "🎬" : "🖼"; font-size: 24px; horizontal-alignment: center; vertical-alignment: center; }
+    if tile.is-video: Text { text: "▶"; color: #ffffff; font-size: 24px; horizontal-alignment: center; vertical-alignment: center; }
+    TouchArea { mouse-cursor: pointer; clicked => { AppState.view-image(tile.id); } }
+}
+
+export component AlbumSheet inherits Rectangle {
+    Scrim { dismiss => { AppState.album-open = false; } }
+    Card {
+        width: min(parent.width - 48px, 640px);
+        height: min(parent.height - 48px, 640px);
+        VerticalLayout {
+            padding: 14px;
+            spacing: 10px;
+            HorizontalLayout {
+                Text { text: AppState.album-title; color: Theme.text; font-size: Theme.fs-large; font-weight: 600; horizontal-stretch: 1; vertical-alignment: center; }
+                IconButton { icon: "×"; clicked => { AppState.album-open = false; } }
+            }
+            sheet := Flickable {
+                vertical-stretch: 1;
+                property <length> cell: (self.width - 2 * 6px) / 3;
+                content-height: ceil(AppState.album-tiles.length / 3) * (cell + 6px);
+                for t[i] in AppState.album-tiles: SheetTile {
+                    tile: t;
+                    x: mod(i, 3) * (sheet.cell + 6px);
+                    y: floor(i / 3) * (sheet.cell + 6px);
+                    width: sheet.cell;
+                    height: sheet.cell;
+                }
+            }
+        }
+    }
+}
+
+export component Lightbox inherits Rectangle {
+    background: #000000ee;
+    property <float> scale: 1;
+    property <length> pan-x;
+    property <length> pan-y;
+    property <length> start-x;
+    property <length> start-y;
+    property <string> shown-id: AppState.viewer-id;
+    changed shown-id => { root.scale = 1; root.pan-x = 0; root.pan-y = 0; }
+
+    // backdrop + wheel zoom + drag pan
+    ta := TouchArea {
+        mouse-cursor: root.scale > 1 ? (self.pressed ? grabbing : grab) : default;
+        clicked => { if root.scale <= 1 { AppState.close-viewer(); } }
+        scroll-event(ev) => {
+            root.scale = clamp(root.scale - ev.delta-y / 1px * 0.0015 * root.scale, 1, 8);
+            if root.scale <= 1 { root.pan-x = 0; root.pan-y = 0; }
+            accept
+        }
+        pointer-event(ev) => {
+            if ev.kind == PointerEventKind.down { root.start-x = root.pan-x; root.start-y = root.pan-y; }
+        }
+        moved => {
+            if self.pressed && root.scale > 1 {
+                root.pan-x = root.start-x + (self.mouse-x - self.pressed-x);
+                root.pan-y = root.start-y + (self.mouse-y - self.pressed-y);
+            }
+        }
+    }
+
+    if AppState.viewer-has-image: Image {
+        width: (parent.width - 48px) * root.scale;
+        height: (parent.height - 96px) * root.scale;
+        x: (parent.width - self.width) / 2 + root.pan-x;
+        y: 64px + (parent.height - 96px - self.height) / 2 + root.pan-y;
+        source: AppState.viewer-image;
+        image-fit: contain;
+        opacity: AppState.viewer-loading ? 0.5 : 1;
+    }
+    if AppState.viewer-loading: Spinner {
+        x: (parent.width - 48px) / 2;
+        y: (parent.height - 48px) / 2;
+        width: 48px;
+        height: 48px;
+        indeterminate: true;
+    }
+    if AppState.viewer-error != "": Text {
+        text: AppState.viewer-error;
+        color: #ffffff;
+        font-size: Theme.fs;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    if AppState.viewer-is-video && !AppState.viewer-loading: Rectangle {
+        x: (parent.width - 220px) / 2;
+        y: parent.height - 96px;
+        width: 220px;
+        height: 44px;
+        border-radius: 22px;
+        background: #ffffff22;
+        Text { text: "▶ Play in system player"; color: #ffffff; font-size: Theme.fs; horizontal-alignment: center; vertical-alignment: center; }
+        TouchArea { mouse-cursor: pointer; clicked => { AppState.viewer-play(); } }
+    }
+
+    // gallery
+    if AppState.viewer-count > 1: Rectangle {
+        x: 12px;
+        y: (parent.height - 48px) / 2;
+        width: 48px;
+        height: 48px;
+        border-radius: 24px;
+        background: #ffffff22;
+        Text { text: "‹"; color: #ffffff; font-size: 28px; horizontal-alignment: center; vertical-alignment: center; }
+        TouchArea { mouse-cursor: pointer; clicked => { AppState.viewer-step(-1); } }
+    }
+    if AppState.viewer-count > 1: Rectangle {
+        x: parent.width - 60px;
+        y: (parent.height - 48px) / 2;
+        width: 48px;
+        height: 48px;
+        border-radius: 24px;
+        background: #ffffff22;
+        Text { text: "›"; color: #ffffff; font-size: 28px; horizontal-alignment: center; vertical-alignment: center; }
+        TouchArea { mouse-cursor: pointer; clicked => { AppState.viewer-step(1); } }
+    }
+
+    // toolbar
+    HorizontalLayout {
+        y: 12px;
+        height: 40px;
+        padding-left: 16px;
+        padding-right: 12px;
+        spacing: 8px;
+        Text {
+            text: AppState.viewer-count > 1 ? (AppState.viewer-index + 1) + " / " + AppState.viewer-count : "";
+            color: #ffffff;
+            font-size: Theme.fs;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+        Rectangle {
+            width: dl.preferred-width + 24px;
+            border-radius: 20px;
+            background: dta.has-hover ? #ffffff33 : #ffffff1a;
+            dl := Text { text: AppState.viewer-save-label; color: #ffffff; font-size: Theme.fs-small; horizontal-alignment: center; vertical-alignment: center; }
+            dta := TouchArea { mouse-cursor: pointer; clicked => { AppState.save-media(AppState.viewer-id); } }
+        }
+        IconButton { icon: "×"; fg: #ffffff; clicked => { AppState.close-viewer(); } }
+    }
+}
+
+export component Toasts inherits Rectangle {
+    for t[i] in AppState.toasts: Rectangle {
+        property <length> w: min(420px, root.width - 32px);
+        x: (root.width - w) / 2;
+        y: root.height - 84px - (AppState.toasts.length - i) * 44px;
+        width: w;
+        height: 38px;
+        border-radius: 8px;
+        background: #323739f0;
+        Text {
+            x: 14px;
+            width: parent.width - 28px;
+            text: t;
+            color: #ffffff;
+            font-size: Theme.fs-small;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        TouchArea { mouse-cursor: pointer; clicked => { AppState.dismiss-toast(i); } }
+    }
+}
