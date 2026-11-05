@@ -7,6 +7,7 @@
     loadUntil,
     markMessagesRead,
     openChat,
+    trimChat,
     type UiMessage,
   } from "../../lib/stores/messages.svelte";
   import { isGroup } from "../../lib/util/jid";
@@ -156,6 +157,16 @@
     if (!node) return;
     const isAtBottom = node.scrollHeight - node.scrollTop - node.clientHeight < 40;
     pinned = isAtBottom;
+
+    // Back at the latest messages after reading far up: unmount the old pages
+    // and release them from memory (they reload from IndexedDB on scroll-up),
+    // so a long scroll session doesn't keep every image and bubble alive.
+    if (isAtBottom && limit > PAGE * 2) {
+      limit = PAGE;
+      trimChat(chatJid, PAGE);
+      await tick();
+      node.scrollTop = node.scrollHeight;
+    }
 
     if (isAtBottom && unreadCount > 0) {
       const unreadIds = visible.filter((m) => !m.fromMe && m.unread).map((m) => m.id);

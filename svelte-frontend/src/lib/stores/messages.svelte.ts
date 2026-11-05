@@ -358,6 +358,16 @@ export function closeChat(jid: string) {
   }
 }
 
+/** Drop the open chat's paged-in history down to its newest `keep` messages
+ * (used when the user scrolls back to the bottom). Older pages reload from
+ * IndexedDB if they scroll up again. */
+export function trimChat(jid: string, keep: number) {
+  const arr = messagesByChat.get(jid);
+  if (!arr || arr.length <= keep) return;
+  messagesByChat.set(jid, arr.slice(arr.length - keep));
+  exhausted.delete(jid);
+}
+
 /** Forget everything in memory (logout / reset). */
 export function clearMessages() {
   messagesByChat.clear();
