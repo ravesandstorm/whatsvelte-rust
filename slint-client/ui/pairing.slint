@@ -1,6 +1,7 @@
 import { Spinner } from "std-widgets.slint";
 import { AppState, Theme } from "state.slint";
 import { PrimaryButton, TextField } from "widgets.slint";
+import { ConnectionPill } from "loading.slint";
 
 export component PairingScreen inherits Rectangle {
     background: Theme.bg;
@@ -27,8 +28,22 @@ export component PairingScreen inherits Rectangle {
                     font-size: Theme.fs-title;
                     wrap: word-wrap;
                 }
+                HorizontalLayout {
+                    alignment: start;
+                    ConnectionPill { }
+                }
+                if AppState.client-dead: Rectangle {
+                    background: Theme.danger.transparentize(0.85);
+                    border-radius: 6px;
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 2px;
+                        Text { text: "This QR code has expired."; color: Theme.danger; font-size: Theme.fs; font-weight: 600; }
+                        Text { text: "The connection closed. Generate a new QR code to try again."; color: Theme.text; font-size: Theme.fs-small; wrap: word-wrap; }
+                    }
+                }
                 Text {
-                    text: "1. Open WhatsApp on your phone\n2. Tap Menu or Settings and select Linked devices\n3. Tap Link a device\n4. Point your phone at this screen to capture the QR code";
+                    text: "1. Open WhatsApp on your phone\n2. Tap Menu on Android, or Settings on iPhone\n3. Tap Linked devices, then Link a device\n4. Point your phone at this screen to scan the QR code";
                     color: Theme.text-muted;
                     font-size: Theme.fs-large;
                     wrap: word-wrap;
@@ -92,13 +107,24 @@ export component PairingScreen inherits Rectangle {
                         source: AppState.qr;
                         image-rendering: pixelated;
                     }
-                    if !AppState.has-qr && !AppState.client-dead: Spinner {
-                        width: 48px;
-                        height: 48px;
-                        indeterminate: true;
+                    if !AppState.has-qr && !AppState.client-dead: VerticalLayout {
+                        alignment: center;
+                        spacing: 10px;
+                        HorizontalLayout {
+                            alignment: center;
+                            Spinner { width: 48px; height: 48px; indeterminate: true; }
+                        }
+                        Text { text: "Waiting for QR…"; color: #667781; font-size: Theme.fs-small; horizontal-alignment: center; }
+                    }
+                    if AppState.client-dead && AppState.has-qr: Image {
+                        width: 248px;
+                        height: 248px;
+                        source: AppState.qr;
+                        image-rendering: pixelated;
+                        opacity: 0.15;
                     }
                     if AppState.client-dead: Text {
-                        text: "QR code expired";
+                        text: "⟳ Expired — generate a new code";
                         color: #111b21;
                         font-size: Theme.fs;
                         horizontal-alignment: center;

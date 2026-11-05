@@ -1,5 +1,27 @@
 import { Spinner, ProgressIndicator } from "std-widgets.slint";
 import { AppState, Theme } from "state.slint";
+import { PrimaryButton } from "widgets.slint";
+
+export component ConnectionPill inherits Rectangle {
+    height: 26px;
+    width: t.preferred-width + 34px;
+    border-radius: 13px;
+    background: Theme.panel-alt;
+    Rectangle {
+        x: 12px;
+        width: 8px;
+        height: 8px;
+        border-radius: 4px;
+        background: AppState.connected ? Theme.unread : #f0b232;
+    }
+    t := Text {
+        x: 26px;
+        text: AppState.connected ? "Connected" : "Connecting…";
+        color: Theme.text-muted;
+        font-size: Theme.fs-small;
+        vertical-alignment: center;
+    }
+}
 
 export component LoadingScreen inherits Rectangle {
     background: Theme.panel-alt;
@@ -11,8 +33,8 @@ export component LoadingScreen inherits Rectangle {
             Spinner {
                 width: 48px;
                 height: 48px;
-                indeterminate: AppState.loading-progress < 0;
-                progress: max(0, AppState.loading-progress);
+                indeterminate: AppState.loading-total == 0;
+                progress: AppState.loading-total == 0 ? 0 : AppState.loading-done / AppState.loading-total;
             }
         }
         Text {
@@ -28,13 +50,35 @@ export component LoadingScreen inherits Rectangle {
             font-size: Theme.fs;
             horizontal-alignment: center;
         }
+        if AppState.loading-total > 0: VerticalLayout {
+            spacing: 8px;
+            HorizontalLayout {
+                alignment: center;
+                ProgressIndicator {
+                    width: 280px;
+                    height: 6px;
+                    progress: AppState.loading-done / AppState.loading-total;
+                }
+            }
+            Text {
+                text: AppState.loading-done + " of " + AppState.loading-total + " chats · "
+                    + round(AppState.loading-done * 100 / AppState.loading-total) + "%";
+                color: Theme.text-muted;
+                font-size: Theme.fs-small;
+                horizontal-alignment: center;
+            }
+        }
         HorizontalLayout {
             alignment: center;
-            visible: AppState.loading-progress >= 0;
-            ProgressIndicator {
-                width: 280px;
-                height: 6px;
-                progress: max(0, AppState.loading-progress);
+            ConnectionPill { }
+        }
+        HorizontalLayout {
+            alignment: center;
+            PrimaryButton {
+                label: AppState.resetting ? "Resetting…" : "Stuck? Log out & reset";
+                enabled: !AppState.resetting;
+                danger: true;
+                clicked => { AppState.reset-session(); }
             }
         }
         Text {
