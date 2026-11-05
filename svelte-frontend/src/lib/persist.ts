@@ -23,7 +23,8 @@ import type { UiMessage } from "./stores/messages.svelte";
 const DB_NAME = "whatsvelte";
 // v1: one `messages` row per chat ({ jid, items: UiMessage[] }).
 // v2: one `msgs` row per message, migrated in place from v1.
-const DB_VERSION = 2;
+// v3: purge blank "[other]" rows (protocol traffic stored by older builds).
+const DB_VERSION = 3;
 const STORE_CHATS = "chats"; // keyPath: jid
 const STORE_MSGS = "msgs"; // keyPath: [chatJid, id]
 const IDX_CHAT_TIME = "byChatTime"; // [chatJid, timestamp]
@@ -43,7 +44,19 @@ let dbPromise: Promise<IDBDatabase> | null = null;
  * send that never confirms simply doesn't survive a restart (rather than
  * resurrecting as a falsely "sent" message). */
 function persistable(m: UiMessage): boolean {
-  return !!m.id && !!m.chatJid && !m.id.startsWith("tmp-") && m.status !== "sending";
+  return (
+    !!m.id &&
+    !!m.chatJid &&
+    !m.id.startsWith("tmp-") &&
+    m.status !== "sending" &&
+    !isBlankMessage(m)
+  );
+}
+
+/** A message with nothing to draw: protocol/control traffic that older builds
+ * stored as an "[other]" bubble. Deleted-for-everyone tombstones are kept. */
+export function isBlankMessage(m: UiMessage): boolean {
+  return m.kind === "other" && !m.text && !m.media && !m.thumbnail && !m.deleted;
 }
 
 /** Normalize a message into a storable record (valid index keys). */
@@ -102,7 +115,7 @@ function openDb(): Promise<IDBDatabase> {
       return;
     }
     const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = () => {
+    req.onupgradeneeded = (ev) => {
       const db = req.result;
       const tx = req.transaction!;
       if (!db.objectStoreNames.contains(STORE_CHATS))
@@ -114,11 +127,23 @@ function openDb(): Promise<IDBDatabase> {
         msgs.createIndex(IDX_CHAT_TIME, ["chatJid", "timestamp"]);
       }
       if (db.objectStoreNames.contains(LEGACY_MESSAGES)) migrateLegacy(db, tx);
+      if (ev.oldVersion > 0 && ev.oldVersion < 3) purgeBlank(tx);
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
   return dbPromise;
+}
+
+/** v3 upgrade: delete stored messages that have nothing to render. */
+function purgeBlank(tx: IDBTransaction) {
+  const cur = tx.objectStore(STORE_MSGS).openCursor();
+  cur.onsuccess = () => {
+    const c = cur.result;
+    if (!c) return;
+    if (isBlankMessage(c.value as UiMessage)) c.delete();
+    c.continue();
+  };
 }
 
 function txDone(t: IDBTransaction): Promise<void> {

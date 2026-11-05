@@ -32,6 +32,7 @@ import {
   clearAll,
   discardPending,
   enablePersistence,
+  isBlankMessage,
   loadSnapshot,
   loadTails,
   movePersistedChat,
@@ -137,6 +138,7 @@ export async function startEventBridge() {
     // switched addressing form lands in the one existing conversation, and group
     // participants resolve to a real phone/name instead of a raw `@lid`.
     const cm = canonicalMessage(m);
+    if (isBlankMessage(cm)) return; // protocol traffic: nothing to show
     const jid = cm.chatJid;
     const senderJid = cm.senderJid;
     addMessage(cm);

@@ -126,7 +126,15 @@ pub async fn pump(app: AppHandle, session_id: String, rx: Receiver<Arc<Event>>) 
                 if msg.get_base_message().secret_encrypted_message.is_some() {
                     continue;
                 }
-                serde_json::to_value(message_dto_live(msg, info)).unwrap_or(Value::Null)
+                let dto = message_dto_live(msg, info);
+                // Our own phone's device-to-device protocol traffic (app-state
+                // key shares, history-sync notices, PDO responses, …) and album
+                // headers arrive as messages in the self chat. The library has
+                // already acted on them; there is nothing to show.
+                if !is_renderable(&dto) {
+                    continue;
+                }
+                serde_json::to_value(dto).unwrap_or(Value::Null)
             }
             // History sync is large and lazy; decode it off-thread and emit
             // per-conversation chunks on wa://history, then move on.
@@ -258,6 +266,7 @@ fn convert_conversation(conv: wa::Conversation) -> HistoryDto {
         .into_iter()
         .filter_map(|hsm| hsm.message)
         .map(|wmi| message_dto_history(&chat_jid, &wmi))
+        .filter(is_renderable)
         .collect();
 
     // Newest message drives the chat preview + timestamp fallback.
@@ -380,6 +389,13 @@ fn message_dto_live(msg: &wa::Message, info: &MessageInfo) -> MessageDto {
         media: media_dto(msg),
         quoted: quoted_dto(msg),
     }
+}
+
+/// Whether a message has anything for the UI to draw. Protocol / control
+/// payloads (and history-sync system stubs, which carry no message at all)
+/// classify as "other" with no text or media.
+fn is_renderable(m: &MessageDto) -> bool {
+    m.kind != "other" || m.text.is_some() || m.media.is_some() || m.thumbnail.is_some()
 }
 
 fn message_dto_history(chat_jid: &str, wmi: &wa::WebMessageInfo) -> MessageDto {
