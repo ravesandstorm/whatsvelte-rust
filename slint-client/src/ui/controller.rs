@@ -133,6 +133,8 @@ pub(crate) struct View {
     pub open_delete: Option<(String, bool)>,
     pub open_reaction: Option<(String, String)>,
     pub open_album: Option<String>,
+    /// One-shot: open the settings panel (demo / shortcuts).
+    pub open_settings: bool,
     pub preview: Option<Preview>,
     pub rec: Option<Rec>,
     pub viewer: Option<Viewer>,

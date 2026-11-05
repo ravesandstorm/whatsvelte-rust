@@ -134,6 +134,7 @@ impl Controller {
             Ok("edit") => self.start_edit("m6".into()),
             Ok("suggest") => self.composer_edited("hey :smi".into(), 8),
             Ok("voice") => self.attach_voice(),
+            Ok("settings") => lock(&self.view).open_settings = true,
             _ => {}
         }
         self.mark(DIRTY_ALL);
