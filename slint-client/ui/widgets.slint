@@ -4,11 +4,14 @@ export component Avatar inherits Rectangle {
     in property <string> initials;
     in property <color> tint: Theme.accent;
     in property <length> size: 44px;
+    in property <image> picture;
+    in property <bool> has-picture;
     width: size;
     height: size;
     border-radius: size / 2;
     background: tint;
-    Text {
+    clip: true;
+    if !root.has-picture: Text {
         text: initials;
         color: #ffffff;
         font-size: size * 0.38;
@@ -16,6 +19,21 @@ export component Avatar inherits Rectangle {
         horizontal-alignment: center;
         vertical-alignment: center;
     }
+    if root.has-picture: Image {
+        width: root.size;
+        height: root.size;
+        source: root.picture;
+        image-fit: cover;
+    }
+}
+
+// Tick glyph for own messages (0 none, 1 failed, 2 sending, 3 sent, 4+ delivered, 5+ read).
+export component Ticks inherits Text {
+    in property <int> status;
+    text: status == 1 ? "!" : status == 2 ? "🕓" : status == 3 ? "✓" : status >= 4 ? "✓✓" : "";
+    color: status == 1 ? Theme.danger : status >= 5 ? Theme.tick-read : Theme.tick;
+    font-size: Theme.fs-tiny;
+    font-weight: status == 1 ? 700 : 400;
 }
 
 // Flat, icon-ish text button used across headers and menus.
