@@ -103,9 +103,16 @@
     }
   });
 
-  function jumpToBottom() {
+  async function jumpToBottom() {
     if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    if (limit > PAGE * 2) {
+      // Far up in history: drop the paged-in pages first, then land on the
+      // bottom instantly. Shrinking the list during a smooth scroll left
+      // WebView2 painting a blank viewport until the next scroll.
+      await releaseOlderPages();
+    } else {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    }
     pinned = true;
     const unreadIds = visible.filter((m) => !m.fromMe && m.unread).map((m) => m.id);
     if (unreadIds.length > 0) {
@@ -151,6 +158,28 @@
   }
 
   let pagingOlder = false;
+  let trimTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Shrink back to one page at the bottom and release the older messages
+   * from memory (they reload from IndexedDB on scroll-up). */
+  async function releaseOlderPages() {
+    if (trimTimer) clearTimeout(trimTimer);
+    trimTimer = null;
+    limit = PAGE;
+    trimChat(chatJid, PAGE);
+    await tick();
+    const node = el;
+    if (!node) return;
+    node.scrollTop = node.scrollHeight;
+    // Re-assert after layout settles (images/avatars reflowing in).
+    requestAnimationFrame(() => {
+      if (el === node) node.scrollTop = node.scrollHeight;
+    });
+  }
+
+  $effect(() => () => {
+    if (trimTimer) clearTimeout(trimTimer);
+  });
 
   async function onScroll() {
     const node = el;
@@ -161,11 +190,17 @@
     // Back at the latest messages after reading far up: unmount the old pages
     // and release them from memory (they reload from IndexedDB on scroll-up),
     // so a long scroll session doesn't keep every image and bubble alive.
+    // Wait for scrolling to settle first: mutating the list mid-scroll (e.g.
+    // a smooth scroll still animating) leaves the viewport unpainted.
+    if (trimTimer) clearTimeout(trimTimer);
+    trimTimer = null;
     if (isAtBottom && limit > PAGE * 2) {
-      limit = PAGE;
-      trimChat(chatJid, PAGE);
-      await tick();
-      node.scrollTop = node.scrollHeight;
+      trimTimer = setTimeout(() => {
+        trimTimer = null;
+        const n = el;
+        if (!n || limit <= PAGE * 2) return;
+        if (n.scrollHeight - n.scrollTop - n.clientHeight < 40) void releaseOlderPages();
+      }, 250);
     }
 
     if (isAtBottom && unreadCount > 0) {
