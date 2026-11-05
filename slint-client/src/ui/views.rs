@@ -12,7 +12,7 @@ use crate::ui::frame::{
 use crate::ui::images::{self, Pixels};
 use crate::util::emoji;
 use crate::util::jid::{format_phone, initials, is_group, is_newsletter, is_phone, is_self, is_status, normalize_jid};
-use crate::util::time::{clock, day_label, list_stamp, local_day};
+use crate::util::time::{clock, list_stamp};
 
 /// Stable avatar / sender tint per jid.
 pub fn tint_for(jid: &str) -> u32 {
@@ -23,16 +23,13 @@ pub fn tint_for(jid: &str) -> u32 {
     PALETTE[(h % PALETTE.len() as u32) as usize]
 }
 
-/// Avatar letters: "#" for groups; a person glyph for unnamed numbers.
+/// Avatar letters (Avatar.svelte): "#" for groups, else two initials.
 fn avatar_initials(jid: &str, title: &str) -> String {
-    if is_group(jid) {
-        "#".into()
-    } else if title.starts_with('+') || title.starts_with('~') || title.chars().next().is_some_and(|c| c.is_ascii_digit()) {
-        "👤".into()
-    } else {
-        initials(title)
-    }
+    if is_group(jid) { "#".into() } else { initials(title) }
 }
+
+/// Avatars use one neutral colour (Avatar.svelte `#6a7175`).
+const AVATAR_BG: u32 = 0x6a7175;
 
 fn structured_label(kind: &str) -> &'static str {
     match kind {
@@ -99,7 +96,10 @@ pub fn find_links(text: &str) -> Vec<(usize, usize)> {
             end -= 1;
         }
         let token = &lower[i..end];
-        let valid = if token.starts_with("www.") { token[4..].contains('.') } else { token.contains("://") && token.len() > 8 };
+        let valid = match token.strip_prefix("www.") {
+            Some(rest) => rest.contains('.'),
+            None => token.contains("://") && token.len() > 8,
+        };
         if valid && end > i {
             out.push((i, end));
             i = end;
@@ -276,7 +276,8 @@ impl Controller {
                 .filter(|n| !n.is_empty())
                 .or_else(|| v.status.jid.as_deref().map(format_phone))
                 .unwrap_or_else(|| "WhatsApp".into()),
-            self_jid: v.status.jid.as_deref().map(format_phone).unwrap_or_default(),
+            // Settings shows the raw number, like jidUser(session.jid).
+            self_jid: v.status.jid.as_deref().map(|j| crate::util::jid::jid_user(j).to_string()).unwrap_or_default(),
             toasts: v.toasts.iter().map(|(t, _)| t.clone()).collect(),
             theme: settings.theme,
             zoom: settings.zoom,
@@ -342,7 +343,7 @@ impl Controller {
                     pinned: c.is_pinned(),
                     archived: c.is_archived(),
                     draft: draft.is_some(),
-                    tint: tint_for(&c.jid),
+                    tint: AVATAR_BG,
                     avatar: avatars.get(&c.jid).cloned(),
                     active: active.as_deref() == Some(&c.jid),
                 }
@@ -386,7 +387,7 @@ impl Controller {
                 v.editing.clone(),
                 v.composer_override.take(),
                 v.scroll_token,
-                v.reveal.clone().map(|(t, id, c)| (t, id, c)),
+                v.reveal.clone(),
                 v.focus_token,
                 v.suggestions.clone(),
                 v.suggestion_index,
@@ -423,7 +424,6 @@ impl Controller {
         let mut to_load: Vec<UiMessage> = Vec::new();
         let mut rows: Vec<MsgRowData> = Vec::with_capacity(shown.len());
         let mut albums: HashMap<String, Vec<String>> = HashMap::new();
-        let mut prev_day: Option<i64> = None;
         let mut prev: Option<&UiMessage> = None;
         let mut divider_done = false;
         let mut unread_in_view = 0;
@@ -434,15 +434,12 @@ impl Controller {
             let n = album_len(shown, i);
             let group_items = &shown[i..i + n];
             let m = &group_items[n - 1]; // the row speaks for the last item (time, ticks)
-            let first = &group_items[0];
             let d = &m.dto;
             i += n;
 
-            let day = local_day(first.dto.timestamp);
-            let day_text = if prev_day != Some(day) { day_label(first.dto.timestamp) } else { String::new() };
-            prev_day = Some(day);
-            let grouped = day_text.is_empty()
-                && prev.is_some_and(|p| !p.deleted && p.dto.from_me == d.from_me && p.dto.sender_jid == d.sender_jid);
+            // The Svelte list has no day separators; runs group across days.
+            let day_text = String::new();
+            let grouped = prev.is_some_and(|p| !p.deleted && p.dto.from_me == d.from_me && p.dto.sender_jid == d.sender_jid);
             prev = Some(m);
 
             let unread = group_items.iter().any(|x| x.unread);
@@ -637,7 +634,7 @@ impl Controller {
             initials: avatar_initials(&jid, &title),
             title,
             subtitle,
-            tint: tint_for(&jid),
+            tint: AVATAR_BG,
             avatar: avatars.get(&jid).cloned(),
             muted: chat.is_some_and(|c| c.is_muted()),
             pinned: chat.is_some_and(|c| c.is_pinned()),
@@ -768,6 +765,7 @@ impl Controller {
             open_delete: v.open_delete.take(),
             open_reaction: v.open_reaction.take(),
             open_album: album,
+            open_settings: std::mem::take(&mut v.open_settings),
             preview,
             rec,
             viewer,
