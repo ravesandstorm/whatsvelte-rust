@@ -28,6 +28,8 @@ use crate::core::dto::{
 /// single-account UI doesn't read them yet.
 #[derive(Debug)]
 #[allow(dead_code)]
+// History chunks are large but rare; boxing them buys nothing on this path.
+#[allow(clippy::large_enum_variant)]
 pub enum UiEvent {
     /// `wa://auth/qr`
     Qr { session_id: String, code: String },

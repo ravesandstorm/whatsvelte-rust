@@ -10,9 +10,12 @@ use std::time::Instant;
 use rodio::microphone::MicrophoneBuilder;
 use rodio::Source;
 
+/// (sample rate, channels, interleaved samples) from the capture thread.
+type Captured = anyhow::Result<(u32, u16, Vec<f32>)>;
+
 pub struct VoiceRecorder {
     stop: Arc<AtomicBool>,
-    worker: Option<std::thread::JoinHandle<anyhow::Result<(u32, u16, Vec<f32>)>>>,
+    worker: Option<std::thread::JoinHandle<Captured>>,
     pub started: Instant,
     /// Set by the capture thread when the microphone can't be opened.
     pub error: Arc<Mutex<Option<String>>>,
