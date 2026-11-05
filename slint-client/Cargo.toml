@@ -1,0 +1,50 @@
+[package]
+name = "whatsvelte-rust"
+version = "1.4.0"
+description = "Native (WebView-free) Slint desktop client wrapping the whatsapp-rust library"
+edition = "2024"
+rust-version = "1.85"
+
+[[bin]]
+name = "whatsvelte-rust"
+path = "src/main.rs"
+
+[build-dependencies]
+slint-build = "1.18"
+
+[dependencies]
+# Native UI toolkit: no WebView, no JS runtime. Default features give the winit
+# backend with the femtovg (OpenGL) renderer and the software fallback.
+slint = "1.18"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+anyhow = "1"
+log = "0.4"
+env_logger = "0.11"
+tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros", "time", "fs"] }
+# Must match the major version whatsapp-rust uses, so the Receiver<Arc<Event>>
+# type from the event handler lines up across the crate boundary.
+async-channel = "2"
+base64 = "0.22"
+# Decode thumbnails / cached media into pixel buffers (replaces <img>).
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif"] }
+# Render the pairing QR code natively (replaces the <canvas> QR).
+qrcode = { version = "0.14", default-features = false }
+# Native file picker (replaces tauri-plugin-dialog).
+rfd = "0.16"
+# Open documents / videos / audio in the OS default app (replaces tauri-plugin-opener).
+open = "5"
+# OS data / download directories (replaces tauri's app.path()).
+dirs = "6"
+# Local-time formatting for chat stamps.
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+
+# The vendored protocol library, pulled in by path — unchanged by the migration.
+whatsapp-rust = { path = "../rust-backend" }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
