@@ -5,6 +5,10 @@ export struct ChatRow {
     jid: string,
     title: string,
     preview: string,
+    // "You: " / "Alice: " in groups
+    prefix: string,
+    // 0 none, 1 failed, 2 sending, 3 sent, 4 delivered, 5 read, 6 played
+    tick: int,
     stamp: string,
     unread: int,
     muted: bool,
@@ -13,37 +17,87 @@ export struct ChatRow {
     draft: bool,
     initials: string,
     tint: color,
+    avatar: image,
+    has-avatar: bool,
     active: bool,
+}
+
+export struct AlbumTile {
+    id: string,
+    image: image,
+    has-image: bool,
+    is-video: bool,
+    // > 0 on the last visible tile when the album has more items
+    more: int,
 }
 
 export struct MsgRow {
     id: string,
     from-me: bool,
+    // first bubble of a run from the same sender
     show-sender: bool,
+    // follows a bubble from the same sender (tighter spacing)
+    grouped: bool,
     sender: string,
     tint: color,
     text: string,
+    // message text with clickable links (only when has-links)
+    rich: styled-text,
+    has-links: bool,
     kind: string,
+    // "Interactive" / "Poll" / … for structured kinds
+    structured: string,
     time: string,
-    // 0 none, 1 failed, 2 sending, 3 sent, 4 delivered, 5 read, 6 played
     status: int,
     edited: bool,
     deleted: bool,
     reactions: string,
+    my-reaction: string,
     has-quote: bool,
+    quote-id: string,
     quote-sender: string,
     quote-text: string,
+    quote-thumb: image,
+    has-quote-thumb: bool,
     has-image: bool,
     image: image,
     image-w: int,
     image-h: int,
+    sticker: bool,
     has-media: bool,
     media-label: string,
     loading-media: bool,
+    is-audio: bool,
+    audio-playing: bool,
+    audio-progress: float,
+    audio-label: string,
+    is-album: bool,
+    album: [AlbumTile],
     day: string,
+    unread: bool,
+    unread-divider: bool,
+    flash: bool,
     pending: bool,
+    can-reply: bool,
     can-edit: bool,
-    can-revoke: bool,
+    can-delete: bool,
+}
+
+export struct Suggestion {
+    emoji: string,
+    code: string,
+}
+
+export struct EmojiTab {
+    key: string,
+    icon: string,
+    label: string,
+}
+
+export struct GifItem {
+    id: string,
+    image: image,
+    has-image: bool,
 }
 
 export global AppState {
@@ -51,8 +105,10 @@ export global AppState {
     in-out property <string> screen: "loading";
 
     // loading screen
-    in-out property <string> loading-label: "Starting…";
-    in-out property <float> loading-progress: -1;
+    in-out property <string> loading-label: "Loading your chats…";
+    in-out property <int> loading-done;
+    in-out property <int> loading-total;
+    in-out property <bool> resetting;
 
     // pairing
     in-out property <image> qr;
@@ -70,7 +126,7 @@ export global AppState {
 
     // chat list
     in-out property <[ChatRow]> chats;
-    // 0 chats, 1 archived, 2 channels, 3 status
+    // 0 all, 1 archived, 2 channels, 3 status
     in-out property <int> section: 0;
     in-out property <int> archived-count;
     in-out property <int> channels-count;
@@ -83,15 +139,28 @@ export global AppState {
     in-out property <string> active-subtitle;
     in-out property <string> active-initials;
     in-out property <color> active-tint;
+    in-out property <image> active-avatar;
+    in-out property <bool> active-has-avatar;
     in-out property <bool> active-muted;
     in-out property <bool> active-pinned;
     in-out property <bool> active-archived;
     in-out property <[MsgRow]> messages;
     in-out property <bool> has-older;
+    // unread incoming messages in the loaded window (jump-button badge)
+    in-out property <int> unread-in-view;
     // bumped by Rust: scroll to the newest message
     in-out property <int> scroll-token;
-    // bumped by Rust: a message arrived (scroll only if already near bottom)
-    in-out property <int> append-token;
+    // bumped by Rust: reveal `scroll-target-id` (row `scroll-target-index`)
+    in-out property <int> reveal-token;
+    in-out property <string> reveal-id;
+    in-out property <int> reveal-index;
+    // center the row (quote jump) vs. put it at the top (unread divider)
+    in-out property <bool> reveal-center;
+
+    // wallpaper: 0 default, 1 solid color, 2 dusk gradient, 3 image
+    in-out property <int> wallpaper-kind;
+    in-out property <color> wallpaper-color;
+    in-out property <image> wallpaper-image;
 
     // composer
     in-out property <string> composer-text;
@@ -99,22 +168,95 @@ export global AppState {
     in-out property <bool> editing;
     in-out property <string> reply-sender;
     in-out property <string> reply-text;
-    in-out property <string> toast;
+    in-out property <image> reply-thumb;
+    in-out property <bool> has-reply-thumb;
+    in-out property <bool> enter-to-send: true;
+    in-out property <[Suggestion]> suggestions;
+    in-out property <int> suggestion-index;
+    // bumped by Rust to focus the composer (chat switch, reply, edit)
+    in-out property <int> focus-token;
+    // bumped by Rust to move the composer caret to `composer-caret` (bytes)
+    in-out property <int> caret-token;
+    in-out property <int> composer-caret;
+    // last caret reported by the composer
+    in-out property <int> last-caret;
 
-    // overlays
-    in-out property <bool> settings-open;
+    // emoji / GIF panel
+    in-out property <bool> picker-open;
+    // 0 emoji, 1 gif, 2 stickers
+    in-out property <int> picker-tab;
+    in-out property <[EmojiTab]> emoji-tabs;
+    in-out property <int> emoji-tab;
+    in-out property <[string]> emoji-grid;
+    in-out property <string> emoji-search;
+    in-out property <string> emoji-empty;
+    in-out property <bool> gif-configured;
+    in-out property <[GifItem]> gifs;
+    in-out property <string> gif-status;
+    in-out property <string> gif-query;
+
+    // reaction picker
+    in-out property <bool> reaction-open;
+    in-out property <string> reaction-id;
+    in-out property <string> reaction-current;
+
+    // delete modal
+    in-out property <bool> delete-open;
+    in-out property <string> delete-id;
+    in-out property <bool> delete-can-everyone;
+
+    // media preview (before sending)
+    in-out property <bool> preview-open;
+    in-out property <string> preview-title;
+    in-out property <string> preview-kind;
+    in-out property <image> preview-image;
+    in-out property <bool> preview-has-image;
+    in-out property <string> preview-name;
+    in-out property <bool> preview-hd-available;
+    in-out property <bool> preview-hd;
+    in-out property <string> preview-caption;
+    in-out property <bool> preview-playing;
+
+    // recorder (voice / camera photo)
+    in-out property <bool> rec-open;
+    // "voice" | "photo"
+    in-out property <string> rec-mode;
+    in-out property <string> rec-elapsed;
+    in-out property <image> rec-frame;
+    in-out property <bool> rec-has-frame;
+    in-out property <string> rec-error;
+
+    // album modal
+    in-out property <bool> album-open;
+    in-out property <string> album-title;
+    in-out property <[AlbumTile]> album-tiles;
+
+    // lightbox
     in-out property <bool> viewer-open;
     in-out property <image> viewer-image;
+    in-out property <bool> viewer-has-image;
     in-out property <string> viewer-id;
+    in-out property <bool> viewer-is-video;
+    in-out property <bool> viewer-loading;
+    in-out property <string> viewer-error;
+    in-out property <int> viewer-index;
+    in-out property <int> viewer-count;
+    in-out property <string> viewer-save-label: "⬇ Download";
+
+    // overlays / toasts
+    in-out property <bool> settings-open;
+    in-out property <[string]> toasts;
 
     // settings
     // "system" | "light" | "dark"
-    in-out property <string> theme-choice: "system";
+    in-out property <string> theme-choice: "dark";
     in-out property <float> zoom: 1.0;
     in-out property <bool> read-receipts: true;
     in-out property <bool> auto-load-images: true;
+    // "default" | "teal" | "slate" | "dusk" | "custom"
+    in-out property <string> wallpaper-choice: "default";
 
-    // pairing
+    // pairing / loading
     callback request-pair-code(string);
     callback reset-session();
     // chat list
@@ -122,31 +264,73 @@ export global AppState {
     callback section-changed(int);
     callback search-changed(string);
     callback new-chat(string);
+    callback chat-action(string, string);
+    callback need-avatar(string);
     // conversation header
     callback toggle-mute();
     callback toggle-pin();
     callback toggle-archive();
+    // message list
     callback load-older();
+    callback seen(string);
+    callback reached-bottom();
+    callback jump-to-bottom();
+    callback reveal-quote(string);
+    callback open-link(string);
     // composer
     callback send(string);
-    callback composer-edited(string);
+    // text, caret byte offset
+    callback composer-edited(string, int);
     callback cancel-compose();
-    callback attach();
+    callback accept-suggestion(int);
+    callback paste-image();
+    // attachments
+    callback attach-photos();
+    callback attach-document();
+    callback attach-camera();
+    callback attach-voice();
+    callback preview-send(string, bool);
+    callback preview-cancel();
+    callback preview-play();
+    callback rec-stop();
+    callback rec-capture();
+    callback rec-cancel();
+    // emoji / gif panel
+    callback picker-tab-changed(int);
+    callback emoji-tab-changed(int);
+    callback emoji-search-changed(string);
+    // emoji, composer caret byte offset
+    callback emoji-picked(string, int);
+    callback gif-search(string);
+    callback gif-more();
+    callback gif-picked(string);
     // message actions
     callback reply-to(string);
     callback edit(string);
+    callback open-reactions(string);
     callback react(string, string);
+    callback ask-delete(string);
     callback delete-for-me(string);
     callback delete-for-everyone(string);
     callback open-media(string);
     callback save-media(string);
     callback view-image(string);
+    callback toggle-audio(string);
+    callback open-album(string);
     callback retry(string);
+    // lightbox
+    callback viewer-step(int);
+    callback viewer-play();
+    callback close-viewer();
+    // toasts
+    callback dismiss-toast(int);
     // settings
     callback theme-changed(string);
     callback zoom-changed(float);
     callback read-receipts-changed(bool);
     callback auto-load-changed(bool);
+    callback enter-to-send-changed(bool);
+    callback wallpaper-changed(string);
     callback logout();
 }
 
@@ -158,18 +342,21 @@ export global Theme {
     out property <color> panel-alt: dark ? #202c33 : #f0f2f5;
     out property <color> chat-bg: dark ? #0b141a : #efeae2;
     out property <color> bubble-in: dark ? #202c33 : #ffffff;
-    out property <color> bubble-out: dark ? #005c4b : #d9fdd3;
+    out property <color> bubble-out: dark ? #134d37 : #d8fdd2;
     out property <color> quote-bg: dark ? #1d282f : #f0f0f0;
     out property <color> text: dark ? #e9edef : #111b21;
     out property <color> text-muted: dark ? #8696a0 : #667781;
-    out property <color> accent: #00a884;
+    out property <color> accent: dark ? #00a884 : #008069;
+    out property <color> unread: dark ? #00a884 : #25d366;
     out property <color> on-accent: #ffffff;
     out property <color> field: dark ? #2a3942 : #f0f2f5;
     out property <color> field-alt: dark ? #2a3942 : #ffffff;
-    out property <color> divider: dark ? #222d34 : #e9edef;
-    out property <color> hover: dark ? #202c33 : #f5f6f6;
+    out property <color> divider: dark ? #2f3b43 : #e9edef;
+    out property <color> hover: dark ? #2a3942 : #f5f6f6;
     out property <color> selected: dark ? #2a3942 : #f0f2f5;
-    out property <color> tick-read: #53bdeb;
+    out property <color> tick: dark ? #7b9c8f : #708775;
+    out property <color> tick-read: dark ? #44a0b8 : #3c9ce7;
+    out property <color> draft: #f15c6d;
     out property <color> danger: #ea0038;
     out property <color> scrim: #00000099;
     out property <length> fs: 14px * zoom;
