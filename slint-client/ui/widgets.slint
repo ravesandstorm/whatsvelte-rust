@@ -91,10 +91,10 @@ export component Pill inherits Rectangle {
     height: 30px * Theme.zoom;
     min-width: t.preferred-width + 24px;
     border-radius: self.height / 2;
-    background: selected ? (Theme.dark ? #0a332c : #d9fdd3) : (ta.has-hover ? Theme.hover : Theme.panel-alt);
+    background: selected ? Theme.accent : (ta.has-hover ? Theme.hover : Theme.panel-alt);
     t := Text {
         text: label;
-        color: selected ? (Theme.dark ? #00a884 : #008069) : Theme.text-muted;
+        color: selected ? #04221c : Theme.text;
         font-size: Theme.fs-small;
         horizontal-alignment: center;
         vertical-alignment: center;
