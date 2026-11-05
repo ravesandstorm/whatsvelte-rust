@@ -26,7 +26,7 @@ import {
   touchChat,
   upsertChatFromDto,
 } from "./chats.svelte";
-import { canonicalJid, clearLidMap, loadLidMap, unifyLid } from "./lid";
+import { canonicalJid, clearLidMap, learnLidMapping, loadLidMap, unifyLid } from "./lid";
 import { clearNameCache, learnName, loadNameCache } from "./contacts.svelte";
 import {
   clearAll,
@@ -337,6 +337,8 @@ export async function refreshStatus() {
     session.loggedIn = s.loggedIn;
     session.connected = s.connected;
     session.jid = s.jid;
+    session.lid = s.lid;
+    if (s.lid && s.jid) learnLidMapping(s.lid, s.jid);
     session.registered = s.registered;
     session.pushName = s.pushName;
   } catch (e) {
@@ -353,6 +355,7 @@ export async function resetAll() {
   session.registered = false;
   session.clientDead = false;
   session.jid = null;
+  session.lid = null;
   session.pushName = null;
   session.hydrating = false;
   session.hydrateTotal = 0;

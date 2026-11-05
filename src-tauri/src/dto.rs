@@ -12,6 +12,8 @@ pub struct StatusDto {
     pub connected: bool,
     /// Our own phone-number JID once paired, e.g. "15551234567@s.whatsapp.net".
     pub jid: Option<String>,
+    /// Our own LID, once known (the self chat can be addressed by it).
+    pub lid: Option<String>,
     /// Persistent "already paired" flag (survives restarts even before the
     /// connection's <success> sets logged_in). Lets the UI show a loading screen
     /// instead of the QR on relaunch.

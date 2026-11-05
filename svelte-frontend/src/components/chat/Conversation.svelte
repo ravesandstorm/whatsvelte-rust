@@ -2,20 +2,17 @@
   import { messagesFor } from "../../lib/stores/messages.svelte";
   import { chats } from "../../lib/stores/chats.svelte";
   import { contactFor } from "../../lib/stores/contacts.svelte";
-  import { session } from "../../lib/stores/session.svelte";
+  import { chatTitle } from "../../lib/stores/session.svelte";
   import { wallpaperCss, wallpaperFor } from "../../lib/stores/settings.svelte";
-  import { displayName, isGroup, isSelf } from "../../lib/util/jid";
+  import { isGroup } from "../../lib/util/jid";
   import Avatar from "../common/Avatar.svelte";
   import MessageList from "./MessageList.svelte";
   import MessageComposer from "./MessageComposer.svelte";
 
   let { jid }: { jid: string } = $props();
   const msgs = $derived(messagesFor(jid));
-  const name = $derived.by(() => {
-    // The "message yourself" chat: show our own profile name + (You).
-    if (isSelf(jid, session.jid)) return `${session.pushName ?? displayName(jid)} (You)`;
-    return displayName(jid, chats.get(jid)?.name ?? contactFor(jid)?.name);
-  });
+  // "<Name> (You)" for the message-yourself chat.
+  const name = $derived(chatTitle(jid, chats.get(jid)?.name ?? contactFor(jid)?.name));
   const wallpaper = $derived(wallpaperCss(wallpaperFor(jid)));
 </script>
 

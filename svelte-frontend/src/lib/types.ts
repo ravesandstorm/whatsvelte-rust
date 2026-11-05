@@ -5,6 +5,7 @@ export interface StatusDto {
   loggedIn: boolean;
   connected: boolean;
   jid: string | null;
+  lid: string | null;
   registered: boolean;
   pushName: string | null;
 }
