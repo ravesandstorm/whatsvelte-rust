@@ -57,13 +57,13 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 whatsapp-rust = { path = "../rust-backend" }
 
 # Installers (dmg/app, nsis, deb, AppImage) — replaces tauri-bundler.
-# Run `cargo packager --release` from this directory.
+# Run `cargo build --release && cargo packager --release` from this directory;
+# installers land next to the binary in target/release (or target/<triple>/release).
 [package.metadata.packager]
 product-name = "whatsvelte-rust"
 identifier = "com.ravesandstorm.whatsvelte-rust"
 category = "SocialNetworking"
 description = "Lightweight native WhatsApp desktop client (Slint + whatsapp-rust)"
-out-dir = "target/packager"
 icons = [
     "icons/32x32.png",
     "icons/64x64.png",
@@ -76,6 +76,8 @@ icons = [
 [package.metadata.packager.macos]
 minimum-system-version = "10.15"
 signing-identity = "-"
+# Camera / microphone usage strings for photo capture and voice notes.
+info-plist-path = "Info.plist"
 
 [profile.release]
 opt-level = "s"
