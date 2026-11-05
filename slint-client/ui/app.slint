@@ -1,14 +1,15 @@
 // Root window. All state lives in the AppState global (state.slint), driven
 // from Rust; the components below are pure views over it.
 import { Palette } from "std-widgets.slint";
-import { AppState, Theme, ChatRow, MsgRow } from "state.slint";
+import { AppState, Theme, ChatRow, MsgRow, AlbumTile, Suggestion, EmojiTab, GifItem } from "state.slint";
 import { LoadingScreen } from "loading.slint";
 import { PairingScreen } from "pairing.slint";
 import { ChatListPane } from "chat_list.slint";
 import { ConversationPane } from "conversation.slint";
-import { SettingsPanel, ImageViewer } from "settings.slint";
+import { SettingsPanel } from "settings.slint";
+import { AlbumSheet, DeleteModal, Lightbox, MediaPreview, ReactionPicker, Recorder, Toasts } from "overlays.slint";
 
-export { AppState, Theme, ChatRow, MsgRow }
+export { AppState, Theme, ChatRow, MsgRow, AlbumTile, Suggestion, EmojiTab, GifItem }
 
 export component AppWindow inherits Window {
     title: AppState.screen == "main" && AppState.active-title != "" ? AppState.active-title + " · Wha.rs.app" : "Wha.rs.app";
@@ -28,33 +29,59 @@ export component AppWindow inherits Window {
     changed theme-choice => { root.apply-theme(); }
     init => { root.apply-theme(); }
 
-    // Off-screen text field used as a clipboard bridge (Slint has no public
-    // clipboard-write API; TextInput.copy() uses the platform clipboard).
-    clip := TextInput {
-        x: -1000px;
-        width: 10px;
-        height: 10px;
-        opacity: 0;
-        read-only: true;
-    }
-
-    if AppState.screen == "loading": LoadingScreen { }
-    if AppState.screen == "pairing": PairingScreen { }
-    if AppState.screen == "main": HorizontalLayout {
-        ChatListPane {
-            width: clamp(root.width * 0.32, 300px, 460px);
+    // Escape closes the topmost overlay; arrows step through the lightbox.
+    FocusScope {
+        capture-key-pressed(ev) => {
+            if AppState.viewer-open {
+                if ev.text == Key.Escape { AppState.close-viewer(); return accept; }
+                if ev.text == Key.LeftArrow { AppState.viewer-step(-1); return accept; }
+                if ev.text == Key.RightArrow { AppState.viewer-step(1); return accept; }
+                return reject;
+            }
+            if ev.text == Key.Escape {
+                if AppState.album-open { AppState.album-open = false; return accept; }
+                if AppState.delete-open { AppState.delete-open = false; return accept; }
+                if AppState.reaction-open { AppState.reaction-open = false; return accept; }
+                if AppState.preview-open { AppState.preview-cancel(); return accept; }
+                if AppState.rec-open { AppState.rec-cancel(); return accept; }
+                if AppState.settings-open { AppState.settings-open = false; return accept; }
+            }
+            reject
         }
-        Rectangle { width: 1px; background: Theme.divider; }
-        ConversationPane {
-            horizontal-stretch: 1;
-            copy-text(t) => {
-                clip.text = t;
-                clip.select-all();
-                clip.copy();
-                AppState.toast = "Copied";
+
+        // Off-screen text field used as a clipboard bridge (Slint has no public
+        // clipboard-write API; TextInput.copy() uses the platform clipboard).
+        clip := TextInput {
+            x: -1000px;
+            width: 10px;
+            height: 10px;
+            opacity: 0;
+            read-only: true;
+        }
+
+        if AppState.screen == "loading": LoadingScreen { }
+        if AppState.screen == "pairing": PairingScreen { }
+        if AppState.screen == "main": HorizontalLayout {
+            ChatListPane {
+                width: clamp(root.width * 0.33, 300px, 420px);
+            }
+            Rectangle { width: 1px; background: Theme.divider; }
+            ConversationPane {
+                horizontal-stretch: 1;
+                copy-text(t) => {
+                    clip.text = t;
+                    clip.select-all();
+                    clip.copy();
+                }
             }
         }
+        if AppState.settings-open: SettingsPanel { }
+        if AppState.album-open: AlbumSheet { }
+        if AppState.delete-open: DeleteModal { }
+        if AppState.reaction-open: ReactionPicker { }
+        if AppState.preview-open: MediaPreview { }
+        if AppState.rec-open: Recorder { }
+        if AppState.viewer-open: Lightbox { }
+        Toasts { }
     }
-    if AppState.settings-open: SettingsPanel { }
-    if AppState.viewer-open: ImageViewer { }
 }

@@ -1,6 +1,12 @@
-import { ComboBox, Slider, Switch } from "std-widgets.slint";
+import { Switch } from "std-widgets.slint";
 import { AppState, Theme } from "state.slint";
 import { Avatar, IconButton, PrimaryButton } from "widgets.slint";
+
+component Section inherits Text {
+    color: Theme.accent;
+    font-size: Theme.fs-small;
+    font-weight: 600;
+}
 
 component SettingRow inherits HorizontalLayout {
     in property <string> label;
@@ -9,10 +15,44 @@ component SettingRow inherits HorizontalLayout {
     VerticalLayout {
         alignment: center;
         horizontal-stretch: 1;
-        Text { text: root.label; color: Theme.text; font-size: Theme.fs; }
+        Text { text: root.label; color: Theme.text; font-size: Theme.fs; wrap: word-wrap; }
         if root.hint != "": Text { text: root.hint; color: Theme.text-muted; font-size: Theme.fs-tiny; wrap: word-wrap; }
     }
     @children
+}
+
+component Segment inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked();
+    height: 32px;
+    min-width: t.preferred-width + 24px;
+    border-radius: 6px;
+    background: selected ? Theme.accent : ta.has-hover ? Theme.hover : Theme.panel-alt;
+    t := Text { text: label; color: selected ? #ffffff : Theme.text; font-size: Theme.fs-small; horizontal-alignment: center; vertical-alignment: center; }
+    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+component Swatch inherits Rectangle {
+    in property <string> key;
+    in property <string> label;
+    in property <brush> fill;
+    callback clicked();
+    width: 64px;
+    height: 64px;
+    border-radius: 8px;
+    background: fill;
+    border-width: AppState.wallpaper-choice == key ? 3px : 1px;
+    border-color: AppState.wallpaper-choice == key ? Theme.accent : Theme.divider;
+    Text {
+        y: parent.height - 18px;
+        width: parent.width;
+        text: label;
+        color: #ffffff;
+        font-size: 10px;
+        horizontal-alignment: center;
+    }
+    TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
 }
 
 export component SettingsPanel inherits Rectangle {
@@ -20,103 +60,96 @@ export component SettingsPanel inherits Rectangle {
     TouchArea { clicked => { AppState.settings-open = false; } }
 
     Rectangle {
-        width: min(parent.width - 32px, 460px);
-        height: min(parent.height - 32px, 560px);
+        x: 0;
+        width: min(380px, parent.width * 0.9);
+        height: parent.height;
         background: Theme.panel;
-        border-radius: 10px;
         drop-shadow-blur: 20px;
         drop-shadow-color: #00000055;
         TouchArea { }  // swallow clicks so they don't close the panel
 
         VerticalLayout {
-            padding: 20px;
-            spacing: 16px;
-            HorizontalLayout {
-                Text { text: "Settings"; color: Theme.text; font-size: Theme.fs-title; font-weight: 600; horizontal-stretch: 1; vertical-alignment: center; }
-                IconButton { icon: "✕"; clicked => { AppState.settings-open = false; } }
-            }
-
-            HorizontalLayout {
-                spacing: 12px;
-                Avatar { initials: AppState.self-name != "" ? AppState.self-name : "Me"; size: 52px; }
-                VerticalLayout {
-                    alignment: center;
-                    Text { text: AppState.self-name != "" ? AppState.self-name : "Your account"; color: Theme.text; font-size: Theme.fs-large; }
-                    Text { text: AppState.self-jid; color: Theme.text-muted; font-size: Theme.fs-small; }
+            Rectangle {
+                height: 60px * Theme.zoom;
+                background: Theme.panel-alt;
+                HorizontalLayout {
+                    padding-left: 8px;
+                    spacing: 8px;
+                    VerticalLayout { alignment: center; IconButton { icon: "←"; clicked => { AppState.settings-open = false; } } }
+                    Text { text: "Settings"; color: Theme.text; font-size: Theme.fs-large; font-weight: 600; vertical-alignment: center; }
                 }
             }
+            Flickable {
+                vertical-stretch: 1;
+                content-height: body.preferred-height;
+                body := VerticalLayout {
+                    width: parent.width;
+                    padding: 20px;
+                    spacing: 14px;
 
-            Rectangle { height: 1px; background: Theme.divider; }
+                    Section { text: "Account"; }
+                    HorizontalLayout {
+                        spacing: 12px;
+                        Avatar { initials: "👤"; size: 48px; }
+                        VerticalLayout {
+                            alignment: center;
+                            Text { text: AppState.self-name; color: Theme.text; font-size: Theme.fs-large; }
+                            Text { text: AppState.self-jid != "" ? AppState.self-jid : "Not linked"; color: Theme.text-muted; font-size: Theme.fs-small; }
+                        }
+                    }
+                    HorizontalLayout {
+                        alignment: start;
+                        PrimaryButton { label: "Log out"; danger: true; clicked => { AppState.settings-open = false; AppState.logout(); } }
+                    }
 
-            SettingRow {
-                label: "Theme";
-                ComboBox {
-                    width: 140px;
-                    model: ["System", "Light", "Dark"];
-                    current-index: AppState.theme-choice == "light" ? 1 : AppState.theme-choice == "dark" ? 2 : 0;
-                    selected(v) => {
-                        AppState.theme-changed(v == "Light" ? "light" : v == "Dark" ? "dark" : "system");
+                    Rectangle { height: 1px; background: Theme.divider; }
+                    Section { text: "Appearance"; }
+                    SettingRow {
+                        label: "Theme";
+                        Segment { label: "Light"; selected: AppState.theme-choice == "light"; clicked => { AppState.theme-changed("light"); } }
+                        Segment { label: "Dark"; selected: AppState.theme-choice == "dark"; clicked => { AppState.theme-changed("dark"); } }
+                        Segment { label: "System"; selected: AppState.theme-choice == "system"; clicked => { AppState.theme-changed("system"); } }
+                    }
+                    SettingRow {
+                        label: "Zoom";
+                        hint: round(AppState.zoom * 100) + "%  ·  Ctrl/⌘ +, −, 0";
+                        Segment { label: "−"; clicked => { AppState.zoom-changed(AppState.zoom - 0.1); } }
+                        Segment { label: "Reset"; clicked => { AppState.zoom-changed(1.0); } }
+                        Segment { label: "+"; clicked => { AppState.zoom-changed(AppState.zoom + 0.1); } }
+                    }
+                    Text { text: "Chat wallpaper"; color: Theme.text; font-size: Theme.fs; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        alignment: start;
+                        Swatch { key: "default"; label: "Default"; fill: Theme.chat-bg; clicked => { AppState.wallpaper-changed("default"); } }
+                        Swatch { key: "teal"; label: "Teal"; fill: #0b141a; clicked => { AppState.wallpaper-changed("teal"); } }
+                        Swatch { key: "slate"; label: "Slate"; fill: #1f2c33; clicked => { AppState.wallpaper-changed("slate"); } }
+                        Swatch { key: "dusk"; label: "Dusk"; fill: @linear-gradient(160deg, #0b141a 0%, #14323a 100%); clicked => { AppState.wallpaper-changed("dusk"); } }
+                        Swatch { key: "custom"; label: "Image…"; fill: #3b4a54; clicked => { AppState.wallpaper-changed("custom"); } }
+                    }
+
+                    Rectangle { height: 1px; background: Theme.divider; }
+                    Section { text: "Chats"; }
+                    SettingRow {
+                        label: "Enter sends message";
+                        hint: "Shift+Enter adds a new line. Ctrl/⌘+Enter always sends.";
+                        Switch { checked: AppState.enter-to-send; toggled => { AppState.enter-to-send-changed(self.checked); } }
+                    }
+                    SettingRow {
+                        label: "Load images automatically";
+                        hint: "Videos, audio and documents load on demand.";
+                        Switch { checked: AppState.auto-load-images; toggled => { AppState.auto-load-changed(self.checked); } }
+                    }
+
+                    Rectangle { height: 1px; background: Theme.divider; }
+                    Section { text: "Privacy"; }
+                    SettingRow {
+                        label: "Send read receipts";
+                        hint: "When off, your blue ticks aren't sent. (Whole-chat read state may still sync from your phone.)";
+                        Switch { checked: AppState.read-receipts; toggled => { AppState.read-receipts-changed(self.checked); } }
                     }
                 }
             }
-            SettingRow {
-                label: "Zoom";
-                hint: round(AppState.zoom * 100) + "%";
-                Slider {
-                    width: 180px;
-                    minimum: 0.8;
-                    maximum: 1.5;
-                    value: AppState.zoom;
-                    released(v) => { AppState.zoom-changed(round(v * 20) / 20); }
-                }
-            }
-            SettingRow {
-                label: "Read receipts";
-                hint: "Let others know when you've read their messages.";
-                Switch {
-                    checked: AppState.read-receipts;
-                    toggled => { AppState.read-receipts-changed(self.checked); }
-                }
-            }
-            SettingRow {
-                label: "Load images automatically";
-                hint: "Videos, audio and documents always load on demand.";
-                Switch {
-                    checked: AppState.auto-load-images;
-                    toggled => { AppState.auto-load-changed(self.checked); }
-                }
-            }
-
-            Rectangle { vertical-stretch: 1; }
-
-            HorizontalLayout {
-                spacing: 10px;
-                alignment: end;
-                PrimaryButton { label: "Log out"; danger: true; clicked => { AppState.logout(); } }
-            }
         }
-    }
-}
-
-export component ImageViewer inherits Rectangle {
-    background: #000000e6;
-    TouchArea { clicked => { AppState.viewer-open = false; } }
-    Image {
-        x: 24px;
-        y: 64px;
-        width: parent.width - 48px;
-        height: parent.height - 88px;
-        source: AppState.viewer-image;
-        image-fit: contain;
-    }
-    HorizontalLayout {
-        y: 12px;
-        height: 40px;
-        padding-right: 12px;
-        spacing: 6px;
-        alignment: end;
-        IconButton { icon: "⬇"; fg: #ffffff; clicked => { AppState.save-media(AppState.viewer-id); } }
-        IconButton { icon: "↗"; fg: #ffffff; clicked => { AppState.open-media(AppState.viewer-id); } }
-        IconButton { icon: "✕"; fg: #ffffff; clicked => { AppState.viewer-open = false; } }
     }
 }
