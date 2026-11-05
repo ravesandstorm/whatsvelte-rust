@@ -55,9 +55,18 @@ jobs:
       # Install Rust toolchain for the backend
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          # Cross-compile targets must be installed explicitly (empty = host only)
-          targets: ${{ matrix.target }}
+
+      # rust-toolchain.toml pins a nightly that overrides the toolchain installed
+      # above, so cross targets must be added to THAT toolchain. Running rustup
+      # from the repo root makes it resolve the pinned channel.
+      - name: Install pinned toolchain and cross target
+        if: matrix.target != ''
+        shell: bash
+        run: |
+          rustup toolchain install
+          rustup target add ${{ matrix.target }}
+          rustup show active-toolchain
+          rustup target list --installed
 
       # Speeds up subsequent Rust builds significantly
       - name: Rust cache
