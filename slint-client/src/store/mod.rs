@@ -79,6 +79,9 @@ pub struct UiMessage {
     /// (LID → PN) keys. Protocol actions on the message must use these.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wire_chat_jid: Option<String>,
+    /// Incoming and not yet seen (drives the unread divider + read receipts).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub unread: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wire_sender_jid: Option<String>,
 }
@@ -92,6 +95,36 @@ impl UiMessage {
     }
     pub fn proto_sender_jid(&self) -> &str {
         self.wire_sender_jid.as_deref().unwrap_or(&self.dto.sender_jid)
+    }
+}
+
+/// Chat-list / quote label for a message kind (port of preview.ts mediaLabel).
+pub fn media_label(kind: &str) -> &'static str {
+    match kind {
+        "image" => "📷 Photo",
+        "video" => "🎥 Video",
+        "audio" => "🎙 Audio",
+        "document" => "📄 Document",
+        "sticker" => "🃏 Sticker",
+        "buttons" | "list" | "interactive" | "template" => "📋 Interactive",
+        "poll" => "📊 Poll",
+        "order" => "🛒 Order",
+        "product" => "🛍 Product",
+        "contact" => "👤 Contact",
+        "location" => "📍 Location",
+        _ => "Message",
+    }
+}
+
+/// Quoted-preview text (port of preview.ts formatQuotedText).
+pub fn quoted_text(kind: &str, text: Option<&str>, file_name: Option<&str>) -> String {
+    match text.map(str::trim).filter(|t| !t.is_empty()) {
+        Some(t) if kind == "text" => t.to_string(),
+        Some(t) => format!("{} {t}", media_label(kind)),
+        None => match file_name {
+            Some(n) => format!("📄 {n}"),
+            None => media_label(kind).to_string(),
+        },
     }
 }
 
@@ -191,24 +224,54 @@ impl Store {
         account
     }
 
-    /// Rehydrate chat rows, names, the LID map and each chat's newest message.
-    pub fn hydrate(&mut self) {
-        let Some(p) = self.persist.as_ref() else { return };
+    /// Rehydrate chat rows, names and the LID map. Returns the chat jids whose
+    /// newest messages should be loaded next ([`Store::hydrate_tails`]).
+    pub fn hydrate_rows(&mut self) -> Vec<String> {
+        let Some(p) = self.persist.as_ref() else { return Vec::new() };
         self.names = p.load_map("names");
         self.lid_to_pn = p.load_map("lid");
         let rows = p.load_chats();
         for c in rows {
             let jid = self.canonical(&c.jid);
-            self.chats.insert(jid.clone(), Chat { jid, ..c });
+            if jid != c.jid {
+                // A persisted LID chat whose mapping is known: re-key its history.
+                let msgs = p.load_messages(&c.jid);
+                if !msgs.is_empty() {
+                    let mut merged = p.load_messages(&jid);
+                    let ids: HashSet<String> = merged.iter().map(|m| m.dto.id.clone()).collect();
+                    for mut m in msgs.into_iter().filter(|m| !ids.contains(&m.dto.id)) {
+                        m.wire_chat_jid.get_or_insert_with(|| m.dto.chat_jid.clone());
+                        m.dto.chat_jid = jid.clone();
+                        merged.push(m);
+                    }
+                    merged.sort_by_key(|m| m.dto.timestamp);
+                    p.save_messages(&jid, &merged);
+                    p.delete_messages(&c.jid);
+                }
+                self.dirty_chats = true;
+            }
+            let row = Chat { jid: jid.clone(), ..c };
+            match self.chats.get(&jid) {
+                Some(prev) if prev.timestamp > row.timestamp => {}
+                _ => {
+                    self.chats.insert(jid, row);
+                }
+            }
         }
-        // Newest messages per chat for ticks/previews; the rest pages in on open.
-        let jids: Vec<String> = self.chats.keys().cloned().collect();
+        self.chats.keys().cloned().collect()
+    }
+
+    /// Load the newest message of each chat (previews + ticks); the rest of the
+    /// history pages in when a chat is opened.
+    pub fn hydrate_tails(&mut self, jids: &[String]) {
+        let Some(p) = self.persist.as_ref() else { return };
         for jid in jids {
-            let all = self.persist.as_ref().unwrap().load_messages(&jid);
-            let start = all.len().saturating_sub(RESIDENT_TAIL);
-            self.msgs.insert(jid, ChatMsgs { msgs: all[start..].to_vec(), full: false });
+            let all = p.load_messages(jid);
+            let start = all.len().saturating_sub(1);
+            self.msgs.insert(jid.clone(), ChatMsgs { msgs: all[start..].to_vec(), full: false });
         }
     }
+
 
     pub fn set_account(&mut self, jid: &str) {
         if let Some(p) = &self.persist {
@@ -489,7 +552,8 @@ impl Store {
             }
             c.timestamp = ts;
         }
-        if incoming && !active {
+        let _ = active;
+        if incoming {
             c.unread += 1;
         }
         self.dirty_chats = true;
@@ -530,19 +594,6 @@ impl Store {
         self.dirty_chats = true;
     }
 
-    /// Clear the unread badge. Returns true when it changed (caller sends the
-    /// read receipt).
-    pub fn mark_chat_read(&mut self, jid: &str) -> bool {
-        match self.chats.get_mut(jid) {
-            Some(c) if c.unread > 0 => {
-                c.unread = 0;
-                self.dirty_chats = true;
-                true
-            }
-            _ => false,
-        }
-    }
-
     pub fn open_chat(&mut self, jid: &str) {
         self.active = Some(jid.to_string());
         self.ensure_full(jid);
@@ -550,7 +601,61 @@ impl Store {
             self.chats.insert(jid.to_string(), Chat { jid: jid.to_string(), timestamp: now_secs(), ..Default::default() });
             self.dirty_chats = true;
         }
+        self.apply_unread_flags(jid);
         self.trim_inactive();
+    }
+
+    /// Flag the last `chat.unread` incoming messages unread and the rest read.
+    fn apply_unread_flags(&mut self, jid: &str) {
+        let count = self.chats.get(jid).map_or(0, |c| c.unread as usize);
+        let Some(cm) = self.msgs.get_mut(jid) else { return };
+        let mut left = count;
+        let mut changed = false;
+        for m in cm.msgs.iter_mut().rev() {
+            let unread = !m.dto.from_me && !m.deleted && left > 0;
+            if !m.dto.from_me && !m.deleted && left > 0 {
+                left -= 1;
+            }
+            if m.unread != unread {
+                m.unread = unread;
+                changed = true;
+            }
+        }
+        if changed {
+            self.dirty_msgs.insert(jid.to_string());
+        }
+    }
+
+    /// A message scrolled into view. Returns `Some(chat_now_read)` when it was
+    /// unread (the caller then queues a read receipt, and marks the whole chat
+    /// read once the counter reaches zero).
+    pub fn mark_message_read(&mut self, jid: &str, id: &str) -> Option<bool> {
+        let m = self.msgs.get_mut(jid)?.msgs.iter_mut().find(|m| m.dto.id == id && m.unread)?;
+        m.unread = false;
+        self.dirty_msgs.insert(jid.to_string());
+        let c = self.chats.get_mut(jid)?;
+        if c.unread > 0 {
+            c.unread -= 1;
+            self.dirty_chats = true;
+            return Some(c.unread == 0);
+        }
+        Some(false)
+    }
+
+    /// Put back a message snapshot (rollback of a failed optimistic action).
+    pub fn restore_message(&mut self, m: UiMessage) {
+        let jid = m.dto.chat_jid.clone();
+        self.ensure_full(&jid);
+        let cm = self.msgs.entry(jid.clone()).or_default();
+        match cm.msgs.iter_mut().find(|x| x.dto.id == m.dto.id) {
+            Some(x) => *x = m,
+            None => {
+                let pos = cm.msgs.partition_point(|x| x.dto.timestamp <= m.dto.timestamp);
+                cm.msgs.insert(pos, m);
+            }
+        }
+        self.dirty_msgs.insert(jid.clone());
+        self.refresh_preview(&jid);
     }
 
     // ---------------------------------------------------------------- messages
@@ -559,18 +664,7 @@ impl Store {
         if let Some(t) = m.text.as_ref().filter(|t| !t.is_empty()) {
             return Some(t.clone());
         }
-        let label = match m.kind.as_str() {
-            "image" => "📷 Photo",
-            "video" => "🎥 Video",
-            "audio" => "🎤 Audio",
-            "document" => "📄 Document",
-            "sticker" => "Sticker",
-            "location" => "📍 Location",
-            "contact" => "👤 Contact",
-            "poll" => "📊 Poll",
-            _ => return None,
-        };
-        Some(label.to_string())
+        Some(media_label(&m.kind).to_string())
     }
 
     /// Ingest a live message. Returns false when it was a duplicate.
@@ -606,6 +700,9 @@ impl Store {
         if m.dto.from_me && m.status == MessageStatus::None {
             m.status = MessageStatus::Sent;
         }
+        if !m.dto.from_me {
+            m.unread = true;
+        }
         let preview = Self::preview_of(&m.dto);
         let (ts, incoming) = (m.dto.timestamp, !m.dto.from_me);
         let pos = cm.msgs.partition_point(|x| x.dto.timestamp <= ts);
@@ -637,7 +734,8 @@ impl Store {
                 cm.msgs.push(m);
             }
             cm.msgs.sort_by_key(|m| m.dto.timestamp);
-            self.dirty_msgs.insert(jid);
+            self.dirty_msgs.insert(jid.clone());
+            self.apply_unread_flags(&jid);
         }
     }
 
@@ -673,8 +771,35 @@ impl Store {
         }
     }
 
+    /// Revoke from the wire: tombstone the message, or insert a tombstone when
+    /// we never had it (so the "deleted" bubble still shows in place).
+    pub fn apply_revoke_event(&mut self, jid: &str, id: &str, sender: &str, from_me: bool, ts: i64) {
+        if self.message_mut(jid, id).is_none() && !id.is_empty() {
+            let m = UiMessage {
+                dto: MessageDto {
+                    id: id.to_string(),
+                    chat_jid: jid.to_string(),
+                    sender_jid: sender.to_string(),
+                    from_me,
+                    timestamp: ts,
+                    kind: "other".into(),
+                    ..Default::default()
+                },
+                deleted: true,
+                ..Default::default()
+            };
+            let cm = self.msgs.entry(jid.to_string()).or_default();
+            let pos = cm.msgs.partition_point(|x| x.dto.timestamp <= ts);
+            cm.msgs.insert(pos, m);
+            self.dirty_msgs.insert(jid.to_string());
+            return;
+        }
+        self.apply_revoke(jid, id);
+    }
+
     pub fn apply_revoke(&mut self, jid: &str, id: &str) {
         if let Some(m) = self.message_mut(jid, id) {
+            m.unread = false;
             m.deleted = true;
             m.dto.text = None;
             m.dto.media = None;
@@ -821,6 +946,27 @@ mod tests {
         assert_eq!(c.last_message.as_deref(), Some("new"));
         assert_eq!(s.messages("1@s.whatsapp.net").len(), 2);
         assert_eq!(s.canonical("9@lid"), "1@s.whatsapp.net");
+    }
+
+    #[test]
+    fn unread_flags_and_mark_read() {
+        let mut s = Store::new();
+        let j = "a@s.whatsapp.net";
+        s.add_message(msg(j, "1", 1, false, "a"));
+        s.add_message(msg(j, "2", 2, false, "b"));
+        s.open_chat(j);
+        assert!(s.messages(j).iter().all(|m| m.unread));
+        assert_eq!(s.mark_message_read(j, "1"), Some(false));
+        assert_eq!(s.mark_message_read(j, "1"), None);
+        assert_eq!(s.mark_message_read(j, "2"), Some(true));
+        assert_eq!(s.chats[j].unread, 0);
+    }
+
+    #[test]
+    fn revoke_of_unknown_message_inserts_tombstone() {
+        let mut s = Store::new();
+        s.apply_revoke_event("a@s.whatsapp.net", "x", "a@s.whatsapp.net", false, 5);
+        assert!(s.messages("a@s.whatsapp.net")[0].deleted);
     }
 
     #[test]
