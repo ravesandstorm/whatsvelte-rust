@@ -40,7 +40,7 @@
     loading = true;
     error = false;
     try {
-      const path = await api.downloadMedia(media.descriptor, media.mimetype);
+      const path = await api.downloadMedia(media.descriptor, media.mimetype, media.fileName);
       await openPath(path);
     } catch (e) {
       console.error("open document failed", e);
@@ -71,6 +71,18 @@
   function openLightbox() {
     ui.lightboxThumbnail = thumbnail;
     ui.lightboxMedia = media;
+  }
+
+  // Audio starts playing only right after the user asked for it (the load
+  // button), not whenever the element re-mounts with a cached src, and only one
+  // clip plays at a time.
+  let playOnLoad = $state(false);
+  function onAudioPlay(e: Event) {
+    const el = e.currentTarget as HTMLAudioElement;
+    document.querySelectorAll("audio").forEach((a) => {
+      if (a !== el && !a.paused) a.pause();
+    });
+    playOnLoad = false;
   }
 </script>
 
@@ -112,9 +124,15 @@
   </button>
 {:else if media.kind === "audio"}
   {#if src}
-    <audio src={src} controls autoplay></audio>
+    <audio src={src} controls autoplay={playOnLoad} onplay={onAudioPlay}></audio>
   {:else}
-    <button class="audio" onclick={load}>
+    <button
+      class="audio"
+      onclick={() => {
+        playOnLoad = true;
+        void load();
+      }}
+    >
       {#if loading}
         <div class="media-spinner sm"></div>
       {:else}

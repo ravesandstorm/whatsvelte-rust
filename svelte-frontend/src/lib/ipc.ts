@@ -69,8 +69,13 @@ export const api = {
     invoke<void>("set_chat_archived", { jid, archived }),
   getContact: (jid: string) => invoke<ContactDto>("get_contact", { jid }),
   resolveJid: (jid: string) => invoke<ResolveJidDto>("resolve_jid", { jid }),
-  downloadMedia: (descriptor: MediaDescriptorDto, mimetype: string | null) =>
-    invoke<string>("download_media", { descriptor, mimetype }),
+  /** `fileName` lets a document keep its extension in the cache, so the OS can
+   * open the cached file with the right app. */
+  downloadMedia: (
+    descriptor: MediaDescriptorDto,
+    mimetype: string | null,
+    fileName: string | null = null,
+  ) => invoke<string>("download_media", { descriptor, mimetype, fileName }),
   /** Upload a local file (by path) and send it as a media message. */
   sendMedia: (jid: string, path: string, mediaType: string, options: MediaSendOptions) =>
     invoke<SendResultDto>("send_media", { jid, path, mediaType, options }),
