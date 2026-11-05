@@ -201,7 +201,7 @@ function readLatest(
 function pendingFor(jid: string, beforeTs: number | undefined): UiMessage[] {
   const out: UiMessage[] = [];
   for (const op of pending.values()) {
-    if (op.op !== "put" || op.m.chatJid !== jid) continue;
+    if (op.op === "del" || op.m.chatJid !== jid) continue;
     if (beforeTs !== undefined && op.m.timestamp > beforeTs) continue;
     out.push(op.m);
   }
@@ -252,10 +252,10 @@ export async function loadTails(jids: string[], n: number): Promise<Map<string, 
 export async function movePersistedChat(fromJid: string, toJid: string): Promise<void> {
   if (fromJid === toJid) return;
   for (const [k, op] of [...pending]) {
-    if (op.op === "put" && op.m.chatJid === fromJid) {
+    if (op.op !== "del" && op.m.chatJid === fromJid) {
       pending.delete(k);
       const m = { ...op.m, chatJid: toJid };
-      pending.set(pendingKey(toJid, m.id), { op: "put", m });
+      pending.set(pendingKey(toJid, m.id), { op: op.op, m });
     } else if (op.op === "del" && op.chatJid === fromJid) {
       pending.delete(k);
     }
@@ -303,7 +303,12 @@ export async function setAccount(jid: string | null): Promise<void> {
 
 // --- Debounced per-message writes -----------------------------------------
 
-type PendingOp = { op: "put"; m: UiMessage } | { op: "del"; chatJid: string; id: string };
+// "put" replaces the stored record; "add" inserts only if no record exists
+// (new arrivals, so a redelivered old message can't clobber its stored copy).
+type PendingOp =
+  | { op: "put"; m: UiMessage }
+  | { op: "add"; m: UiMessage }
+  | { op: "del"; chatJid: string; id: string };
 
 // Writes are queued even while persistence is disabled (boot hydration), so a
 // live message that arrives mid-hydration — and may be trimmed out of memory
@@ -351,6 +356,33 @@ export function persistMessage(m: UiMessage) {
   scheduleFlushMessages();
 }
 
+/** Queue an insert-only write: a no-op if the message is already stored. */
+export function persistMessageInsert(m: UiMessage) {
+  if (!persistable(m)) return;
+  const k = pendingKey(m.chatJid, m.id);
+  if (pending.get(k)?.op === "put") return; // a full write is already queued
+  pending.set(k, { op: "add", m });
+  scheduleFlushMessages();
+}
+
+/** The stored copy of a message (including a queued full write), if any. */
+export async function getPersistedMessage(
+  chatJid: string,
+  id: string,
+): Promise<UiMessage | undefined> {
+  const queued = pending.get(pendingKey(chatJid, id));
+  if (queued?.op === "put") return queued.m;
+  if (queued?.op === "del") return undefined;
+  try {
+    const db = await openDb();
+    const req = db.transaction([STORE_MSGS], "readonly").objectStore(STORE_MSGS).get([chatJid, id]);
+    return (await reqResult(req)) as UiMessage | undefined;
+  } catch (e) {
+    console.error("read persisted message failed", e);
+    return undefined;
+  }
+}
+
 /** Queue a delete of one message. */
 export function persistMessageDelete(chatJid: string, id: string) {
   if (!id) return;
@@ -384,7 +416,10 @@ export async function patchPersistedMessage(
     const store = t.objectStore(STORE_MSGS);
     // The put is issued from the get's promise continuation, which runs while
     // the transaction is still active.
-    const current = (await reqResult(store.get([chatJid, id]))) as UiMessage | undefined;
+    const stored = (await reqResult(store.get([chatJid, id]))) as UiMessage | undefined;
+    // A queued insert-only write only matters when nothing is stored yet.
+    const current = stored ?? (queued?.op === "add" ? queued.m : undefined);
+    if (stored && queued?.op === "add") pending.delete(k);
     if (!current) {
       await done;
       return undefined;
@@ -433,7 +468,15 @@ async function flushMessages() {
       const store = t.objectStore(STORE_MSGS);
       for (const op of ops.slice(i, i + FLUSH_SLICE)) {
         if (op.op === "put") store.put(toRecord(op.m));
-        else store.delete([op.chatJid, op.id]);
+        else if (op.op === "add") {
+          // Already stored → ConstraintError; swallow it so the rest of the
+          // transaction still commits.
+          const req = store.add(toRecord(op.m));
+          req.onerror = (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+          };
+        } else store.delete([op.chatJid, op.id]);
       }
       await txDone(t);
     }
