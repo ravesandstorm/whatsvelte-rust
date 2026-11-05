@@ -83,7 +83,9 @@ jobs:
         working-directory: slint-client
         run: |
           mkdir -p ../dist
-          for f in target/packager/*; do
+          out=target/release
+          if [ -n "${{ matrix.target }}" ]; then out=target/${{ matrix.target }}/release; fi
+          for f in "$out"/*.dmg "$out"/*-setup.exe "$out"/*.deb "$out"/*.AppImage; do
             [ -f "$f" ] || continue
             name=$(basename "$f")
             if [ -n "${{ matrix.target }}" ]; then name="${{ matrix.target }}-$name"; fi
