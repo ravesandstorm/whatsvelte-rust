@@ -22,7 +22,7 @@ const queue: Pending[] = [];
 let timer: ReturnType<typeof setTimeout> | null = null;
 
 let observer: IntersectionObserver | null = null;
-const meta = new WeakMap<Element, Pending>();
+const meta = new WeakMap<Element, Pending[]>();
 
 function ensureObserver(): IntersectionObserver {
   if (observer) return observer;
@@ -30,8 +30,7 @@ function ensureObserver(): IntersectionObserver {
     (entries) => {
       for (const e of entries) {
         if (!e.isIntersecting) continue;
-        const m = meta.get(e.target);
-        if (m) enqueue(m);
+        for (const m of meta.get(e.target) ?? []) enqueue(m);
         observer!.unobserve(e.target); // seen once is enough
       }
     },
@@ -82,17 +81,23 @@ export function trackRead(
     chatJid: string;
     wireChatJid: string;
     id: string;
+    /** Several messages shown by one element (an album grid). */
+    ids?: string[];
     senderJid: string | null;
     fromMe: boolean;
   },
 ) {
   if (!params.fromMe && params.id) {
-    meta.set(node, {
-      chatJid: params.chatJid,
-      wireChatJid: params.wireChatJid,
-      id: params.id,
-      senderJid: params.senderJid,
-    });
+    const ids = params.ids?.length ? params.ids : [params.id];
+    meta.set(
+      node,
+      ids.map((id) => ({
+        chatJid: params.chatJid,
+        wireChatJid: params.wireChatJid,
+        id,
+        senderJid: params.senderJid,
+      })),
+    );
     ensureObserver().observe(node);
   }
   return {

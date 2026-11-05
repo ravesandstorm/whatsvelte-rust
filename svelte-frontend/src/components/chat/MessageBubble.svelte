@@ -25,14 +25,24 @@
   import MessageContextMenu from "./MessageContextMenu.svelte";
   import DeleteMessageModal from "./DeleteMessageModal.svelte";
   import Linkify from "./Linkify.svelte";
+  import AlbumGrid from "./AlbumGrid.svelte";
 
   let {
     message,
+    album = null,
     group,
     prev = null,
     highlighted = false,
-  }: { message: UiMessage; group: boolean; prev?: UiMessage | null; highlighted?: boolean } =
-    $props();
+  }: {
+    message: UiMessage;
+    /** Set when this bubble stands for a whole album (`message` is its last item). */
+    album?: UiMessage[] | null;
+    group: boolean;
+    prev?: UiMessage | null;
+    highlighted?: boolean;
+  } = $props();
+  // An album's caption, if any item carries one.
+  const albumCaption = $derived(album?.find((m) => m.text)?.text ?? null);
   let showReact = $state(false);
   let menu = $state<{ x: number; y: number } | null>(null);
   let deleteModal = $state(false);
@@ -191,6 +201,7 @@
     chatJid: message.chatJid,
     wireChatJid: protoChatJid(message),
     id: message.id,
+    ids: album?.map((m) => m.id),
     senderJid: isGroup(message.chatJid) ? protoSenderJid(message) : null,
     fromMe: message.fromMe,
   }}
@@ -212,7 +223,12 @@
         </div>
       </div>
     {/if}
-    {#if message.deleted}
+    {#if album}
+      <AlbumGrid items={album} />
+      {#if albumCaption}
+        <div class="text"><Linkify text={albumCaption} /></div>
+      {/if}
+    {:else if message.deleted}
       <div class="text deleted">🚫 This message was deleted</div>
     {:else}
       {#if message.media}

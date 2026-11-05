@@ -4,11 +4,16 @@
   import ChatList from "./ChatList.svelte";
   import Conversation from "./Conversation.svelte";
   import MediaLightbox from "./MediaLightbox.svelte";
+  import AlbumModal from "./AlbumModal.svelte";
   import SettingsPanel from "../settings/SettingsPanel.svelte";
 </script>
 
 {#if ui.settingsOpen}
   <SettingsPanel />
+{/if}
+
+{#if ui.albumItems}
+  <AlbumModal />
 {/if}
 
 {#if ui.lightboxMedia}

@@ -13,6 +13,7 @@
   import { isGroup } from "../../lib/util/jid";
   import { scrollTarget, clearScrollTarget } from "../../lib/stores/scroll.svelte";
   import MessageBubble from "./MessageBubble.svelte";
+  import { groupAlbums } from "../../lib/util/album";
 
   let { messages, chatJid }: { messages: UiMessage[]; chatJid: string } = $props();
 
@@ -29,6 +30,8 @@
   let pinned = $state(true);
 
   const visible = $derived(messages.slice(Math.max(0, messages.length - limit)));
+  // Consecutive photos/videos of one album collapse into a single grid row.
+  const rows = $derived(groupAlbums(visible));
   const hasOlder = $derived(messages.length > limit || olderInDb(chatJid));
 
   // Identify the first unread incoming message to render the "Unread" divider above it
@@ -237,18 +240,39 @@
       {#if hasOlder}
         <div class="older">Showing the latest messages — scroll up for more</div>
       {/if}
-      {#each visible as m, i (m.id)}
-        {#if m.id === firstUnreadId}
-          <div class="unread-divider" data-unread-divider>
-            <span>Unread</span>
-          </div>
+      {#each rows as row, i (row.key)}
+        {@const prevRow = rows[i - 1]}
+        {@const prev = prevRow
+          ? prevRow.type === "msg"
+            ? prevRow.m
+            : prevRow.items[prevRow.items.length - 1]
+          : null}
+        {#if row.type === "msg"}
+          {#if row.m.id === firstUnreadId}
+            <div class="unread-divider" data-unread-divider>
+              <span>Unread</span>
+            </div>
+          {/if}
+          <MessageBubble
+            message={row.m}
+            group={isGroup(chatJid)}
+            {prev}
+            highlighted={row.m.id === highlightId}
+          />
+        {:else}
+          {#if row.items.some((m) => m.id === firstUnreadId)}
+            <div class="unread-divider" data-unread-divider>
+              <span>Unread</span>
+            </div>
+          {/if}
+          <MessageBubble
+            message={row.items[row.items.length - 1]}
+            album={row.items}
+            group={isGroup(chatJid)}
+            {prev}
+            highlighted={row.items.some((m) => m.id === highlightId)}
+          />
         {/if}
-        <MessageBubble
-          message={m}
-          group={isGroup(chatJid)}
-          prev={visible[i - 1] ?? null}
-          highlighted={m.id === highlightId}
-        />
       {/each}
     {/if}
   </div>
