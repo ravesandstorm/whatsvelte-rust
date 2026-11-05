@@ -1,0 +1,2942 @@
+{
+  "package.json": {
+    "mtime": 1793862492.523151,
+    "seen": 1793863618.4149601,
+    "ast_hash": "fe54f7098ece61135db5445bfc5cca01",
+    "semantic_hash": "fe54f7098ece61135db5445bfc5cca01"
+  },
+  "release.sh": {
+    "mtime": 1793862492.5280385,
+    "seen": 1793863618.414963,
+    "ast_hash": "b27b6f5b7a9b1779d8190d71309c5d38",
+    "semantic_hash": "b27b6f5b7a9b1779d8190d71309c5d38"
+  },
+  "rust-backend/Cargo.toml": {
+    "mtime": 1787055350.592967,
+    "seen": 1793863618.414964,
+    "ast_hash": "00e6393279f89c533e89b82c23059293",
+    "semantic_hash": "00e6393279f89c533e89b82c23059293"
+  },
+  "rust-backend/examples/benchmark.rs": {
+    "mtime": 1787055350.5981758,
+    "seen": 1793863618.414965,
+    "ast_hash": "d31c4c704178788571323b85da4c3a97",
+    "semantic_hash": "d31c4c704178788571323b85da4c3a97"
+  },
+  "rust-backend/examples/metrics.rs": {
+    "mtime": 1787055350.5985665,
+    "seen": 1793863618.414966,
+    "ast_hash": "372875a5103548b03a887890027db84f",
+    "semantic_hash": "372875a5103548b03a887890027db84f"
+  },
+  "rust-backend/examples/observability.rs": {
+    "mtime": 1787055350.5988452,
+    "seen": 1793863618.414966,
+    "ast_hash": "7fdf17ca8b7178b65f2d6b9dc34b0adc",
+    "semantic_hash": "7fdf17ca8b7178b65f2d6b9dc34b0adc"
+  },
+  "rust-backend/http_clients/ureq-client/Cargo.toml": {
+    "mtime": 1787055350.5996547,
+    "seen": 1793863618.414967,
+    "ast_hash": "03d733a3d8145c8633de22f55f2fa72d",
+    "semantic_hash": "03d733a3d8145c8633de22f55f2fa72d"
+  },
+  "rust-backend/http_clients/ureq-client/src/lib.rs": {
+    "mtime": 1787055350.6005704,
+    "seen": 1793863618.414968,
+    "ast_hash": "e846ce5ce88dd85bdeebbff8fb9f0623",
+    "semantic_hash": "e846ce5ce88dd85bdeebbff8fb9f0623"
+  },
+  "rust-backend/scripts/ci/binary_size_report.py": {
+    "mtime": 1787055350.6023023,
+    "seen": 1793863618.414968,
+    "ast_hash": "882756c946032996b3f6076179048c17",
+    "semantic_hash": "882756c946032996b3f6076179048c17"
+  },
+  "rust-backend/scripts/ci/measure_binary_size.py": {
+    "mtime": 1787055350.602728,
+    "seen": 1793863618.4149692,
+    "ast_hash": "f30cae11efae95ebe798f43814747af0",
+    "semantic_hash": "f30cae11efae95ebe798f43814747af0"
+  },
+  "rust-backend/scripts/regenerate-proto-desc.sh": {
+    "mtime": 1787055350.602986,
+    "seen": 1793863618.4149692,
+    "ast_hash": "286ba824f2ffb871a93120568a78f6fa",
+    "semantic_hash": "286ba824f2ffb871a93120568a78f6fa"
+  },
+  "rust-backend/src/appstate_sync.rs": {
+    "mtime": 1787055350.603644,
+    "seen": 1793863618.4149702,
+    "ast_hash": "456ec4d384436258d05ac2fb8ee6d255",
+    "semantic_hash": "456ec4d384436258d05ac2fb8ee6d255"
+  },
+  "rust-backend/src/bot.rs": {
+    "mtime": 1787055350.604164,
+    "seen": 1793863618.4149709,
+    "ast_hash": "063eee2f31ca76d0df741afc565a8098",
+    "semantic_hash": "063eee2f31ca76d0df741afc565a8098"
+  },
+  "rust-backend/src/cache.rs": {
+    "mtime": 1787055350.604617,
+    "seen": 1793863618.4149709,
+    "ast_hash": "e102ead7be4450942d24c07fccd9bd84",
+    "semantic_hash": "e102ead7be4450942d24c07fccd9bd84"
+  },
+  "rust-backend/src/cache_config.rs": {
+    "mtime": 1787055350.6049714,
+    "seen": 1793863618.4149718,
+    "ast_hash": "60e65586523a47c08d249c4f5af85f48",
+    "semantic_hash": "60e65586523a47c08d249c4f5af85f48"
+  },
+  "rust-backend/src/cache_store.rs": {
+    "mtime": 1787055350.6053822,
+    "seen": 1793863618.414973,
+    "ast_hash": "1aed856f86c7b6ba2b99806147cbf767",
+    "semantic_hash": "1aed856f86c7b6ba2b99806147cbf767"
+  },
+  "rust-backend/src/client.rs": {
+    "mtime": 1787055350.6058104,
+    "seen": 1793863618.414973,
+    "ast_hash": "10986b44102d62b6d15fad0b51376a55",
+    "semantic_hash": "10986b44102d62b6d15fad0b51376a55"
+  },
+  "rust-backend/src/client/accessors.rs": {
+    "mtime": 1787055350.6069367,
+    "seen": 1793863618.414974,
+    "ast_hash": "b2cbf6321ac6f6b3dbf0d49ed025af5d",
+    "semantic_hash": "b2cbf6321ac6f6b3dbf0d49ed025af5d"
+  },
+  "rust-backend/src/client/adapters.rs": {
+    "mtime": 1787055350.6072714,
+    "seen": 1793863618.414974,
+    "ast_hash": "e6a156fc426d0f0c028008b0b114c868",
+    "semantic_hash": "e6a156fc426d0f0c028008b0b114c868"
+  },
+  "rust-backend/src/client/app_state.rs": {
+    "mtime": 1787055350.607751,
+    "seen": 1793863618.414975,
+    "ast_hash": "005fc733441ab6463bcc528a82c89dcc",
+    "semantic_hash": "005fc733441ab6463bcc528a82c89dcc"
+  },
+  "rust-backend/src/client/context_impl.rs": {
+    "mtime": 1787055350.6080432,
+    "seen": 1793863618.414976,
+    "ast_hash": "030de295143ef0756a08e7d870660d7b",
+    "semantic_hash": "030de295143ef0756a08e7d870660d7b"
+  },
+  "rust-backend/src/client/device_registry.rs": {
+    "mtime": 1787055350.608514,
+    "seen": 1793863618.414976,
+    "ast_hash": "a2d3fbff717488a25c0599f7b9bd146c",
+    "semantic_hash": "a2d3fbff717488a25c0599f7b9bd146c"
+  },
+  "rust-backend/src/client/device_topology.rs": {
+    "mtime": 1787055350.6089504,
+    "seen": 1793863618.414977,
+    "ast_hash": "7599ad1190bf3391ae071362c0ae1399",
+    "semantic_hash": "7599ad1190bf3391ae071362c0ae1399"
+  },
+  "rust-backend/src/client/iq_ops.rs": {
+    "mtime": 1787055350.6093442,
+    "seen": 1793863618.414978,
+    "ast_hash": "ed296b79dc8e8fca8b1ccb526672a517",
+    "semantic_hash": "ed296b79dc8e8fca8b1ccb526672a517"
+  },
+  "rust-backend/src/client/lid_pn.rs": {
+    "mtime": 1787055350.609718,
+    "seen": 1793863618.414978,
+    "ast_hash": "cfa36f1adedcbcd5096eaf296be8cf47",
+    "semantic_hash": "cfa36f1adedcbcd5096eaf296be8cf47"
+  },
+  "rust-backend/src/client/lifecycle.rs": {
+    "mtime": 1787055350.6104543,
+    "seen": 1793863618.414979,
+    "ast_hash": "cc9d59fed64012866587abd49c277684",
+    "semantic_hash": "cc9d59fed64012866587abd49c277684"
+  },
+  "rust-backend/src/client/messaging.rs": {
+    "mtime": 1787055350.6120152,
+    "seen": 1793863618.414979,
+    "ast_hash": "4e3d8491429c7907cdc532293083df2d",
+    "semantic_hash": "4e3d8491429c7907cdc532293083df2d"
+  },
+  "rust-backend/src/client/node_io.rs": {
+    "mtime": 1787055350.6131396,
+    "seen": 1793863618.4149802,
+    "ast_hash": "f486e3a8e6da6062f2907aa607bc896e",
+    "semantic_hash": "f486e3a8e6da6062f2907aa607bc896e"
+  },
+  "rust-backend/src/client/offline_resume.rs": {
+    "mtime": 1787055350.6136742,
+    "seen": 1793863618.4149811,
+    "ast_hash": "6bbd6497fde701ee7c765874db510494",
+    "semantic_hash": "6bbd6497fde701ee7c765874db510494"
+  },
+  "rust-backend/src/client/sender_keys.rs": {
+    "mtime": 1787055350.614331,
+    "seen": 1793863618.4149811,
+    "ast_hash": "e5c5ba13514222daa5550f96057e7ece",
+    "semantic_hash": "e5c5ba13514222daa5550f96057e7ece"
+  },
+  "rust-backend/src/client/sessions.rs": {
+    "mtime": 1787055350.6146522,
+    "seen": 1793863618.4149818,
+    "ast_hash": "50169c9d50236ae65fcac9577ec20cff",
+    "semantic_hash": "50169c9d50236ae65fcac9577ec20cff"
+  },
+  "rust-backend/src/client/tests.rs": {
+    "mtime": 1787055350.615264,
+    "seen": 1793863618.4149818,
+    "ast_hash": "247eb58eaf2b327022d54d4ab85224fb",
+    "semantic_hash": "247eb58eaf2b327022d54d4ab85224fb"
+  },
+  "rust-backend/src/download.rs": {
+    "mtime": 1787055350.6156607,
+    "seen": 1793863618.4149828,
+    "ast_hash": "c7e622e30cdadab9bb5ffcea4a471023",
+    "semantic_hash": "c7e622e30cdadab9bb5ffcea4a471023"
+  },
+  "rust-backend/src/features/blocking.rs": {
+    "mtime": 1787055350.61646,
+    "seen": 1793863618.414984,
+    "ast_hash": "44bd311d8231e98d990fedff7a82b3d5",
+    "semantic_hash": "44bd311d8231e98d990fedff7a82b3d5"
+  },
+  "rust-backend/src/features/chat_actions.rs": {
+    "mtime": 1787055350.6169257,
+    "seen": 1793863618.414984,
+    "ast_hash": "2075be4d3fac7009ec5ef834d2b020a4",
+    "semantic_hash": "2075be4d3fac7009ec5ef834d2b020a4"
+  },
+  "rust-backend/src/features/chatstate.rs": {
+    "mtime": 1787055350.6173842,
+    "seen": 1793863618.414985,
+    "ast_hash": "8bfb1c7b53ac402eb18b88558e84a862",
+    "semantic_hash": "8bfb1c7b53ac402eb18b88558e84a862"
+  },
+  "rust-backend/src/features/comments.rs": {
+    "mtime": 1787055350.6178098,
+    "seen": 1793863618.414985,
+    "ast_hash": "797357934f0fc1ae63d00694c69e0614",
+    "semantic_hash": "797357934f0fc1ae63d00694c69e0614"
+  },
+  "rust-backend/src/features/community.rs": {
+    "mtime": 1787055350.6183686,
+    "seen": 1793863618.414986,
+    "ast_hash": "39f8368608da1fc0a63489ceee60c24c",
+    "semantic_hash": "39f8368608da1fc0a63489ceee60c24c"
+  },
+  "rust-backend/src/features/contacts.rs": {
+    "mtime": 1787055350.6192014,
+    "seen": 1793863618.414987,
+    "ast_hash": "a4c5ae6db015e5c898bf2bfc8d3d6f26",
+    "semantic_hash": "a4c5ae6db015e5c898bf2bfc8d3d6f26"
+  },
+  "rust-backend/src/features/events.rs": {
+    "mtime": 1787055350.6196146,
+    "seen": 1793863618.414987,
+    "ast_hash": "be4913f8624c4e891aecb985f4a7359b",
+    "semantic_hash": "be4913f8624c4e891aecb985f4a7359b"
+  },
+  "rust-backend/src/features/groups.rs": {
+    "mtime": 1787055350.6199787,
+    "seen": 1793863618.414988,
+    "ast_hash": "fbc49735ff242e4b6abdb01ed57ffcd1",
+    "semantic_hash": "fbc49735ff242e4b6abdb01ed57ffcd1"
+  },
+  "rust-backend/src/features/labels.rs": {
+    "mtime": 1787055350.620436,
+    "seen": 1793863618.414988,
+    "ast_hash": "1cad92a0947c8852e229c105196cc19e",
+    "semantic_hash": "1cad92a0947c8852e229c105196cc19e"
+  },
+  "rust-backend/src/features/media_reupload.rs": {
+    "mtime": 1787055350.620844,
+    "seen": 1793863618.414989,
+    "ast_hash": "6a2df684460b1f4fabf5dddac83bf580",
+    "semantic_hash": "6a2df684460b1f4fabf5dddac83bf580"
+  },
+  "rust-backend/src/features/message_edit.rs": {
+    "mtime": 1787055350.6213558,
+    "seen": 1793863618.4149902,
+    "ast_hash": "2be5f636b4a8cbb103c81f1f045b78f3",
+    "semantic_hash": "2be5f636b4a8cbb103c81f1f045b78f3"
+  },
+  "rust-backend/src/features/mex.rs": {
+    "mtime": 1787055350.6218681,
+    "seen": 1793863618.4149911,
+    "ast_hash": "069426220b1ae2b92e989cfc4629f405",
+    "semantic_hash": "069426220b1ae2b92e989cfc4629f405"
+  },
+  "rust-backend/src/features/mod.rs": {
+    "mtime": 1787055350.6222377,
+    "seen": 1793863618.4149911,
+    "ast_hash": "01e7230a89ac78f165b73958721903da",
+    "semantic_hash": "01e7230a89ac78f165b73958721903da"
+  },
+  "rust-backend/src/features/newsletter.rs": {
+    "mtime": 1787055350.622616,
+    "seen": 1793863618.4149919,
+    "ast_hash": "856aac9b94a8203b0ba990f1d54fb157",
+    "semantic_hash": "856aac9b94a8203b0ba990f1d54fb157"
+  },
+  "rust-backend/src/features/polls.rs": {
+    "mtime": 1787055350.623077,
+    "seen": 1793863618.4149919,
+    "ast_hash": "518635441833f291257f025d5aa91dff",
+    "semantic_hash": "518635441833f291257f025d5aa91dff"
+  },
+  "rust-backend/src/features/presence.rs": {
+    "mtime": 1787055350.6237278,
+    "seen": 1793863618.4149928,
+    "ast_hash": "b93e7a9e53d1116367cc275fab152311",
+    "semantic_hash": "b93e7a9e53d1116367cc275fab152311"
+  },
+  "rust-backend/src/features/profile.rs": {
+    "mtime": 1787055350.6241267,
+    "seen": 1793863618.414994,
+    "ast_hash": "3eb019027b3653699d495be65b5d234d",
+    "semantic_hash": "3eb019027b3653699d495be65b5d234d"
+  },
+  "rust-backend/src/features/reaction.rs": {
+    "mtime": 1787055350.6245048,
+    "seen": 1793863618.414994,
+    "ast_hash": "ff970241535c4f98e3d448095b4d17ef",
+    "semantic_hash": "ff970241535c4f98e3d448095b4d17ef"
+  },
+  "rust-backend/src/features/signal.rs": {
+    "mtime": 1787055350.6248868,
+    "seen": 1793863618.414995,
+    "ast_hash": "e1a72802dab69be7df4e0a2750f49c30",
+    "semantic_hash": "e1a72802dab69be7df4e0a2750f49c30"
+  },
+  "rust-backend/src/features/status.rs": {
+    "mtime": 1787055350.6253963,
+    "seen": 1793863618.414995,
+    "ast_hash": "44a7db0aa0837a734cc7068af8b72fb6",
+    "semantic_hash": "44a7db0aa0837a734cc7068af8b72fb6"
+  },
+  "rust-backend/src/features/tctoken.rs": {
+    "mtime": 1787055350.6257398,
+    "seen": 1793863618.414996,
+    "ast_hash": "23c524a9620e955ed8da370978039464",
+    "semantic_hash": "23c524a9620e955ed8da370978039464"
+  },
+  "rust-backend/src/flush_scope.rs": {
+    "mtime": 1787055350.6260855,
+    "seen": 1793863618.414996,
+    "ast_hash": "ef2d76fbd05d3d1787f127b2607cd208",
+    "semantic_hash": "ef2d76fbd05d3d1787f127b2607cd208"
+  },
+  "rust-backend/src/handlers/basic.rs": {
+    "mtime": 1787055350.6265998,
+    "seen": 1793863618.414997,
+    "ast_hash": "a5b4d360569665d7c4c6fe1c5302cd2d",
+    "semantic_hash": "a5b4d360569665d7c4c6fe1c5302cd2d"
+  },
+  "rust-backend/src/handlers/call.rs": {
+    "mtime": 1787055350.6269581,
+    "seen": 1793863618.414997,
+    "ast_hash": "21f484a33373e30e7ff6487bf76c78f7",
+    "semantic_hash": "21f484a33373e30e7ff6487bf76c78f7"
+  },
+  "rust-backend/src/handlers/chatstate.rs": {
+    "mtime": 1787055350.6273015,
+    "seen": 1793863618.414998,
+    "ast_hash": "fb8059101474cb43f413c5dde4c0982a",
+    "semantic_hash": "fb8059101474cb43f413c5dde4c0982a"
+  },
+  "rust-backend/src/handlers/ib.rs": {
+    "mtime": 1787055350.6276524,
+    "seen": 1793863618.414999,
+    "ast_hash": "00d81fd1730296103366d6b54f1b1d82",
+    "semantic_hash": "00d81fd1730296103366d6b54f1b1d82"
+  },
+  "rust-backend/src/handlers/iq.rs": {
+    "mtime": 1787055350.6279283,
+    "seen": 1793863618.414999,
+    "ast_hash": "0ce527ca890bcd5e7955abe18c79a018",
+    "semantic_hash": "0ce527ca890bcd5e7955abe18c79a018"
+  },
+  "rust-backend/src/handlers/macros.rs": {
+    "mtime": 1787055350.628207,
+    "seen": 1793863618.415,
+    "ast_hash": "cd87fab1cb613779c06f76f76c41216c",
+    "semantic_hash": "cd87fab1cb613779c06f76f76c41216c"
+  },
+  "rust-backend/src/handlers/message.rs": {
+    "mtime": 1787055350.6284897,
+    "seen": 1793863618.415,
+    "ast_hash": "d5e322a2fc9f6a89e53090aabe499c56",
+    "semantic_hash": "d5e322a2fc9f6a89e53090aabe499c56"
+  },
+  "rust-backend/src/handlers/mod.rs": {
+    "mtime": 1787055350.6287422,
+    "seen": 1793863618.4150012,
+    "ast_hash": "286365a036141dba4a4bb5e78ae7ec50",
+    "semantic_hash": "286365a036141dba4a4bb5e78ae7ec50"
+  },
+  "rust-backend/src/handlers/notification/device.rs": {
+    "mtime": 1787055350.6292245,
+    "seen": 1793863618.415002,
+    "ast_hash": "613efe5cc65296ad76170502622abe8a",
+    "semantic_hash": "613efe5cc65296ad76170502622abe8a"
+  },
+  "rust-backend/src/handlers/notification/groups.rs": {
+    "mtime": 1787055350.6297762,
+    "seen": 1793863618.415002,
+    "ast_hash": "5f2e01f2b1849f7a704e2afa6db1b288",
+    "semantic_hash": "5f2e01f2b1849f7a704e2afa6db1b288"
+  },
+  "rust-backend/src/handlers/notification/mod.rs": {
+    "mtime": 1787055350.6302183,
+    "seen": 1793863618.4150028,
+    "ast_hash": "10502aa13c5a0569d377adfb0df860d7",
+    "semantic_hash": "10502aa13c5a0569d377adfb0df860d7"
+  },
+  "rust-backend/src/handlers/notification/privacy_business.rs": {
+    "mtime": 1787055350.6307526,
+    "seen": 1793863618.4150028,
+    "ast_hash": "5efbcab82bc3d17d6b4b3aba1a9dae3c",
+    "semantic_hash": "5efbcab82bc3d17d6b4b3aba1a9dae3c"
+  },
+  "rust-backend/src/handlers/notification/profile.rs": {
+    "mtime": 1787055350.631079,
+    "seen": 1793863618.415004,
+    "ast_hash": "36211656691c0285e4704d27069e5f31",
+    "semantic_hash": "36211656691c0285e4704d27069e5f31"
+  },
+  "rust-backend/src/handlers/presence.rs": {
+    "mtime": 1787055350.6313267,
+    "seen": 1793863618.415005,
+    "ast_hash": "8bbae7715bef29fcac97cdd5b247597d",
+    "semantic_hash": "8bbae7715bef29fcac97cdd5b247597d"
+  },
+  "rust-backend/src/handlers/receipt.rs": {
+    "mtime": 1787055350.6315894,
+    "seen": 1793863618.415005,
+    "ast_hash": "60c623966ec5aea027d054ae788509e6",
+    "semantic_hash": "60c623966ec5aea027d054ae788509e6"
+  },
+  "rust-backend/src/handlers/router.rs": {
+    "mtime": 1787055350.631922,
+    "seen": 1793863618.415006,
+    "ast_hash": "f7ff1da485fc1207736ad06c613a4c9d",
+    "semantic_hash": "f7ff1da485fc1207736ad06c613a4c9d"
+  },
+  "rust-backend/src/handlers/traits.rs": {
+    "mtime": 1787055350.6321807,
+    "seen": 1793863618.415006,
+    "ast_hash": "55fe6ccfd9df3d581a47918a6abdd6f7",
+    "semantic_hash": "55fe6ccfd9df3d581a47918a6abdd6f7"
+  },
+  "rust-backend/src/handshake.rs": {
+    "mtime": 1787055350.6324856,
+    "seen": 1793863618.4150069,
+    "ast_hash": "333ac093472ef0b2fb7285af389ce5dc",
+    "semantic_hash": "333ac093472ef0b2fb7285af389ce5dc"
+  },
+  "rust-backend/src/history_sync.rs": {
+    "mtime": 1787055350.6329486,
+    "seen": 1793863618.4150069,
+    "ast_hash": "85ad7cf301464504988e2f24ab1f1bcd",
+    "semantic_hash": "85ad7cf301464504988e2f24ab1f1bcd"
+  },
+  "rust-backend/src/http.rs": {
+    "mtime": 1787055350.633191,
+    "seen": 1793863618.415008,
+    "ast_hash": "143b614a71be0f0fb2b7951efe5b179a",
+    "semantic_hash": "143b614a71be0f0fb2b7951efe5b179a"
+  },
+  "rust-backend/src/jid_utils.rs": {
+    "mtime": 1787055350.6334639,
+    "seen": 1793863618.415009,
+    "ast_hash": "7a5c49d88ee7631a0332ae007ea2df7c",
+    "semantic_hash": "7a5c49d88ee7631a0332ae007ea2df7c"
+  },
+  "rust-backend/src/keepalive.rs": {
+    "mtime": 1787055350.6337428,
+    "seen": 1793863618.415009,
+    "ast_hash": "3a65a0a5f88bcd92c44e779c1b9b18ae",
+    "semantic_hash": "3a65a0a5f88bcd92c44e779c1b9b18ae"
+  },
+  "rust-backend/src/lib.rs": {
+    "mtime": 1787055350.634088,
+    "seen": 1793863618.41501,
+    "ast_hash": "626c6c4e83449a8bd50bb84598392d3f",
+    "semantic_hash": "626c6c4e83449a8bd50bb84598392d3f"
+  },
+  "rust-backend/src/lid_pn_cache.rs": {
+    "mtime": 1787055350.6344419,
+    "seen": 1793863618.41501,
+    "ast_hash": "1049805670edd375955c85b8b9ab3b83",
+    "semantic_hash": "1049805670edd375955c85b8b9ab3b83"
+  },
+  "rust-backend/src/main.rs": {
+    "mtime": 1787055350.6348057,
+    "seen": 1793863618.4150112,
+    "ast_hash": "a42023ac061829030778392b1c281a0c",
+    "semantic_hash": "a42023ac061829030778392b1c281a0c"
+  },
+  "rust-backend/src/media.rs": {
+    "mtime": 1787055350.6350858,
+    "seen": 1793863618.4150121,
+    "ast_hash": "65950f6c10939aa48ec313e92d95aab3",
+    "semantic_hash": "65950f6c10939aa48ec313e92d95aab3"
+  },
+  "rust-backend/src/mediaconn.rs": {
+    "mtime": 1787055350.6353376,
+    "seen": 1793863618.4150121,
+    "ast_hash": "5dd46d529aecebd2b967306be171aee9",
+    "semantic_hash": "5dd46d529aecebd2b967306be171aee9"
+  },
+  "rust-backend/src/message.rs": {
+    "mtime": 1787055350.635648,
+    "seen": 1793863618.415013,
+    "ast_hash": "1e2493fb0d3209b08772683ac4484d61",
+    "semantic_hash": "1e2493fb0d3209b08772683ac4484d61"
+  },
+  "rust-backend/src/message/dispatch.rs": {
+    "mtime": 1787055350.636174,
+    "seen": 1793863618.415013,
+    "ast_hash": "9e3e9d60e4b3100fc44cbc5a9bbd3293",
+    "semantic_hash": "9e3e9d60e4b3100fc44cbc5a9bbd3293"
+  },
+  "rust-backend/src/message/msg_secret.rs": {
+    "mtime": 1787055350.6365523,
+    "seen": 1793863618.4150138,
+    "ast_hash": "be02a083a793cd249d98c4639cb05051",
+    "semantic_hash": "be02a083a793cd249d98c4639cb05051"
+  },
+  "rust-backend/src/message/receive.rs": {
+    "mtime": 1787055350.6369503,
+    "seen": 1793863618.4150138,
+    "ast_hash": "a17838cc164644cc8a2ef1312c81145f",
+    "semantic_hash": "a17838cc164644cc8a2ef1312c81145f"
+  },
+  "rust-backend/src/message/retry.rs": {
+    "mtime": 1787055350.6382978,
+    "seen": 1793863618.415015,
+    "ast_hash": "ccbbb5bbd21b39081c21172dbe001c0f",
+    "semantic_hash": "ccbbb5bbd21b39081c21172dbe001c0f"
+  },
+  "rust-backend/src/message/special.rs": {
+    "mtime": 1787055350.6386013,
+    "seen": 1793863618.415016,
+    "ast_hash": "2acb2923c69d9613c1ea0efb1c15efed",
+    "semantic_hash": "2acb2923c69d9613c1ea0efb1c15efed"
+  },
+  "rust-backend/src/message/tests.rs": {
+    "mtime": 1787055350.639403,
+    "seen": 1793863618.415017,
+    "ast_hash": "b3deddc5cabfe77ebb17c7bf760d6aeb",
+    "semantic_hash": "b3deddc5cabfe77ebb17c7bf760d6aeb"
+  },
+  "rust-backend/src/msg_secret_buffer.rs": {
+    "mtime": 1787055350.6398463,
+    "seen": 1793863618.415017,
+    "ast_hash": "1b8fa4ed3ab37d58033966d515b0d30e",
+    "semantic_hash": "1b8fa4ed3ab37d58033966d515b0d30e"
+  },
+  "rust-backend/src/pair.rs": {
+    "mtime": 1787055350.6403708,
+    "seen": 1793863618.415018,
+    "ast_hash": "dd7d85ed68b775cb2b804ead9ea92fa6",
+    "semantic_hash": "dd7d85ed68b775cb2b804ead9ea92fa6"
+  },
+  "rust-backend/src/pair_code.rs": {
+    "mtime": 1787055350.6407561,
+    "seen": 1793863618.415018,
+    "ast_hash": "0380efecdec008eece6a69aa44b72e80",
+    "semantic_hash": "0380efecdec008eece6a69aa44b72e80"
+  },
+  "rust-backend/src/pdo.rs": {
+    "mtime": 1787055350.6410444,
+    "seen": 1793863618.415019,
+    "ast_hash": "9cb1885abbcb21018be60e4ffb153ac3",
+    "semantic_hash": "9cb1885abbcb21018be60e4ffb153ac3"
+  },
+  "rust-backend/src/pending_device_sync.rs": {
+    "mtime": 1787055350.6412773,
+    "seen": 1793863618.41502,
+    "ast_hash": "8a8262d129cba440db9c14d179f0939b",
+    "semantic_hash": "8a8262d129cba440db9c14d179f0939b"
+  },
+  "rust-backend/src/portable_cache.rs": {
+    "mtime": 1787055350.64154,
+    "seen": 1793863618.41502,
+    "ast_hash": "04ec0d0d7e8b32c5de9697966f4e84d7",
+    "semantic_hash": "04ec0d0d7e8b32c5de9697966f4e84d7"
+  },
+  "rust-backend/src/prekeys.rs": {
+    "mtime": 1787055350.6428964,
+    "seen": 1793863618.415021,
+    "ast_hash": "8a02b81b87847497b1bf75f65d6fa5fc",
+    "semantic_hash": "8a02b81b87847497b1bf75f65d6fa5fc"
+  },
+  "rust-backend/src/receipt.rs": {
+    "mtime": 1787055350.6432993,
+    "seen": 1793863618.415021,
+    "ast_hash": "7efc93d6809bef7e21a4bee04ffb4b4a",
+    "semantic_hash": "7efc93d6809bef7e21a4bee04ffb4b4a"
+  },
+  "rust-backend/src/request.rs": {
+    "mtime": 1787055350.6438794,
+    "seen": 1793863618.4150221,
+    "ast_hash": "14b2b08b919a19bd51f0a7081a42ec55",
+    "semantic_hash": "14b2b08b919a19bd51f0a7081a42ec55"
+  },
+  "rust-backend/src/resend_rate_limiter.rs": {
+    "mtime": 1787055350.644218,
+    "seen": 1793863618.415023,
+    "ast_hash": "528e9366a3589587878f3b011c577a0d",
+    "semantic_hash": "528e9366a3589587878f3b011c577a0d"
+  },
+  "rust-backend/src/retry.rs": {
+    "mtime": 1787055350.644703,
+    "seen": 1793863618.415023,
+    "ast_hash": "a5402a7234e35a8cb8fcd494d1c80fc4",
+    "semantic_hash": "a5402a7234e35a8cb8fcd494d1c80fc4"
+  },
+  "rust-backend/src/runtime_impl.rs": {
+    "mtime": 1787055350.6449552,
+    "seen": 1793863618.415024,
+    "ast_hash": "dde3deba5dd751ee146c3a49a7791e7c",
+    "semantic_hash": "dde3deba5dd751ee146c3a49a7791e7c"
+  },
+  "rust-backend/src/send.rs": {
+    "mtime": 1787055350.6455534,
+    "seen": 1793863618.415024,
+    "ast_hash": "f275372ee95c37c22cf27fd908f32156",
+    "semantic_hash": "f275372ee95c37c22cf27fd908f32156"
+  },
+  "rust-backend/src/sender_key_device_cache.rs": {
+    "mtime": 1787055350.6458845,
+    "seen": 1793863618.415025,
+    "ast_hash": "8b626289b5fafbe19dec99231e4ef81d",
+    "semantic_hash": "8b626289b5fafbe19dec99231e4ef81d"
+  },
+  "rust-backend/src/session.rs": {
+    "mtime": 1787055350.64621,
+    "seen": 1793863618.415026,
+    "ast_hash": "9b1c65105cc0004f6a1daf84158ad198",
+    "semantic_hash": "9b1c65105cc0004f6a1daf84158ad198"
+  },
+  "rust-backend/src/socket/error.rs": {
+    "mtime": 1787055350.6465778,
+    "seen": 1793863618.415026,
+    "ast_hash": "afb47072fbc8031434a31020a518013a",
+    "semantic_hash": "afb47072fbc8031434a31020a518013a"
+  },
+  "rust-backend/src/socket/mod.rs": {
+    "mtime": 1787055350.6467977,
+    "seen": 1793863618.415027,
+    "ast_hash": "7e90ec267f899f872f9d0afbe402d1bf",
+    "semantic_hash": "7e90ec267f899f872f9d0afbe402d1bf"
+  },
+  "rust-backend/src/socket/noise_socket.rs": {
+    "mtime": 1787055350.6469965,
+    "seen": 1793863618.415027,
+    "ast_hash": "a9d9dfc2e630e1cbc5dfdeea7b039220",
+    "semantic_hash": "a9d9dfc2e630e1cbc5dfdeea7b039220"
+  },
+  "rust-backend/src/spam_report.rs": {
+    "mtime": 1787055350.6473129,
+    "seen": 1793863618.4150279,
+    "ast_hash": "fd92f2418c6bf546264c4027e968637d",
+    "semantic_hash": "fd92f2418c6bf546264c4027e968637d"
+  },
+  "rust-backend/src/store/commands.rs": {
+    "mtime": 1787055350.6476414,
+    "seen": 1793863618.415029,
+    "ast_hash": "4b853a65432519f470a6604677ee6950",
+    "semantic_hash": "4b853a65432519f470a6604677ee6950"
+  },
+  "rust-backend/src/store/error.rs": {
+    "mtime": 1787055350.6478052,
+    "seen": 1793863618.415029,
+    "ast_hash": "a91c753172fb436f82d86b81c328857f",
+    "semantic_hash": "a91c753172fb436f82d86b81c328857f"
+  },
+  "rust-backend/src/store/mod.rs": {
+    "mtime": 1787055350.6480072,
+    "seen": 1793863618.41503,
+    "ast_hash": "f2b26ae4422b67ab291b4217cb5118ff",
+    "semantic_hash": "f2b26ae4422b67ab291b4217cb5118ff"
+  },
+  "rust-backend/src/store/persistence_manager.rs": {
+    "mtime": 1787055350.648399,
+    "seen": 1793863618.41503,
+    "ast_hash": "2926b679f331a0dd16c673fc0119b30c",
+    "semantic_hash": "2926b679f331a0dd16c673fc0119b30c"
+  },
+  "rust-backend/src/store/signal.rs": {
+    "mtime": 1787055350.6486018,
+    "seen": 1793863618.415031,
+    "ast_hash": "209262a34df14cbacb44fec856d6a870",
+    "semantic_hash": "209262a34df14cbacb44fec856d6a870"
+  },
+  "rust-backend/src/store/signal_adapter.rs": {
+    "mtime": 1787055350.6489694,
+    "seen": 1793863618.4150321,
+    "ast_hash": "1bf6d17d28d434906af6e63fd7bc76d1",
+    "semantic_hash": "1bf6d17d28d434906af6e63fd7bc76d1"
+  },
+  "rust-backend/src/store/signal_cache.rs": {
+    "mtime": 1787055350.649147,
+    "seen": 1793863618.4150321,
+    "ast_hash": "2220c77a0dc56b78e7bbc9c853d045d9",
+    "semantic_hash": "2220c77a0dc56b78e7bbc9c853d045d9"
+  },
+  "rust-backend/src/store/traits.rs": {
+    "mtime": 1787055350.6493382,
+    "seen": 1793863618.415033,
+    "ast_hash": "d4daa013f6a047ae7da6916ee7af5ac6",
+    "semantic_hash": "d4daa013f6a047ae7da6916ee7af5ac6"
+  },
+  "rust-backend/src/sync_task.rs": {
+    "mtime": 1787055350.6495101,
+    "seen": 1793863618.415033,
+    "ast_hash": "702d5d87ed0f0046677f9514a8feb072",
+    "semantic_hash": "702d5d87ed0f0046677f9514a8feb072"
+  },
+  "rust-backend/src/test_utils.rs": {
+    "mtime": 1787055350.6497838,
+    "seen": 1793863618.415034,
+    "ast_hash": "dffe2144e33fc4ef19aabf1961acc856",
+    "semantic_hash": "dffe2144e33fc4ef19aabf1961acc856"
+  },
+  "rust-backend/src/transport.rs": {
+    "mtime": 1787055350.6500556,
+    "seen": 1793863618.4150348,
+    "ast_hash": "7e556850bbe5be97d051e53ef2082441",
+    "semantic_hash": "7e556850bbe5be97d051e53ef2082441"
+  },
+  "rust-backend/src/types/enc_handler.rs": {
+    "mtime": 1787055350.6505053,
+    "seen": 1793863618.4150348,
+    "ast_hash": "18a113f35bd9f6c5b95c15dd5851f824",
+    "semantic_hash": "18a113f35bd9f6c5b95c15dd5851f824"
+  },
+  "rust-backend/src/types/mod.rs": {
+    "mtime": 1787055350.6506536,
+    "seen": 1793863618.415036,
+    "ast_hash": "7232d79af991470553d8074ca44c1015",
+    "semantic_hash": "7232d79af991470553d8074ca44c1015"
+  },
+  "rust-backend/src/unified_session.rs": {
+    "mtime": 1787055350.6508849,
+    "seen": 1793863618.415036,
+    "ast_hash": "c3258bd1c945df9e6a1d5dd793676f7f",
+    "semantic_hash": "c3258bd1c945df9e6a1d5dd793676f7f"
+  },
+  "rust-backend/src/upload.rs": {
+    "mtime": 1787055350.6511521,
+    "seen": 1793863618.415037,
+    "ast_hash": "6cc097580fb871d93ad6e22ff0c55bac",
+    "semantic_hash": "6cc097580fb871d93ad6e22ff0c55bac"
+  },
+  "rust-backend/src/usync.rs": {
+    "mtime": 1787055350.6513815,
+    "seen": 1793863618.4150379,
+    "ast_hash": "f915b965b7f38bb7a06ce3c7f1581f88",
+    "semantic_hash": "f915b965b7f38bb7a06ce3c7f1581f88"
+  },
+  "rust-backend/src/version.rs": {
+    "mtime": 1787055350.651647,
+    "seen": 1793863618.4150379,
+    "ast_hash": "bc67b4340d64c48075053f870d6a7373",
+    "semantic_hash": "bc67b4340d64c48075053f870d6a7373"
+  },
+  "rust-backend/storages/sqlite-storage/Cargo.toml": {
+    "mtime": 1787055350.652118,
+    "seen": 1793863618.415039,
+    "ast_hash": "730968c3a6a5ed7a5c73b872fc7abd96",
+    "semantic_hash": "730968c3a6a5ed7a5c73b872fc7abd96"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2025-08-14-035031_initial/down.sql": {
+    "mtime": 1787055350.6530309,
+    "seen": 1793863618.415039,
+    "ast_hash": "f6f6562996166d4168428d5e8f9d6e0b",
+    "semantic_hash": "f6f6562996166d4168428d5e8f9d6e0b"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2025-08-14-035031_initial/up.sql": {
+    "mtime": 1787055350.6532798,
+    "seen": 1793863618.41504,
+    "ast_hash": "ab0b7235a0c367e03e59ecc88745025f",
+    "semantic_hash": "ab0b7235a0c367e03e59ecc88745025f"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2025-09-23-032232-0000_add_multi_account_support/down.sql": {
+    "mtime": 1787055350.653671,
+    "seen": 1793863618.415041,
+    "ast_hash": "40e66ad56ff4302a11fd3614d2fcf307",
+    "semantic_hash": "40e66ad56ff4302a11fd3614d2fcf307"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2025-09-23-032232-0000_add_multi_account_support/up.sql": {
+    "mtime": 1787055350.6539035,
+    "seen": 1793863618.415041,
+    "ast_hash": "6b1656c1de0ea7e56ed17ec59506414f",
+    "semantic_hash": "6b1656c1de0ea7e56ed17ec59506414f"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2025-12-04-000000_add_skdm_recipients/down.sql": {
+    "mtime": 1787055350.6542156,
+    "seen": 1793863618.4150422,
+    "ast_hash": "21e1125e4d0339b8a82141e02b3184ca",
+    "semantic_hash": "21e1125e4d0339b8a82141e02b3184ca"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2025-12-04-000000_add_skdm_recipients/up.sql": {
+    "mtime": 1787055350.654443,
+    "seen": 1793863618.4150422,
+    "ast_hash": "f0e2bb08299e718ccd017de4e988d48c",
+    "semantic_hash": "f0e2bb08299e718ccd017de4e988d48c"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2025-12-11-000000_add_lid_pn_mapping/down.sql": {
+    "mtime": 1787055350.6547372,
+    "seen": 1793863618.415043,
+    "ast_hash": "a182d6afcd84bd7024c278153ef9780f",
+    "semantic_hash": "a182d6afcd84bd7024c278153ef9780f"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2025-12-11-000000_add_lid_pn_mapping/up.sql": {
+    "mtime": 1787055350.6556802,
+    "seen": 1793863618.415043,
+    "ast_hash": "8c26da3e2a63061c6b7f2a312a66c008",
+    "semantic_hash": "8c26da3e2a63061c6b7f2a312a66c008"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2025-12-24-000000_add_whatsapp_web_alignment/down.sql": {
+    "mtime": 1787055350.6562068,
+    "seen": 1793863618.415044,
+    "ast_hash": "e03f81838fce9e962fa8710968e018ba",
+    "semantic_hash": "e03f81838fce9e962fa8710968e018ba"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2025-12-24-000000_add_whatsapp_web_alignment/up.sql": {
+    "mtime": 1787055350.6563683,
+    "seen": 1793863618.415045,
+    "ast_hash": "473f6e38dc75b208a27a1935bef0008f",
+    "semantic_hash": "473f6e38dc75b208a27a1935bef0008f"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-02-05-000000_add_props_hash/down.sql": {
+    "mtime": 1787055350.6570373,
+    "seen": 1793863618.415045,
+    "ast_hash": "b77013ce47af52384de9531969a9ad38",
+    "semantic_hash": "b77013ce47af52384de9531969a9ad38"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-02-05-000000_add_props_hash/up.sql": {
+    "mtime": 1787055350.6572254,
+    "seen": 1793863618.415046,
+    "ast_hash": "552cf130bba0096fe71f2056f8ed1789",
+    "semantic_hash": "552cf130bba0096fe71f2056f8ed1789"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-02-12-000000_add_tc_tokens/down.sql": {
+    "mtime": 1787055350.6575255,
+    "seen": 1793863618.415047,
+    "ast_hash": "97744918dc3a630001da454f42e7efba",
+    "semantic_hash": "97744918dc3a630001da454f42e7efba"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-02-12-000000_add_tc_tokens/up.sql": {
+    "mtime": 1787055350.6577022,
+    "seen": 1793863618.415047,
+    "ast_hash": "033a974d3e26cc676b7790bdda135580",
+    "semantic_hash": "033a974d3e26cc676b7790bdda135580"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-03-12-000000_add_next_pre_key_id/down.sql": {
+    "mtime": 1787055350.65803,
+    "seen": 1793863618.415048,
+    "ast_hash": "4d4c2e89258b0f056b5cf216fdfc3cb3",
+    "semantic_hash": "4d4c2e89258b0f056b5cf216fdfc3cb3"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-03-12-000000_add_next_pre_key_id/up.sql": {
+    "mtime": 1787055350.6581817,
+    "seen": 1793863618.415048,
+    "ast_hash": "724581c0304b1d76ae94fa975de3053b",
+    "semantic_hash": "724581c0304b1d76ae94fa975de3053b"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-03-15-000000_add_sent_messages/down.sql": {
+    "mtime": 1787055350.6585035,
+    "seen": 1793863618.415049,
+    "ast_hash": "ca370327a45a530c73aab519529cbbb5",
+    "semantic_hash": "ca370327a45a530c73aab519529cbbb5"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-03-15-000000_add_sent_messages/up.sql": {
+    "mtime": 1787055350.6586754,
+    "seen": 1793863618.41505,
+    "ast_hash": "3babfbafd8c9e79c82808afcb3c1b441",
+    "semantic_hash": "3babfbafd8c9e79c82808afcb3c1b441"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-03-23-000000_add_nct_salt/down.sql": {
+    "mtime": 1787055350.6589499,
+    "seen": 1793863618.41505,
+    "ast_hash": "a117fa249de0fe3639ac8c8d33f9f20f",
+    "semantic_hash": "a117fa249de0fe3639ac8c8d33f9f20f"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-03-23-000000_add_nct_salt/up.sql": {
+    "mtime": 1787055350.6591291,
+    "seen": 1793863618.415051,
+    "ast_hash": "36ecddc29129de3f1023c102d63de0ff",
+    "semantic_hash": "36ecddc29129de3f1023c102d63de0ff"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-03-26-000000_unified_sender_key_devices/down.sql": {
+    "mtime": 1787055350.6594424,
+    "seen": 1793863618.415052,
+    "ast_hash": "0cd441917e7ede9b77e92e24a20795a8",
+    "semantic_hash": "0cd441917e7ede9b77e92e24a20795a8"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-03-26-000000_unified_sender_key_devices/up.sql": {
+    "mtime": 1787055350.6596575,
+    "seen": 1793863618.415052,
+    "ast_hash": "6826c4f03cbc25d512263fa9357258c6",
+    "semantic_hash": "6826c4f03cbc25d512263fa9357258c6"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-03-31-000000_add_device_registry_raw_id/down.sql": {
+    "mtime": 1787055350.6599188,
+    "seen": 1793863618.4150531,
+    "ast_hash": "34ec10cd496d27663a71f453b6427aa0",
+    "semantic_hash": "34ec10cd496d27663a71f453b6427aa0"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-03-31-000000_add_device_registry_raw_id/up.sql": {
+    "mtime": 1787055350.6601143,
+    "seen": 1793863618.415054,
+    "ast_hash": "f2d329b6cc34b551bce617db2632cf87",
+    "semantic_hash": "f2d329b6cc34b551bce617db2632cf87"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-04-06-171140_add_server_has_prekeys/down.sql": {
+    "mtime": 1787055350.6603892,
+    "seen": 1793863618.415054,
+    "ast_hash": "12e27eb6a0392ef90218f707587cb7fb",
+    "semantic_hash": "12e27eb6a0392ef90218f707587cb7fb"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-04-06-171140_add_server_has_prekeys/up.sql": {
+    "mtime": 1787055350.6605654,
+    "seen": 1793863618.415055,
+    "ast_hash": "21a9100e19544c3b31118128629f56a2",
+    "semantic_hash": "21a9100e19544c3b31118128629f56a2"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-04-26-000000_add_server_cert_chain/down.sql": {
+    "mtime": 1787055350.660886,
+    "seen": 1793863618.415055,
+    "ast_hash": "c2ff5273c85a904fd62ae3512638f3d8",
+    "semantic_hash": "c2ff5273c85a904fd62ae3512638f3d8"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-04-26-000000_add_server_cert_chain/up.sql": {
+    "mtime": 1787055350.6610575,
+    "seen": 1793863618.415056,
+    "ast_hash": "b5f374252c8cee5db6cc61c1a47f69ef",
+    "semantic_hash": "b5f374252c8cee5db6cc61c1a47f69ef"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-05-13-000000_add_login_counter/down.sql": {
+    "mtime": 1787055350.661328,
+    "seen": 1793863618.415056,
+    "ast_hash": "4819685af7ae013b922ba36e34e26615",
+    "semantic_hash": "4819685af7ae013b922ba36e34e26615"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-05-13-000000_add_login_counter/up.sql": {
+    "mtime": 1787055350.661477,
+    "seen": 1793863618.415057,
+    "ast_hash": "7d0804e8efbcb3f0c558a0f01fdba9a8",
+    "semantic_hash": "7d0804e8efbcb3f0c558a0f01fdba9a8"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-05-28-000000_add_msg_secrets/down.sql": {
+    "mtime": 1787055350.6617277,
+    "seen": 1793863618.415057,
+    "ast_hash": "bf3a23efc4d6dad85b039956a3d058bb",
+    "semantic_hash": "bf3a23efc4d6dad85b039956a3d058bb"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-05-28-000000_add_msg_secrets/up.sql": {
+    "mtime": 1787055350.6619108,
+    "seen": 1793863618.415058,
+    "ast_hash": "a1576ba234f433227813123755129d8a",
+    "semantic_hash": "a1576ba234f433227813123755129d8a"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-05-31-000000_msg_secret_expires_at/down.sql": {
+    "mtime": 1787055350.6622407,
+    "seen": 1793863618.4150589,
+    "ast_hash": "ff5c94d372e273c473e398b482225311",
+    "semantic_hash": "ff5c94d372e273c473e398b482225311"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-05-31-000000_msg_secret_expires_at/up.sql": {
+    "mtime": 1787055350.6624148,
+    "seen": 1793863618.4150589,
+    "ast_hash": "520f3e5f23e0ec4dbb3e06fe5d60af46",
+    "semantic_hash": "520f3e5f23e0ec4dbb3e06fe5d60af46"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-06-01-000000_add_group_metadata/down.sql": {
+    "mtime": 1787055350.6627,
+    "seen": 1793863618.41506,
+    "ast_hash": "d30eb138f488f94a3819f62942ab434c",
+    "semantic_hash": "d30eb138f488f94a3819f62942ab434c"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-06-01-000000_add_group_metadata/up.sql": {
+    "mtime": 1787055350.6629016,
+    "seen": 1793863618.41506,
+    "ast_hash": "99d7f4ca00fbc2d491a1c1bacb4de09d",
+    "semantic_hash": "99d7f4ca00fbc2d491a1c1bacb4de09d"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-06-10-000000_add_first_unupload_pk_id/down.sql": {
+    "mtime": 1787055350.6632574,
+    "seen": 1793863618.415061,
+    "ast_hash": "10b892cea0c019fa65f6d811d40fa807",
+    "semantic_hash": "10b892cea0c019fa65f6d811d40fa807"
+  },
+  "rust-backend/storages/sqlite-storage/migrations/2026-06-10-000000_add_first_unupload_pk_id/up.sql": {
+    "mtime": 1787055350.663381,
+    "seen": 1793863618.415062,
+    "ast_hash": "9e19a66051eb80e7fd44801929bd1a43",
+    "semantic_hash": "9e19a66051eb80e7fd44801929bd1a43"
+  },
+  "rust-backend/storages/sqlite-storage/src/lib.rs": {
+    "mtime": 1787055350.6636226,
+    "seen": 1793863618.415062,
+    "ast_hash": "a32e21571398e98ca3e2b2e140202a47",
+    "semantic_hash": "a32e21571398e98ca3e2b2e140202a47"
+  },
+  "rust-backend/storages/sqlite-storage/src/schema.rs": {
+    "mtime": 1787055350.663819,
+    "seen": 1793863618.4150631,
+    "ast_hash": "b5b8357ce5e7c26dea6644084905959c",
+    "semantic_hash": "b5b8357ce5e7c26dea6644084905959c"
+  },
+  "rust-backend/storages/sqlite-storage/src/sqlite_store.rs": {
+    "mtime": 1787055350.664293,
+    "seen": 1793863618.4150631,
+    "ast_hash": "84ee956ac316b5e36f82fde3963446e8",
+    "semantic_hash": "84ee956ac316b5e36f82fde3963446e8"
+  },
+  "rust-backend/tests/async_trait_boxed_future_compat.rs": {
+    "mtime": 1787055350.664977,
+    "seen": 1793863618.415064,
+    "ast_hash": "ec898af0179b2458451f1053c270bab2",
+    "semantic_hash": "ec898af0179b2458451f1053c270bab2"
+  },
+  "rust-backend/tests/bench-integration/Cargo.toml": {
+    "mtime": 1787055350.6652637,
+    "seen": 1793863618.415064,
+    "ast_hash": "8cda6b60d8bb246ba95088080f6df1dd",
+    "semantic_hash": "8cda6b60d8bb246ba95088080f6df1dd"
+  },
+  "rust-backend/tests/bench-integration/src/counting_alloc.rs": {
+    "mtime": 1787055350.665543,
+    "seen": 1793863618.415065,
+    "ast_hash": "c3f51f40d3569e8aaab7817c627b1d49",
+    "semantic_hash": "c3f51f40d3569e8aaab7817c627b1d49"
+  },
+  "rust-backend/tests/bench-integration/src/main.rs": {
+    "mtime": 1787055350.6657197,
+    "seen": 1793863618.415066,
+    "ast_hash": "7ca579d5e8d2f50368c35273995645a4",
+    "semantic_hash": "7ca579d5e8d2f50368c35273995645a4"
+  },
+  "rust-backend/tests/discrepancy_pocs.rs": {
+    "mtime": 1787055350.6660259,
+    "seen": 1793863618.415067,
+    "ast_hash": "78eb80a87a3859c3a8d3b8076a9b055e",
+    "semantic_hash": "78eb80a87a3859c3a8d3b8076a9b055e"
+  },
+  "rust-backend/tests/e2e/Cargo.toml": {
+    "mtime": 1787055350.666318,
+    "seen": 1793863618.415068,
+    "ast_hash": "f0161d986d51cd9f51bae49b7672d63b",
+    "semantic_hash": "f0161d986d51cd9f51bae49b7672d63b"
+  },
+  "rust-backend/tests/e2e/src/lib.rs": {
+    "mtime": 1787055350.666736,
+    "seen": 1793863618.415068,
+    "ast_hash": "1b8d0d51fdbc06e9b1890eac3390634c",
+    "semantic_hash": "1b8d0d51fdbc06e9b1890eac3390634c"
+  },
+  "rust-backend/tests/e2e/tests/app_state.rs": {
+    "mtime": 1787055350.667191,
+    "seen": 1793863618.4150689,
+    "ast_hash": "179e3b85ee84f769c7ae7fa306a0a312",
+    "semantic_hash": "179e3b85ee84f769c7ae7fa306a0a312"
+  },
+  "rust-backend/tests/e2e/tests/chat_actions.rs": {
+    "mtime": 1787055350.6675146,
+    "seen": 1793863618.4150689,
+    "ast_hash": "85154c3e3ab67039502bf9cd47a68a00",
+    "semantic_hash": "85154c3e3ab67039502bf9cd47a68a00"
+  },
+  "rust-backend/tests/e2e/tests/chatstate_ttl.rs": {
+    "mtime": 1787055350.6676562,
+    "seen": 1793863618.41507,
+    "ast_hash": "4c242b2b3e1a0994859e0ebbe34a843f",
+    "semantic_hash": "4c242b2b3e1a0994859e0ebbe34a843f"
+  },
+  "rust-backend/tests/e2e/tests/community.rs": {
+    "mtime": 1787055350.6679726,
+    "seen": 1793863618.41507,
+    "ast_hash": "9eaec8893c2d2b07262fb021c6154b30",
+    "semantic_hash": "9eaec8893c2d2b07262fb021c6154b30"
+  },
+  "rust-backend/tests/e2e/tests/concurrent_disconnect.rs": {
+    "mtime": 1787055350.6683388,
+    "seen": 1793863618.415071,
+    "ast_hash": "e98a60b8b6f66047dedb22a3c3b32378",
+    "semantic_hash": "e98a60b8b6f66047dedb22a3c3b32378"
+  },
+  "rust-backend/tests/e2e/tests/connection.rs": {
+    "mtime": 1787055350.668488,
+    "seen": 1793863618.415072,
+    "ast_hash": "0dac985194f657df06d20be8be515298",
+    "semantic_hash": "0dac985194f657df06d20be8be515298"
+  },
+  "rust-backend/tests/e2e/tests/device_cache.rs": {
+    "mtime": 1787055350.668694,
+    "seen": 1793863618.415072,
+    "ast_hash": "fc343cbd7c711fdb2049a51fa6b49ad1",
+    "semantic_hash": "fc343cbd7c711fdb2049a51fa6b49ad1"
+  },
+  "rust-backend/tests/e2e/tests/digest_key.rs": {
+    "mtime": 1787055350.6688561,
+    "seen": 1793863618.415073,
+    "ast_hash": "8a171685ebcc2714542ca55e723e8358",
+    "semantic_hash": "8a171685ebcc2714542ca55e723e8358"
+  },
+  "rust-backend/tests/e2e/tests/groups.rs": {
+    "mtime": 1787055350.6691084,
+    "seen": 1793863618.415073,
+    "ast_hash": "665b729875de79bf0f371746329f6f4f",
+    "semantic_hash": "665b729875de79bf0f371746329f6f4f"
+  },
+  "rust-backend/tests/e2e/tests/lid_sessions.rs": {
+    "mtime": 1787055350.6693273,
+    "seen": 1793863618.415074,
+    "ast_hash": "e1d62e6dff76cce95884346bf8c8dc9c",
+    "semantic_hash": "e1d62e6dff76cce95884346bf8c8dc9c"
+  },
+  "rust-backend/tests/e2e/tests/media.rs": {
+    "mtime": 1787055350.6695395,
+    "seen": 1793863618.415074,
+    "ast_hash": "f4f4102d6132f1393238031d10986503",
+    "semantic_hash": "f4f4102d6132f1393238031d10986503"
+  },
+  "rust-backend/tests/e2e/tests/memory_soak.rs": {
+    "mtime": 1787055350.6698706,
+    "seen": 1793863618.415075,
+    "ast_hash": "e215b4245370ba583b293a7901f9dc2d",
+    "semantic_hash": "e215b4245370ba583b293a7901f9dc2d"
+  },
+  "rust-backend/tests/e2e/tests/messaging.rs": {
+    "mtime": 1787055350.6700885,
+    "seen": 1793863618.415076,
+    "ast_hash": "6db3e93fb4898fecbf2e8dda3b6643f4",
+    "semantic_hash": "6db3e93fb4898fecbf2e8dda3b6643f4"
+  },
+  "rust-backend/tests/e2e/tests/newsletter.rs": {
+    "mtime": 1787055350.670397,
+    "seen": 1793863618.415076,
+    "ast_hash": "cff3728dc52bab6f5b5ec07f5a61bece",
+    "semantic_hash": "cff3728dc52bab6f5b5ec07f5a61bece"
+  },
+  "rust-backend/tests/e2e/tests/offline_groups.rs": {
+    "mtime": 1787055350.6706355,
+    "seen": 1793863618.4150772,
+    "ast_hash": "8402d26d04b6673c15a858327b66e039",
+    "semantic_hash": "8402d26d04b6673c15a858327b66e039"
+  },
+  "rust-backend/tests/e2e/tests/offline_messages.rs": {
+    "mtime": 1787055350.6709962,
+    "seen": 1793863618.4150772,
+    "ast_hash": "264f46249a386362cf5ea35530088e17",
+    "semantic_hash": "264f46249a386362cf5ea35530088e17"
+  },
+  "rust-backend/tests/e2e/tests/offline_receipts.rs": {
+    "mtime": 1787055350.6711884,
+    "seen": 1793863618.415078,
+    "ast_hash": "65977502c69fe7e2c8e5e7eb82e7be08",
+    "semantic_hash": "65977502c69fe7e2c8e5e7eb82e7be08"
+  },
+  "rust-backend/tests/e2e/tests/prekey_sessions.rs": {
+    "mtime": 1787055350.6714199,
+    "seen": 1793863618.415078,
+    "ast_hash": "e81f69c286772fe2a39ed2114eec0691",
+    "semantic_hash": "e81f69c286772fe2a39ed2114eec0691"
+  },
+  "rust-backend/tests/e2e/tests/presence.rs": {
+    "mtime": 1787055350.671615,
+    "seen": 1793863618.4150789,
+    "ast_hash": "ebab8649bd6ec29fe73f96409361aa10",
+    "semantic_hash": "ebab8649bd6ec29fe73f96409361aa10"
+  },
+  "rust-backend/tests/e2e/tests/privacy_tokens.rs": {
+    "mtime": 1787055350.6718447,
+    "seen": 1793863618.4150798,
+    "ast_hash": "efed7d7edb83b85d285431d0230c5ce7",
+    "semantic_hash": "efed7d7edb83b85d285431d0230c5ce7"
+  },
+  "rust-backend/tests/e2e/tests/profile.rs": {
+    "mtime": 1787055350.6720312,
+    "seen": 1793863618.4150798,
+    "ast_hash": "864cdb5a5c87b4bf83764e48df1388a4",
+    "semantic_hash": "864cdb5a5c87b4bf83764e48df1388a4"
+  },
+  "rust-backend/tests/e2e/tests/profile_picture.rs": {
+    "mtime": 1787055350.6723092,
+    "seen": 1793863618.415081,
+    "ast_hash": "e471b96848c4ddbcf29472b15cd82e8c",
+    "semantic_hash": "e471b96848c4ddbcf29472b15cd82e8c"
+  },
+  "rust-backend/tests/e2e/tests/receipts.rs": {
+    "mtime": 1787055350.6725247,
+    "seen": 1793863618.415081,
+    "ast_hash": "acd4f283fdf9f302c5d7951cb6744380",
+    "semantic_hash": "acd4f283fdf9f302c5d7951cb6744380"
+  },
+  "rust-backend/tests/e2e/tests/retry_dm_multidevice.rs": {
+    "mtime": 1787055350.6727636,
+    "seen": 1793863618.415082,
+    "ast_hash": "6d34c819ac82c7875261c1395a826a08",
+    "semantic_hash": "6d34c819ac82c7875261c1395a826a08"
+  },
+  "rust-backend/tests/e2e/tests/session_reuse.rs": {
+    "mtime": 1787055350.6731765,
+    "seen": 1793863618.415082,
+    "ast_hash": "f196b12621e8caedb679e76cd0d73e40",
+    "semantic_hash": "f196b12621e8caedb679e76cd0d73e40"
+  },
+  "rust-backend/tests/handshake_integration.rs": {
+    "mtime": 1787055350.6733835,
+    "seen": 1793863618.415083,
+    "ast_hash": "1798e45a78470da86c36fbf4f6e4bfa6",
+    "semantic_hash": "1798e45a78470da86c36fbf4f6e4bfa6"
+  },
+  "rust-backend/transports/tokio-transport/Cargo.toml": {
+    "mtime": 1787055350.6737456,
+    "seen": 1793863618.4150841,
+    "ast_hash": "bf995ac781dc43964d9f308a4b42d2e0",
+    "semantic_hash": "bf995ac781dc43964d9f308a4b42d2e0"
+  },
+  "rust-backend/transports/tokio-transport/src/lib.rs": {
+    "mtime": 1787055350.6740947,
+    "seen": 1793863618.4150841,
+    "ast_hash": "9acdff9bd0eba2da75cb4e1ede477b05",
+    "semantic_hash": "9acdff9bd0eba2da75cb4e1ede477b05"
+  },
+  "rust-backend/wacore/Cargo.toml": {
+    "mtime": 1787055350.674344,
+    "seen": 1793863618.415085,
+    "ast_hash": "62e3ba7d8ddbd6f587e1fdf4957ca4a4",
+    "semantic_hash": "62e3ba7d8ddbd6f587e1fdf4957ca4a4"
+  },
+  "rust-backend/wacore/appstate/Cargo.toml": {
+    "mtime": 1787055350.6746612,
+    "seen": 1793863618.415085,
+    "ast_hash": "16b7cae73ef35da2211190c7b1fa9bc6",
+    "semantic_hash": "16b7cae73ef35da2211190c7b1fa9bc6"
+  },
+  "rust-backend/wacore/appstate/benches/appstate_benchmark.rs": {
+    "mtime": 1787055350.674957,
+    "seen": 1793863618.415086,
+    "ast_hash": "7156fcaffad991c50a0015a6e1307b8e",
+    "semantic_hash": "7156fcaffad991c50a0015a6e1307b8e"
+  },
+  "rust-backend/wacore/appstate/src/decode.rs": {
+    "mtime": 1787055350.6754425,
+    "seen": 1793863618.415086,
+    "ast_hash": "c71c5a07ac5f395989009fbde02c52ff",
+    "semantic_hash": "c71c5a07ac5f395989009fbde02c52ff"
+  },
+  "rust-backend/wacore/appstate/src/encode.rs": {
+    "mtime": 1787055350.675651,
+    "seen": 1793863618.4150872,
+    "ast_hash": "80072d9e8af004bfe7a5dfede42f4eea",
+    "semantic_hash": "80072d9e8af004bfe7a5dfede42f4eea"
+  },
+  "rust-backend/wacore/appstate/src/errors.rs": {
+    "mtime": 1787055350.6758425,
+    "seen": 1793863618.4150872,
+    "ast_hash": "36ba981bf103867af9f1e7aa6af29baa",
+    "semantic_hash": "36ba981bf103867af9f1e7aa6af29baa"
+  },
+  "rust-backend/wacore/appstate/src/hash.rs": {
+    "mtime": 1787055350.6761072,
+    "seen": 1793863618.4150882,
+    "ast_hash": "22bdee596bdbc6f018131476afcffead",
+    "semantic_hash": "22bdee596bdbc6f018131476afcffead"
+  },
+  "rust-backend/wacore/appstate/src/keys.rs": {
+    "mtime": 1787055350.6763186,
+    "seen": 1793863618.415089,
+    "ast_hash": "bbe624be30d5cee98b408ecbde36bcf3",
+    "semantic_hash": "bbe624be30d5cee98b408ecbde36bcf3"
+  },
+  "rust-backend/wacore/appstate/src/lib.rs": {
+    "mtime": 1787055350.6764865,
+    "seen": 1793863618.415089,
+    "ast_hash": "065fa263ad027768ee1ec63de760d8da",
+    "semantic_hash": "065fa263ad027768ee1ec63de760d8da"
+  },
+  "rust-backend/wacore/appstate/src/lthash.rs": {
+    "mtime": 1787055350.6766798,
+    "seen": 1793863618.4150898,
+    "ast_hash": "2234dd632b478b28bc1baedf6cd226f8",
+    "semantic_hash": "2234dd632b478b28bc1baedf6cd226f8"
+  },
+  "rust-backend/wacore/appstate/src/patch_decode.rs": {
+    "mtime": 1787055350.6772535,
+    "seen": 1793863618.4150898,
+    "ast_hash": "65841d4a5f79912cfe1d598566057b62",
+    "semantic_hash": "65841d4a5f79912cfe1d598566057b62"
+  },
+  "rust-backend/wacore/appstate/src/processor.rs": {
+    "mtime": 1787055350.677536,
+    "seen": 1793863618.415091,
+    "ast_hash": "642ccdebd06f7ce6a8d28a0dcb53eab3",
+    "semantic_hash": "642ccdebd06f7ce6a8d28a0dcb53eab3"
+  },
+  "rust-backend/wacore/appstate/src/schemas.rs": {
+    "mtime": 1787055350.677791,
+    "seen": 1793863618.415091,
+    "ast_hash": "333e01eeb5cf1b71bd5cc7c531dcf591",
+    "semantic_hash": "333e01eeb5cf1b71bd5cc7c531dcf591"
+  },
+  "rust-backend/wacore/benches/appstate_sync_benchmark.rs": {
+    "mtime": 1787055350.6781294,
+    "seen": 1793863618.415092,
+    "ast_hash": "1b0608e8208e49fbe294607e66eeffad",
+    "semantic_hash": "1b0608e8208e49fbe294607e66eeffad"
+  },
+  "rust-backend/wacore/benches/history_sync_benchmark.rs": {
+    "mtime": 1787055350.6783445,
+    "seen": 1793863618.415093,
+    "ast_hash": "5293805a3d9599af172e8b90613d4e58",
+    "semantic_hash": "5293805a3d9599af172e8b90613d4e58"
+  },
+  "rust-backend/wacore/benches/message_utils_benchmark.rs": {
+    "mtime": 1787055350.6785522,
+    "seen": 1793863618.415093,
+    "ast_hash": "1e9f68608d0b8e188ab655042ea5b23b",
+    "semantic_hash": "1e9f68608d0b8e188ab655042ea5b23b"
+  },
+  "rust-backend/wacore/benches/reporting_token_benchmark.rs": {
+    "mtime": 1787055350.6787827,
+    "seen": 1793863618.415094,
+    "ast_hash": "9d5f3b2e702ac859fbe86ab751dbdae0",
+    "semantic_hash": "9d5f3b2e702ac859fbe86ab751dbdae0"
+  },
+  "rust-backend/wacore/benches/send_receive_benchmark.rs": {
+    "mtime": 1787055350.6789567,
+    "seen": 1793863618.415094,
+    "ast_hash": "b7100a24bc3ed6c39345530f5a711e9d",
+    "semantic_hash": "b7100a24bc3ed6c39345530f5a711e9d"
+  },
+  "rust-backend/wacore/binary/Cargo.toml": {
+    "mtime": 1787055350.6792538,
+    "seen": 1793863618.415095,
+    "ast_hash": "73880f0dfc6bfc2194f4576b0e3f00ae",
+    "semantic_hash": "73880f0dfc6bfc2194f4576b0e3f00ae"
+  },
+  "rust-backend/wacore/binary/benches/binary_benchmark.rs": {
+    "mtime": 1787055350.67961,
+    "seen": 1793863618.415095,
+    "ast_hash": "8e675c04209ff06550bda38f76938b0a",
+    "semantic_hash": "8e675c04209ff06550bda38f76938b0a"
+  },
+  "rust-backend/wacore/binary/benches/jid_benchmark.rs": {
+    "mtime": 1787055350.6797476,
+    "seen": 1793863618.415096,
+    "ast_hash": "64786c166df89bffc38388960c975c71",
+    "semantic_hash": "64786c166df89bffc38388960c975c71"
+  },
+  "rust-backend/wacore/binary/build.rs": {
+    "mtime": 1787055350.6799474,
+    "seen": 1793863618.415096,
+    "ast_hash": "c46e7a949b7cb50a9696930eaceefeb7",
+    "semantic_hash": "c46e7a949b7cb50a9696930eaceefeb7"
+  },
+  "rust-backend/wacore/binary/src/attrs.rs": {
+    "mtime": 1787055350.6802351,
+    "seen": 1793863618.415097,
+    "ast_hash": "5a751f846f0735f76c9e913068842767",
+    "semantic_hash": "5a751f846f0735f76c9e913068842767"
+  },
+  "rust-backend/wacore/binary/src/builder.rs": {
+    "mtime": 1787055350.6804,
+    "seen": 1793863618.4150982,
+    "ast_hash": "f1ceca8f93c4f4be9259ce8738e651db",
+    "semantic_hash": "f1ceca8f93c4f4be9259ce8738e651db"
+  },
+  "rust-backend/wacore/binary/src/consts.rs": {
+    "mtime": 1787055350.6805634,
+    "seen": 1793863618.4150982,
+    "ast_hash": "bfa724f02ebf78e1aeb51289a04dd93e",
+    "semantic_hash": "bfa724f02ebf78e1aeb51289a04dd93e"
+  },
+  "rust-backend/wacore/binary/src/decoder.rs": {
+    "mtime": 1787055350.6807299,
+    "seen": 1793863618.415099,
+    "ast_hash": "56bdea0d543ffcfb3e6f36d6accc7498",
+    "semantic_hash": "56bdea0d543ffcfb3e6f36d6accc7498"
+  },
+  "rust-backend/wacore/binary/src/encoder.rs": {
+    "mtime": 1787055350.6810012,
+    "seen": 1793863618.415099,
+    "ast_hash": "1ffb8401a211679260cc4e27c151c785",
+    "semantic_hash": "1ffb8401a211679260cc4e27c151c785"
+  },
+  "rust-backend/wacore/binary/src/error.rs": {
+    "mtime": 1787055350.6811378,
+    "seen": 1793863618.4150999,
+    "ast_hash": "caa5b81390f961316d5a45f3cd9ef7fe",
+    "semantic_hash": "caa5b81390f961316d5a45f3cd9ef7fe"
+  },
+  "rust-backend/wacore/binary/src/jid.rs": {
+    "mtime": 1787055350.6813514,
+    "seen": 1793863618.4150999,
+    "ast_hash": "ee306d0c228fe176060e3aaf2b3724ef",
+    "semantic_hash": "ee306d0c228fe176060e3aaf2b3724ef"
+  },
+  "rust-backend/wacore/binary/src/lib.rs": {
+    "mtime": 1787055350.6814868,
+    "seen": 1793863618.4151008,
+    "ast_hash": "868dbf1f26b04c2845bd70c835ed3632",
+    "semantic_hash": "868dbf1f26b04c2845bd70c835ed3632"
+  },
+  "rust-backend/wacore/binary/src/marshal.rs": {
+    "mtime": 1787055350.6817324,
+    "seen": 1793863618.415102,
+    "ast_hash": "248c12cc71ba1494136a0a2db4af8cb4",
+    "semantic_hash": "248c12cc71ba1494136a0a2db4af8cb4"
+  },
+  "rust-backend/wacore/binary/src/node.rs": {
+    "mtime": 1787055350.6819074,
+    "seen": 1793863618.415102,
+    "ast_hash": "21716d28a8536b1d0870387d0cdc66ff",
+    "semantic_hash": "21716d28a8536b1d0870387d0cdc66ff"
+  },
+  "rust-backend/wacore/binary/src/token.rs": {
+    "mtime": 1787055350.6821113,
+    "seen": 1793863618.415103,
+    "ast_hash": "a38474bc3ca65baf63842038cac62337",
+    "semantic_hash": "a38474bc3ca65baf63842038cac62337"
+  },
+  "rust-backend/wacore/binary/src/util.rs": {
+    "mtime": 1787055350.6824634,
+    "seen": 1793863618.415103,
+    "ast_hash": "141d993306bb7b1baab8deca4ba581a8",
+    "semantic_hash": "141d993306bb7b1baab8deca4ba581a8"
+  },
+  "rust-backend/wacore/binary/src/zlib_pool.rs": {
+    "mtime": 1787055350.6826446,
+    "seen": 1793863618.415104,
+    "ast_hash": "bede6a4756fa693b3d611bf4b13d446c",
+    "semantic_hash": "bede6a4756fa693b3d611bf4b13d446c"
+  },
+  "rust-backend/wacore/binary/tests/attrs_inline_alloc.rs": {
+    "mtime": 1787055350.6829238,
+    "seen": 1793863618.415104,
+    "ast_hash": "0eb4c6e74528efaf36173b44be04a267",
+    "semantic_hash": "0eb4c6e74528efaf36173b44be04a267"
+  },
+  "rust-backend/wacore/derive/Cargo.toml": {
+    "mtime": 1787055350.6832633,
+    "seen": 1793863618.415105,
+    "ast_hash": "608614d7e02a3df59add5b5c08f9a4f1",
+    "semantic_hash": "608614d7e02a3df59add5b5c08f9a4f1"
+  },
+  "rust-backend/wacore/derive/src/lib.rs": {
+    "mtime": 1787055350.6835597,
+    "seen": 1793863618.415106,
+    "ast_hash": "16d623a053c5abd6a8d45ed2a7902f81",
+    "semantic_hash": "16d623a053c5abd6a8d45ed2a7902f81"
+  },
+  "rust-backend/wacore/libsignal/Cargo.toml": {
+    "mtime": 1787055350.6838272,
+    "seen": 1793863618.415106,
+    "ast_hash": "1cc0c02834b8dd2f818aba2bfd0944db",
+    "semantic_hash": "1cc0c02834b8dd2f818aba2bfd0944db"
+  },
+  "rust-backend/wacore/libsignal/benches/libsignal_benchmark.rs": {
+    "mtime": 1787055350.6841452,
+    "seen": 1793863618.415107,
+    "ast_hash": "128ae22b8d6499ce00b8df2a3516f33f",
+    "semantic_hash": "128ae22b8d6499ce00b8df2a3516f33f"
+  },
+  "rust-backend/wacore/libsignal/src/core/address.rs": {
+    "mtime": 1787055350.684669,
+    "seen": 1793863618.415107,
+    "ast_hash": "1253440c8e10a8322849938921435f7d",
+    "semantic_hash": "1253440c8e10a8322849938921435f7d"
+  },
+  "rust-backend/wacore/libsignal/src/core/curve.rs": {
+    "mtime": 1787055350.6848526,
+    "seen": 1793863618.4151082,
+    "ast_hash": "9c340a5e025259c28f44a735f8f77153",
+    "semantic_hash": "9c340a5e025259c28f44a735f8f77153"
+  },
+  "rust-backend/wacore/libsignal/src/core/curve/curve25519.rs": {
+    "mtime": 1787055350.6851397,
+    "seen": 1793863618.4151082,
+    "ast_hash": "74392019c2a3b51d8c6699e3bf45b605",
+    "semantic_hash": "74392019c2a3b51d8c6699e3bf45b605"
+  },
+  "rust-backend/wacore/libsignal/src/core/curve/utils.rs": {
+    "mtime": 1787055350.6853342,
+    "seen": 1793863618.4151092,
+    "ast_hash": "eb12b9f05edc3640fefa8cb94fb80380",
+    "semantic_hash": "eb12b9f05edc3640fefa8cb94fb80380"
+  },
+  "rust-backend/wacore/libsignal/src/core/mod.rs": {
+    "mtime": 1787055350.685513,
+    "seen": 1793863618.4151099,
+    "ast_hash": "b305a841ee18028b12b4937244886e0d",
+    "semantic_hash": "b305a841ee18028b12b4937244886e0d"
+  },
+  "rust-backend/wacore/libsignal/src/crypto/aes_cbc.rs": {
+    "mtime": 1787055350.6857586,
+    "seen": 1793863618.4151099,
+    "ast_hash": "21500e084d44022af61ae7b195b60d6d",
+    "semantic_hash": "21500e084d44022af61ae7b195b60d6d"
+  },
+  "rust-backend/wacore/libsignal/src/crypto/aes_ctr.rs": {
+    "mtime": 1787055350.685964,
+    "seen": 1793863618.4151108,
+    "ast_hash": "8f746838841bc3520766a405b8d02cd2",
+    "semantic_hash": "8f746838841bc3520766a405b8d02cd2"
+  },
+  "rust-backend/wacore/libsignal/src/crypto/aes_gcm.rs": {
+    "mtime": 1787055350.6861365,
+    "seen": 1793863618.4151108,
+    "ast_hash": "77e7d10fc3f1a9608e72e0b1ce8cc328",
+    "semantic_hash": "77e7d10fc3f1a9608e72e0b1ce8cc328"
+  },
+  "rust-backend/wacore/libsignal/src/crypto/error.rs": {
+    "mtime": 1787055350.686293,
+    "seen": 1793863618.415112,
+    "ast_hash": "862c485ab699a005d3751358283788c9",
+    "semantic_hash": "862c485ab699a005d3751358283788c9"
+  },
+  "rust-backend/wacore/libsignal/src/crypto/hash.rs": {
+    "mtime": 1787055350.6865509,
+    "seen": 1793863618.415113,
+    "ast_hash": "801ac90103269de1e948a2911268c9e9",
+    "semantic_hash": "801ac90103269de1e948a2911268c9e9"
+  },
+  "rust-backend/wacore/libsignal/src/crypto/mod.rs": {
+    "mtime": 1787055350.6867092,
+    "seen": 1793863618.415113,
+    "ast_hash": "bb37b0d2bf3865cac7320c9b7d5c6700",
+    "semantic_hash": "bb37b0d2bf3865cac7320c9b7d5c6700"
+  },
+  "rust-backend/wacore/libsignal/src/crypto/provider.rs": {
+    "mtime": 1787055350.6868925,
+    "seen": 1793863618.415114,
+    "ast_hash": "7dd5b1b6df8ab37dd33f7d939bc45dd2",
+    "semantic_hash": "7dd5b1b6df8ab37dd33f7d939bc45dd2"
+  },
+  "rust-backend/wacore/libsignal/src/lib.rs": {
+    "mtime": 1787055350.6870422,
+    "seen": 1793863618.415114,
+    "ast_hash": "fd3440a34e92c7bf6e7f1f80771ced28",
+    "semantic_hash": "fd3440a34e92c7bf6e7f1f80771ced28"
+  },
+  "rust-backend/wacore/libsignal/src/protocol/consts.rs": {
+    "mtime": 1787055350.687294,
+    "seen": 1793863618.415115,
+    "ast_hash": "9d5a96c6df16d1bc9dd191f6b3538a76",
+    "semantic_hash": "9d5a96c6df16d1bc9dd191f6b3538a76"
+  },
+  "rust-backend/wacore/libsignal/src/protocol/crypto.rs": {
+    "mtime": 1787055350.6874344,
+    "seen": 1793863618.415115,
+    "ast_hash": "858435909dfc08222604fd4f4946195e",
+    "semantic_hash": "858435909dfc08222604fd4f4946195e"
+  },
+  "rust-backend/wacore/libsignal/src/protocol/error.rs": {
+    "mtime": 1787055350.6876187,
+    "seen": 1793863618.415116,
+    "ast_hash": "f37e08c9a19938adf3798de3c412a355",
+    "semantic_hash": "f37e08c9a19938adf3798de3c412a355"
+  },
+  "rust-backend/wacore/libsignal/src/protocol/group_cipher.rs": {
+    "mtime": 1787055350.687911,
+    "seen": 1793863618.415117,
+    "ast_hash": "3b992b0aae2320e6ee069433739d86b7",
+    "semantic_hash": "3b992b0aae2320e6ee069433739d86b7"
+  },
+  "rust-backend/wacore/libsignal/src/protocol/identity_key.rs": {
+    "mtime": 1787055350.688133,
+    "seen": 1793863618.415117,
+    "ast_hash": "d9c6fb58b53ab7e93c21aab62d06c6f1",
+    "semantic_hash": "d9c6fb58b53ab7e93c21aab62d06c6f1"
+  },
+  "rust-backend/wacore/libsignal/src/protocol/mod.rs": {
+    "mtime": 1787055350.68829,
+    "seen": 1793863618.415118,
+    "ast_hash": "62f7212f6901dddb5eb4fbf92b4bb600",
+    "semantic_hash": "62f7212f6901dddb5eb4fbf92b4bb600"
+  },
+  "rust-backend/wacore/libsignal/src/protocol/protocol.rs": {
+    "mtime": 1787055350.6884382,
+    "seen": 1793863618.415118,
+    "ast_hash": "e57e14dcbda94b8e8fc4563085648bf6",
+    "semantic_hash": "e57e14dcbda94b8e8fc4563085648bf6"
+  },
+  "rust-backend/wacore/libsignal/src/protocol/ratchet.rs": {
+    "mtime": 1787055350.6886437,
+    "seen": 1793863618.4151192,
+    "ast_hash": "cff2b7d42a328b91e7bcd39219867c11",
+    "semantic_hash": "cff2b7d42a328b91e7bcd39219867c11"
+  },
+  "rust-backend/wacore/libsignal/src/protocol/ratchet/keys.rs": {
+    "mtime": 1787055350.6889188,
+    "seen": 1793863618.4151192,
+    "ast_hash": "865b1868171321e9b5e7e540ca4e97db",
+    "semantic_hash": "865b1868171321e9b5e7e540ca4e97db"
+  },
+  "rust-backend/wacore/libsignal/src/protocol/ratchet/params.rs": {
+    "mtime": 1787055350.689172,
+    "seen": 1793863618.41512,
+    "ast_hash": "df5fd23a9e53376d894e3cd3506e919f",
+    "semantic_hash": "df5fd23a9e53376d894e3cd3506e919f"
+  },
+  "rust-backend/wacore/libsignal/src/protocol/sender_keys.rs": {
+    "mtime": 1787055350.6893759,
+    "seen": 1793863618.4151208,
+    "ast_hash": "e28c7272d02056f7b03f2ee2a1532fc9",
+    "semantic_hash": "e28c7272d02056f7b03f2ee2a1532fc9"
+  },
+  "rust-backend/wacore/libsignal/src/protocol/session.rs": {
+    "mtime": 1787055350.689557,
+    "seen": 1793863618.4151208,
+    "ast_hash": "0ef73d9175be9fd3203462fade08ce15",
+    "semantic_hash": "0ef73d9175be9fd3203462fade08ce15"
+  },
+  "rust-backend/wacore/libsignal/src/protocol/session_cipher.rs": {
+    "mtime": 1787055350.6898508,
+    "seen": 1793863618.415122,
+    "ast_hash": "61e4f381f7ac16e5c539f1069e6718a4",
+    "semantic_hash": "61e4f381f7ac16e5c539f1069e6718a4"
+  },
+  "rust-backend/wacore/libsignal/src/protocol/state/bundle.rs": {
+    "mtime": 1787055350.69043,
+    "seen": 1793863618.415122,
+    "ast_hash": "08be9e59930a179c6848544515952dcc",
+    "semantic_hash": "08be9e59930a179c6848544515952dcc"
+  },
+  "rust-backend/wacore/libsignal/src/protocol/state/mod.rs": {
+    "mtime": 1787055350.690588,
+    "seen": 1793863618.415123,
+    "ast_hash": "cc6a279ff826cf6d2787f35e2c95462b",
+    "semantic_hash": "cc6a279ff826cf6d2787f35e2c95462b"
+  },
+  "rust-backend/wacore/libsignal/src/protocol/state/prekey.rs": {
+    "mtime": 1787055350.6907656,
+    "seen": 1793863618.415124,
+    "ast_hash": "497126e750ae292161eb174fde3b5dd2",
+    "semantic_hash": "497126e750ae292161eb174fde3b5dd2"
+  },
+  "rust-backend/wacore/libsignal/src/protocol/state/session.rs": {
+    "mtime": 1787055350.6909552,
+    "seen": 1793863618.415124,
+    "ast_hash": "3982d9fd5489c14669dd95c66842d48b",
+    "semantic_hash": "3982d9fd5489c14669dd95c66842d48b"
+  },
+  "rust-backend/wacore/libsignal/src/protocol/state/signed_prekey.rs": {
+    "mtime": 1787055350.6911395,
+    "seen": 1793863618.415125,
+    "ast_hash": "5fd33276ca8a89f3339925c2b13ba8e1",
+    "semantic_hash": "5fd33276ca8a89f3339925c2b13ba8e1"
+  },
+  "rust-backend/wacore/libsignal/src/protocol/storage.rs": {
+    "mtime": 1787055350.6913028,
+    "seen": 1793863618.415125,
+    "ast_hash": "194d18b6db50e83de7cdca7630bb97cb",
+    "semantic_hash": "194d18b6db50e83de7cdca7630bb97cb"
+  },
+  "rust-backend/wacore/libsignal/src/protocol/storage/traits.rs": {
+    "mtime": 1787055350.6916196,
+    "seen": 1793863618.415126,
+    "ast_hash": "665c23f5e05c0f13301d48be5f007239",
+    "semantic_hash": "665c23f5e05c0f13301d48be5f007239"
+  },
+  "rust-backend/wacore/libsignal/src/protocol/stores.rs": {
+    "mtime": 1787055350.6917653,
+    "seen": 1793863618.415126,
+    "ast_hash": "e9d4235640519874eca363ca1ce27e11",
+    "semantic_hash": "e9d4235640519874eca363ca1ce27e11"
+  },
+  "rust-backend/wacore/libsignal/src/protocol/timestamp.rs": {
+    "mtime": 1787055350.6919053,
+    "seen": 1793863618.415127,
+    "ast_hash": "290a376850e075f7f2c87693ad61c14d",
+    "semantic_hash": "290a376850e075f7f2c87693ad61c14d"
+  },
+  "rust-backend/wacore/libsignal/src/store/mod.rs": {
+    "mtime": 1787055350.6921546,
+    "seen": 1793863618.415128,
+    "ast_hash": "79bb499a97fc397977836c51fdf2e75d",
+    "semantic_hash": "79bb499a97fc397977836c51fdf2e75d"
+  },
+  "rust-backend/wacore/libsignal/src/store/record_helpers.rs": {
+    "mtime": 1787055350.6923633,
+    "seen": 1793863618.415128,
+    "ast_hash": "b0ff3b62afe52df1951964062262dd6f",
+    "semantic_hash": "b0ff3b62afe52df1951964062262dd6f"
+  },
+  "rust-backend/wacore/libsignal/src/store/sender_key_name.rs": {
+    "mtime": 1787055350.6925075,
+    "seen": 1793863618.4151292,
+    "ast_hash": "e55d9d8558d79f2dbc0eec6c977c1791",
+    "semantic_hash": "e55d9d8558d79f2dbc0eec6c977c1791"
+  },
+  "rust-backend/wacore/libsignal/tests/session_divergence.rs": {
+    "mtime": 1787055350.6928017,
+    "seen": 1793863618.4151292,
+    "ast_hash": "c46788dd7fe5e500f19eac54a945d55e",
+    "semantic_hash": "c46788dd7fe5e500f19eac54a945d55e"
+  },
+  "rust-backend/wacore/noise/Cargo.toml": {
+    "mtime": 1787055350.6930447,
+    "seen": 1793863618.4151301,
+    "ast_hash": "d381b7568454c283ffc2dc6b565dab26",
+    "semantic_hash": "d381b7568454c283ffc2dc6b565dab26"
+  },
+  "rust-backend/wacore/noise/benches/noise_benchmark.rs": {
+    "mtime": 1787055350.6932936,
+    "seen": 1793863618.4151301,
+    "ast_hash": "55d0814f7c9409a6e91f9d79db044082",
+    "semantic_hash": "55d0814f7c9409a6e91f9d79db044082"
+  },
+  "rust-backend/wacore/noise/src/edge_routing.rs": {
+    "mtime": 1787055350.69355,
+    "seen": 1793863618.4151309,
+    "ast_hash": "b89c98a0ea65413199b19b414b422a24",
+    "semantic_hash": "b89c98a0ea65413199b19b414b422a24"
+  },
+  "rust-backend/wacore/noise/src/error.rs": {
+    "mtime": 1787055350.6936905,
+    "seen": 1793863618.4151309,
+    "ast_hash": "1b919218baf832a02639b0b614ea0b24",
+    "semantic_hash": "1b919218baf832a02639b0b614ea0b24"
+  },
+  "rust-backend/wacore/noise/src/framing.rs": {
+    "mtime": 1787055350.6938555,
+    "seen": 1793863618.4151318,
+    "ast_hash": "71af51b9aa8dc95f3735912a9da355ff",
+    "semantic_hash": "71af51b9aa8dc95f3735912a9da355ff"
+  },
+  "rust-backend/wacore/noise/src/handshake.rs": {
+    "mtime": 1787055350.6940594,
+    "seen": 1793863618.415133,
+    "ast_hash": "7114631884f16bcda53b44a9e7f0f14f",
+    "semantic_hash": "7114631884f16bcda53b44a9e7f0f14f"
+  },
+  "rust-backend/wacore/noise/src/lib.rs": {
+    "mtime": 1787055350.6942244,
+    "seen": 1793863618.415133,
+    "ast_hash": "290a86794954e39a66da90d1fc913878",
+    "semantic_hash": "290a86794954e39a66da90d1fc913878"
+  },
+  "rust-backend/wacore/noise/src/state.rs": {
+    "mtime": 1787055350.6945088,
+    "seen": 1793863618.415134,
+    "ast_hash": "a302282f4578a6d1dc279aa6377cf200",
+    "semantic_hash": "a302282f4578a6d1dc279aa6377cf200"
+  },
+  "rust-backend/wacore/noise/src/test_util.rs": {
+    "mtime": 1787055350.69465,
+    "seen": 1793863618.415134,
+    "ast_hash": "82a4db39aa402cc54d0f804453a8e4ba",
+    "semantic_hash": "82a4db39aa402cc54d0f804453a8e4ba"
+  },
+  "rust-backend/wacore/noise/tests/cert_chain_verify.rs": {
+    "mtime": 1787055350.6948762,
+    "seen": 1793863618.415135,
+    "ast_hash": "401e4ed57e33b04ed67b7223237faa35",
+    "semantic_hash": "401e4ed57e33b04ed67b7223237faa35"
+  },
+  "rust-backend/wacore/src/adv.rs": {
+    "mtime": 1787055350.695145,
+    "seen": 1793863618.415136,
+    "ast_hash": "145f5f4b2d8be807afe5352673d46df7",
+    "semantic_hash": "145f5f4b2d8be807afe5352673d46df7"
+  },
+  "rust-backend/wacore/src/appstate_sync.rs": {
+    "mtime": 1787055350.6953762,
+    "seen": 1793863618.415136,
+    "ast_hash": "11b1b267c73ab71adeb8b89d1c97aeaa",
+    "semantic_hash": "11b1b267c73ab71adeb8b89d1c97aeaa"
+  },
+  "rust-backend/wacore/src/bot_message.rs": {
+    "mtime": 1787055350.6955695,
+    "seen": 1793863618.415137,
+    "ast_hash": "f0ff35b6e73b8e75f98ef80ec4211ea3",
+    "semantic_hash": "f0ff35b6e73b8e75f98ef80ec4211ea3"
+  },
+  "rust-backend/wacore/src/client.rs": {
+    "mtime": 1787055350.6957157,
+    "seen": 1793863618.415137,
+    "ast_hash": "a3510c53fdc958da2441f42ef775c983",
+    "semantic_hash": "a3510c53fdc958da2441f42ef775c983"
+  },
+  "rust-backend/wacore/src/client/context.rs": {
+    "mtime": 1787055350.696169,
+    "seen": 1793863618.415138,
+    "ast_hash": "e504d47647b25740edadef882bf0681c",
+    "semantic_hash": "e504d47647b25740edadef882bf0681c"
+  },
+  "rust-backend/wacore/src/client_profile.rs": {
+    "mtime": 1787055350.6964078,
+    "seen": 1793863618.415139,
+    "ast_hash": "2313cb742ff4beb44818937e5dec530e",
+    "semantic_hash": "2313cb742ff4beb44818937e5dec530e"
+  },
+  "rust-backend/wacore/src/comment.rs": {
+    "mtime": 1787055350.6967106,
+    "seen": 1793863618.415139,
+    "ast_hash": "8b49e3187ee35a25539fa4efaf313fad",
+    "semantic_hash": "8b49e3187ee35a25539fa4efaf313fad"
+  },
+  "rust-backend/wacore/src/companion_reg.rs": {
+    "mtime": 1787055350.696922,
+    "seen": 1793863618.4151402,
+    "ast_hash": "75576a6c9b13ada4d07fd196f2f501ba",
+    "semantic_hash": "75576a6c9b13ada4d07fd196f2f501ba"
+  },
+  "rust-backend/wacore/src/download.rs": {
+    "mtime": 1787055350.6971302,
+    "seen": 1793863618.4151402,
+    "ast_hash": "854360238fdf3c81e82fc4000542fd6e",
+    "semantic_hash": "854360238fdf3c81e82fc4000542fd6e"
+  },
+  "rust-backend/wacore/src/event.rs": {
+    "mtime": 1787055350.6973293,
+    "seen": 1793863618.415141,
+    "ast_hash": "b770324998fd87bb860a412c0b22916d",
+    "semantic_hash": "b770324998fd87bb860a412c0b22916d"
+  },
+  "rust-backend/wacore/src/handshake/mod.rs": {
+    "mtime": 1787055350.6975777,
+    "seen": 1793863618.415141,
+    "ast_hash": "f880285ee1ca32613645dc4434115593",
+    "semantic_hash": "f880285ee1ca32613645dc4434115593"
+  },
+  "rust-backend/wacore/src/history_sync.rs": {
+    "mtime": 1787055350.6978931,
+    "seen": 1793863618.4151418,
+    "ast_hash": "114e402401373618f97012729b9c014a",
+    "semantic_hash": "114e402401373618f97012729b9c014a"
+  },
+  "rust-backend/wacore/src/ib.rs": {
+    "mtime": 1787055350.6983094,
+    "seen": 1793863618.415143,
+    "ast_hash": "8e8cb1ee694c7e11974890b811ea53b4",
+    "semantic_hash": "8e8cb1ee694c7e11974890b811ea53b4"
+  },
+  "rust-backend/wacore/src/iq/abprops.rs": {
+    "mtime": 1787055350.6992967,
+    "seen": 1793863618.415143,
+    "ast_hash": "d7f43b4dd224890f63e6dce24ca60407",
+    "semantic_hash": "d7f43b4dd224890f63e6dce24ca60407"
+  },
+  "rust-backend/wacore/src/iq/blocklist.rs": {
+    "mtime": 1787055350.6995142,
+    "seen": 1793863618.415144,
+    "ast_hash": "6cd3d25a34c8d1ba5f73d9c4c373f3ca",
+    "semantic_hash": "6cd3d25a34c8d1ba5f73d9c4c373f3ca"
+  },
+  "rust-backend/wacore/src/iq/business.rs": {
+    "mtime": 1787055350.6997297,
+    "seen": 1793863618.415144,
+    "ast_hash": "bba7da8e533fc5872a9b851e907fc182",
+    "semantic_hash": "bba7da8e533fc5872a9b851e907fc182"
+  },
+  "rust-backend/wacore/src/iq/chatstate.rs": {
+    "mtime": 1787055350.7,
+    "seen": 1793863618.415145,
+    "ast_hash": "b70249a5757f663fa9ae07e99d0d94f0",
+    "semantic_hash": "b70249a5757f663fa9ae07e99d0d94f0"
+  },
+  "rust-backend/wacore/src/iq/contacts.rs": {
+    "mtime": 1787055350.7001925,
+    "seen": 1793863618.415145,
+    "ast_hash": "af9212c9102818902c7ff6fed42db619",
+    "semantic_hash": "af9212c9102818902c7ff6fed42db619"
+  },
+  "rust-backend/wacore/src/iq/devices.rs": {
+    "mtime": 1787055350.7003484,
+    "seen": 1793863618.4151459,
+    "ast_hash": "28f2ae4e34458a5cd12b965173d82f55",
+    "semantic_hash": "28f2ae4e34458a5cd12b965173d82f55"
+  },
+  "rust-backend/wacore/src/iq/dirty.rs": {
+    "mtime": 1787055350.7005327,
+    "seen": 1793863618.4151459,
+    "ast_hash": "8273e9a9d74b539ed50a1ab9f2b4ab29",
+    "semantic_hash": "8273e9a9d74b539ed50a1ab9f2b4ab29"
+  },
+  "rust-backend/wacore/src/iq/groups.rs": {
+    "mtime": 1787055350.7008379,
+    "seen": 1793863618.415147,
+    "ast_hash": "eac27319ccf1eb9a68ced9d9d0af194e",
+    "semantic_hash": "eac27319ccf1eb9a68ced9d9d0af194e"
+  },
+  "rust-backend/wacore/src/iq/keepalive.rs": {
+    "mtime": 1787055350.7010276,
+    "seen": 1793863618.415147,
+    "ast_hash": "3d9196a38486a1fb2cd37a8418cc735a",
+    "semantic_hash": "3d9196a38486a1fb2cd37a8418cc735a"
+  },
+  "rust-backend/wacore/src/iq/mediaconn.rs": {
+    "mtime": 1787055350.7012143,
+    "seen": 1793863618.415148,
+    "ast_hash": "bfb9d91b6a515de203bfea37cb7792e9",
+    "semantic_hash": "bfb9d91b6a515de203bfea37cb7792e9"
+  },
+  "rust-backend/wacore/src/iq/mex.rs": {
+    "mtime": 1787055350.7014177,
+    "seen": 1793863618.415149,
+    "ast_hash": "93630aecd9bc03bb95f851d62aed8c5d",
+    "semantic_hash": "93630aecd9bc03bb95f851d62aed8c5d"
+  },
+  "rust-backend/wacore/src/iq/mex_operations.rs": {
+    "mtime": 1787055350.7018282,
+    "seen": 1793863618.415149,
+    "ast_hash": "ce7e3cf8f58d5273d102e54807fb7c4c",
+    "semantic_hash": "ce7e3cf8f58d5273d102e54807fb7c4c"
+  },
+  "rust-backend/wacore/src/iq/mod.rs": {
+    "mtime": 1787055350.7022147,
+    "seen": 1793863618.4151502,
+    "ast_hash": "14378f37b9a93243e621e01b8e62581e",
+    "semantic_hash": "14378f37b9a93243e621e01b8e62581e"
+  },
+  "rust-backend/wacore/src/iq/newsletter.rs": {
+    "mtime": 1787055350.702335,
+    "seen": 1793863618.4151502,
+    "ast_hash": "24c91c51958bd93ed142b09a31b2feaf",
+    "semantic_hash": "24c91c51958bd93ed142b09a31b2feaf"
+  },
+  "rust-backend/wacore/src/iq/node.rs": {
+    "mtime": 1787055350.702476,
+    "seen": 1793863618.4151511,
+    "ast_hash": "ccf0a18a85f622f221ae9a4f17d388c8",
+    "semantic_hash": "ccf0a18a85f622f221ae9a4f17d388c8"
+  },
+  "rust-backend/wacore/src/iq/passive.rs": {
+    "mtime": 1787055350.7026243,
+    "seen": 1793863618.4151511,
+    "ast_hash": "1bb12be1ff9535f4f55019c938397e61",
+    "semantic_hash": "1bb12be1ff9535f4f55019c938397e61"
+  },
+  "rust-backend/wacore/src/iq/prekeys.rs": {
+    "mtime": 1787055350.7028112,
+    "seen": 1793863618.415152,
+    "ast_hash": "292edfe2ac3d5b7601e63119c3cf192c",
+    "semantic_hash": "292edfe2ac3d5b7601e63119c3cf192c"
+  },
+  "rust-backend/wacore/src/iq/privacy.rs": {
+    "mtime": 1787055350.703199,
+    "seen": 1793863618.4151528,
+    "ast_hash": "5532a13fceeb420d153df542e0fdb4d8",
+    "semantic_hash": "5532a13fceeb420d153df542e0fdb4d8"
+  },
+  "rust-backend/wacore/src/iq/profile.rs": {
+    "mtime": 1787055350.7034135,
+    "seen": 1793863618.4151528,
+    "ast_hash": "8af8ac50e2233a56019f9eb924d2632d",
+    "semantic_hash": "8af8ac50e2233a56019f9eb924d2632d"
+  },
+  "rust-backend/wacore/src/iq/props.rs": {
+    "mtime": 1787055350.7036624,
+    "seen": 1793863618.415154,
+    "ast_hash": "0d64767ee36bd2c55a606f402101063a",
+    "semantic_hash": "0d64767ee36bd2c55a606f402101063a"
+  },
+  "rust-backend/wacore/src/iq/spam_report.rs": {
+    "mtime": 1787055350.7038703,
+    "seen": 1793863618.415154,
+    "ast_hash": "3a9f61963329f512994794f1066e21e6",
+    "semantic_hash": "3a9f61963329f512994794f1066e21e6"
+  },
+  "rust-backend/wacore/src/iq/spec.rs": {
+    "mtime": 1787055350.7040133,
+    "seen": 1793863618.415155,
+    "ast_hash": "3956d81b777b10f2ff0398fdc9981d65",
+    "semantic_hash": "3956d81b777b10f2ff0398fdc9981d65"
+  },
+  "rust-backend/wacore/src/iq/tctoken.rs": {
+    "mtime": 1787055350.7041693,
+    "seen": 1793863618.415155,
+    "ast_hash": "a711f9b794fb40d9d6a36025470646ba",
+    "semantic_hash": "a711f9b794fb40d9d6a36025470646ba"
+  },
+  "rust-backend/wacore/src/iq/usync.rs": {
+    "mtime": 1787055350.7044022,
+    "seen": 1793863618.415156,
+    "ast_hash": "04881fb89500ab819ee19286e1b4ef9a",
+    "semantic_hash": "04881fb89500ab819ee19286e1b4ef9a"
+  },
+  "rust-backend/wacore/src/lib.rs": {
+    "mtime": 1787055350.704549,
+    "seen": 1793863618.415157,
+    "ast_hash": "2b2bd95e9f83458b16c1ad62768ba711",
+    "semantic_hash": "2b2bd95e9f83458b16c1ad62768ba711"
+  },
+  "rust-backend/wacore/src/media_retry.rs": {
+    "mtime": 1787055350.7048125,
+    "seen": 1793863618.415157,
+    "ast_hash": "221eff5a8f712e539b86ea1b9bc7caac",
+    "semantic_hash": "221eff5a8f712e539b86ea1b9bc7caac"
+  },
+  "rust-backend/wacore/src/message_edit.rs": {
+    "mtime": 1787055350.7050714,
+    "seen": 1793863618.415158,
+    "ast_hash": "ae51f920b28e77a142c235db99c3ff86",
+    "semantic_hash": "ae51f920b28e77a142c235db99c3ff86"
+  },
+  "rust-backend/wacore/src/message_processing.rs": {
+    "mtime": 1787055350.7052443,
+    "seen": 1793863618.415158,
+    "ast_hash": "5ffbc6be64769a6cf0e171cff222bd6c",
+    "semantic_hash": "5ffbc6be64769a6cf0e171cff222bd6c"
+  },
+  "rust-backend/wacore/src/messages.rs": {
+    "mtime": 1787055350.705524,
+    "seen": 1793863618.415159,
+    "ast_hash": "95a144077611d60c040506a7a0aacd6e",
+    "semantic_hash": "95a144077611d60c040506a7a0aacd6e"
+  },
+  "rust-backend/wacore/src/msg_secret.rs": {
+    "mtime": 1787055350.7060635,
+    "seen": 1793863618.415159,
+    "ast_hash": "1f71893520f15aa01713d312ff218a64",
+    "semantic_hash": "1f71893520f15aa01713d312ff218a64"
+  },
+  "rust-backend/wacore/src/net.rs": {
+    "mtime": 1787055350.7062497,
+    "seen": 1793863618.4151602,
+    "ast_hash": "7c32ad4da72ce73b8d77d752fff5bb3d",
+    "semantic_hash": "7c32ad4da72ce73b8d77d752fff5bb3d"
+  },
+  "rust-backend/wacore/src/pair.rs": {
+    "mtime": 1787055350.7064385,
+    "seen": 1793863618.4151611,
+    "ast_hash": "01b0da8cff43fce59eb8902c33d7108d",
+    "semantic_hash": "01b0da8cff43fce59eb8902c33d7108d"
+  },
+  "rust-backend/wacore/src/pair_code.rs": {
+    "mtime": 1787055350.7066545,
+    "seen": 1793863618.4151611,
+    "ast_hash": "4e225a4b06780d330d0de9e1f5d650a7",
+    "semantic_hash": "4e225a4b06780d330d0de9e1f5d650a7"
+  },
+  "rust-backend/wacore/src/poll.rs": {
+    "mtime": 1787055350.7069519,
+    "seen": 1793863618.415162,
+    "ast_hash": "5b9e648a4483f901ee8b299d868f4500",
+    "semantic_hash": "5b9e648a4483f901ee8b299d868f4500"
+  },
+  "rust-backend/wacore/src/prekeys.rs": {
+    "mtime": 1787055350.707131,
+    "seen": 1793863618.415162,
+    "ast_hash": "2c4246d9171d5d0d40452fc5b355af2b",
+    "semantic_hash": "2c4246d9171d5d0d40452fc5b355af2b"
+  },
+  "rust-backend/wacore/src/proto_helpers.rs": {
+    "mtime": 1787055350.7074075,
+    "seen": 1793863618.4151628,
+    "ast_hash": "ae4e7bf51229d9d92e157368683a72f5",
+    "semantic_hash": "ae4e7bf51229d9d92e157368683a72f5"
+  },
+  "rust-backend/wacore/src/protocol/keepalive.rs": {
+    "mtime": 1787055350.707685,
+    "seen": 1793863618.4151628,
+    "ast_hash": "bdd8748064361acc67dffc6140c6ca6c",
+    "semantic_hash": "bdd8748064361acc67dffc6140c6ca6c"
+  },
+  "rust-backend/wacore/src/protocol/mod.rs": {
+    "mtime": 1787055350.7078664,
+    "seen": 1793863618.415164,
+    "ast_hash": "53c6648f5d963c3bb67566ffd3104c20",
+    "semantic_hash": "53c6648f5d963c3bb67566ffd3104c20"
+  },
+  "rust-backend/wacore/src/protocol/nack.rs": {
+    "mtime": 1787055350.7080092,
+    "seen": 1793863618.415168,
+    "ast_hash": "ef87cb7225e7f8909e7648ca287dd281",
+    "semantic_hash": "ef87cb7225e7f8909e7648ca287dd281"
+  },
+  "rust-backend/wacore/src/protocol/retry.rs": {
+    "mtime": 1787055350.7082896,
+    "seen": 1793863618.415169,
+    "ast_hash": "9af8cedfcb7ccba7ac0dd553f66358d4",
+    "semantic_hash": "9af8cedfcb7ccba7ac0dd553f66358d4"
+  },
+  "rust-backend/wacore/src/reaction.rs": {
+    "mtime": 1787055350.7084725,
+    "seen": 1793863618.41517,
+    "ast_hash": "5b37427d6d8d39f9bb85764179678f5b",
+    "semantic_hash": "5b37427d6d8d39f9bb85764179678f5b"
+  },
+  "rust-backend/wacore/src/reporting_token.rs": {
+    "mtime": 1787055350.708707,
+    "seen": 1793863618.41517,
+    "ast_hash": "aef2ca1fc236875fe524183d15395dfd",
+    "semantic_hash": "aef2ca1fc236875fe524183d15395dfd"
+  },
+  "rust-backend/wacore/src/request.rs": {
+    "mtime": 1787055350.708892,
+    "seen": 1793863618.4151711,
+    "ast_hash": "2c4f6c8fc75e5dc0eb8fbe1e0fb5dc76",
+    "semantic_hash": "2c4f6c8fc75e5dc0eb8fbe1e0fb5dc76"
+  },
+  "rust-backend/wacore/src/runtime.rs": {
+    "mtime": 1787055350.7092085,
+    "seen": 1793863618.4151711,
+    "ast_hash": "a5c3eeae8405d040ca04fe32f956fed2",
+    "semantic_hash": "a5c3eeae8405d040ca04fe32f956fed2"
+  },
+  "rust-backend/wacore/src/secret_enc_addon.rs": {
+    "mtime": 1787055350.7094743,
+    "seen": 1793863618.415172,
+    "ast_hash": "16a6ecb6fa8d4f0060fc6aed3e0ba219",
+    "semantic_hash": "16a6ecb6fa8d4f0060fc6aed3e0ba219"
+  },
+  "rust-backend/wacore/src/send.rs": {
+    "mtime": 1787055350.7096264,
+    "seen": 1793863618.415172,
+    "ast_hash": "5ff3ca486d5d0610aa79439547f98f2a",
+    "semantic_hash": "5ff3ca486d5d0610aa79439547f98f2a"
+  },
+  "rust-backend/wacore/src/send/classify.rs": {
+    "mtime": 1787055350.70987,
+    "seen": 1793863618.415173,
+    "ast_hash": "d4e4c97e0deddb419a1494f613fc9259",
+    "semantic_hash": "d4e4c97e0deddb419a1494f613fc9259"
+  },
+  "rust-backend/wacore/src/send/dm.rs": {
+    "mtime": 1787055350.7101066,
+    "seen": 1793863618.4151738,
+    "ast_hash": "456be8df9604dae6d517fd35bb67cf2a",
+    "semantic_hash": "456be8df9604dae6d517fd35bb67cf2a"
+  },
+  "rust-backend/wacore/src/send/encrypt.rs": {
+    "mtime": 1787055350.7102861,
+    "seen": 1793863618.4151738,
+    "ast_hash": "e43c5dfd04bcd9b575c52e9e64cebb36",
+    "semantic_hash": "e43c5dfd04bcd9b575c52e9e64cebb36"
+  },
+  "rust-backend/wacore/src/send/group.rs": {
+    "mtime": 1787055350.7104907,
+    "seen": 1793863618.415175,
+    "ast_hash": "a9e05eae971a594549526b2694a376f6",
+    "semantic_hash": "a9e05eae971a594549526b2694a376f6"
+  },
+  "rust-backend/wacore/src/send/peer.rs": {
+    "mtime": 1787055350.7106647,
+    "seen": 1793863618.415175,
+    "ast_hash": "22bd2832cfc5f97402c89cdbb0be4118",
+    "semantic_hash": "22bd2832cfc5f97402c89cdbb0be4118"
+  },
+  "rust-backend/wacore/src/send/resolved_devices.rs": {
+    "mtime": 1787055350.7108672,
+    "seen": 1793863618.415176,
+    "ast_hash": "3a23c6c12653386c6d036ffc7f3465d1",
+    "semantic_hash": "3a23c6c12653386c6d036ffc7f3465d1"
+  },
+  "rust-backend/wacore/src/send/status.rs": {
+    "mtime": 1787055350.7110803,
+    "seen": 1793863618.415176,
+    "ast_hash": "6827f97b7581750bb5baf0f1036b69c6",
+    "semantic_hash": "6827f97b7581750bb5baf0f1036b69c6"
+  },
+  "rust-backend/wacore/src/send/tests.rs": {
+    "mtime": 1787055350.7113643,
+    "seen": 1793863618.4151769,
+    "ast_hash": "84790de3f2e9bbafefde1fa87dff1399",
+    "semantic_hash": "84790de3f2e9bbafefde1fa87dff1399"
+  },
+  "rust-backend/wacore/src/session.rs": {
+    "mtime": 1787055350.7122767,
+    "seen": 1793863618.415178,
+    "ast_hash": "605b660b10f09bbe6457ca487846a6ed",
+    "semantic_hash": "605b660b10f09bbe6457ca487846a6ed"
+  },
+  "rust-backend/wacore/src/stanza/business.rs": {
+    "mtime": 1787055350.7125366,
+    "seen": 1793863618.415178,
+    "ast_hash": "fbfe22b81a229c3ca70d0e7b4b19b9f0",
+    "semantic_hash": "fbfe22b81a229c3ca70d0e7b4b19b9f0"
+  },
+  "rust-backend/wacore/src/stanza/call.rs": {
+    "mtime": 1787055350.7127213,
+    "seen": 1793863618.415179,
+    "ast_hash": "56e9db487fa2a892202728883da339fe",
+    "semantic_hash": "56e9db487fa2a892202728883da339fe"
+  },
+  "rust-backend/wacore/src/stanza/devices.rs": {
+    "mtime": 1787055350.7129047,
+    "seen": 1793863618.415179,
+    "ast_hash": "bd54dbe97ed00c71b83c3d11cc2742ab",
+    "semantic_hash": "bd54dbe97ed00c71b83c3d11cc2742ab"
+  },
+  "rust-backend/wacore/src/stanza/groups.rs": {
+    "mtime": 1787055350.7131174,
+    "seen": 1793863618.41518,
+    "ast_hash": "5c877b9ae1e418fd36557da7e228edc7",
+    "semantic_hash": "5c877b9ae1e418fd36557da7e228edc7"
+  },
+  "rust-backend/wacore/src/stanza/message.rs": {
+    "mtime": 1787055350.7133007,
+    "seen": 1793863618.4151812,
+    "ast_hash": "c649b439062ce551abaad5ed2949a493",
+    "semantic_hash": "c649b439062ce551abaad5ed2949a493"
+  },
+  "rust-backend/wacore/src/stanza/mod.rs": {
+    "mtime": 1787055350.713427,
+    "seen": 1793863618.4151812,
+    "ast_hash": "1a9653ec4bde77d2012372999fe16753",
+    "semantic_hash": "1a9653ec4bde77d2012372999fe16753"
+  },
+  "rust-backend/wacore/src/stanza/notification.rs": {
+    "mtime": 1787055350.7135794,
+    "seen": 1793863618.415182,
+    "ast_hash": "e18420ad22d2280438e357fc93fcc580",
+    "semantic_hash": "e18420ad22d2280438e357fc93fcc580"
+  },
+  "rust-backend/wacore/src/stanza/receipt.rs": {
+    "mtime": 1787055350.7137253,
+    "seen": 1793863618.415182,
+    "ast_hash": "d8803c4286736fab7d1927177c6e6bd7",
+    "semantic_hash": "d8803c4286736fab7d1927177c6e6bd7"
+  },
+  "rust-backend/wacore/src/sticker_pack.rs": {
+    "mtime": 1787055350.7138944,
+    "seen": 1793863618.415183,
+    "ast_hash": "9538c2f04c337bd28d81e249c9101012",
+    "semantic_hash": "9538c2f04c337bd28d81e249c9101012"
+  },
+  "rust-backend/wacore/src/store/ab_props.rs": {
+    "mtime": 1787055350.7141602,
+    "seen": 1793863618.415183,
+    "ast_hash": "e99e9586246a8dc1c82c641b7377d61d",
+    "semantic_hash": "e99e9586246a8dc1c82c641b7377d61d"
+  },
+  "rust-backend/wacore/src/store/cache.rs": {
+    "mtime": 1787055350.714298,
+    "seen": 1793863618.4151838,
+    "ast_hash": "41187b2082b39e4a25c7a40cc82c085d",
+    "semantic_hash": "41187b2082b39e4a25c7a40cc82c085d"
+  },
+  "rust-backend/wacore/src/store/commands.rs": {
+    "mtime": 1787055350.7144673,
+    "seen": 1793863618.4151838,
+    "ast_hash": "00526f3b3fb192a16caff5141b7e60c4",
+    "semantic_hash": "00526f3b3fb192a16caff5141b7e60c4"
+  },
+  "rust-backend/wacore/src/store/device.rs": {
+    "mtime": 1787055350.714642,
+    "seen": 1793863618.415185,
+    "ast_hash": "a4be5fe15df4bf347b78864e6d6ef450",
+    "semantic_hash": "a4be5fe15df4bf347b78864e6d6ef450"
+  },
+  "rust-backend/wacore/src/store/error.rs": {
+    "mtime": 1787055350.7147918,
+    "seen": 1793863618.415186,
+    "ast_hash": "a4e7e35109b2538154b7f1bc3c1b275c",
+    "semantic_hash": "a4e7e35109b2538154b7f1bc3c1b275c"
+  },
+  "rust-backend/wacore/src/store/in_memory.rs": {
+    "mtime": 1787055350.7149558,
+    "seen": 1793863618.415186,
+    "ast_hash": "659a97ab513c6a2d2d3cfb0e8bdceb6c",
+    "semantic_hash": "659a97ab513c6a2d2d3cfb0e8bdceb6c"
+  },
+  "rust-backend/wacore/src/store/mod.rs": {
+    "mtime": 1787055350.7151012,
+    "seen": 1793863618.415187,
+    "ast_hash": "b87b4eff17d2810c829939aa95b9566a",
+    "semantic_hash": "b87b4eff17d2810c829939aa95b9566a"
+  },
+  "rust-backend/wacore/src/store/persistence.rs": {
+    "mtime": 1787055350.71528,
+    "seen": 1793863618.415187,
+    "ast_hash": "59f7061b386e21a4de427b22dd93dc24",
+    "semantic_hash": "59f7061b386e21a4de427b22dd93dc24"
+  },
+  "rust-backend/wacore/src/store/signal_cache.rs": {
+    "mtime": 1787055350.715506,
+    "seen": 1793863618.415188,
+    "ast_hash": "6d0e50411567885a5c7d53da8172fdc1",
+    "semantic_hash": "6d0e50411567885a5c7d53da8172fdc1"
+  },
+  "rust-backend/wacore/src/store/traits.rs": {
+    "mtime": 1787055350.7156746,
+    "seen": 1793863618.415188,
+    "ast_hash": "91b79f44ce3e0ad56c10f2df96f2411a",
+    "semantic_hash": "91b79f44ce3e0ad56c10f2df96f2411a"
+  },
+  "rust-backend/wacore/src/sync_marker.rs": {
+    "mtime": 1787055350.7158167,
+    "seen": 1793863618.415189,
+    "ast_hash": "959156a02812c973c213f956857f6f4e",
+    "semantic_hash": "959156a02812c973c213f956857f6f4e"
+  },
+  "rust-backend/wacore/src/telemetry.rs": {
+    "mtime": 1787055350.7160108,
+    "seen": 1793863618.41519,
+    "ast_hash": "9b4d94da81f8296cf0d6769bbbd5f3d0",
+    "semantic_hash": "9b4d94da81f8296cf0d6769bbbd5f3d0"
+  },
+  "rust-backend/wacore/src/time.rs": {
+    "mtime": 1787055350.7161589,
+    "seen": 1793863618.41519,
+    "ast_hash": "f45f78bd3e774096da16c8f5b7c5c087",
+    "semantic_hash": "f45f78bd3e774096da16c8f5b7c5c087"
+  },
+  "rust-backend/wacore/src/types/call.rs": {
+    "mtime": 1787055350.7164063,
+    "seen": 1793863618.415191,
+    "ast_hash": "f5d584633df76fa3503b63241e2351d2",
+    "semantic_hash": "f5d584633df76fa3503b63241e2351d2"
+  },
+  "rust-backend/wacore/src/types/events.rs": {
+    "mtime": 1787055350.7166152,
+    "seen": 1793863618.415191,
+    "ast_hash": "93818c844168becec1b34c66f282e4b7",
+    "semantic_hash": "93818c844168becec1b34c66f282e4b7"
+  },
+  "rust-backend/wacore/src/types/jid.rs": {
+    "mtime": 1787055350.716823,
+    "seen": 1793863618.4151921,
+    "ast_hash": "146451f943c22fadbcf4c831d31fb8fd",
+    "semantic_hash": "146451f943c22fadbcf4c831d31fb8fd"
+  },
+  "rust-backend/wacore/src/types/lid_pn.rs": {
+    "mtime": 1787055350.7169926,
+    "seen": 1793863618.4151921,
+    "ast_hash": "7e5d8f4f24e0f65e72afd9e12cfa687a",
+    "semantic_hash": "7e5d8f4f24e0f65e72afd9e12cfa687a"
+  },
+  "rust-backend/wacore/src/types/message.rs": {
+    "mtime": 1787055350.7171497,
+    "seen": 1793863618.415193,
+    "ast_hash": "66f6791a560aa260eb5eae8c7875d04a",
+    "semantic_hash": "66f6791a560aa260eb5eae8c7875d04a"
+  },
+  "rust-backend/wacore/src/types/mod.rs": {
+    "mtime": 1787055350.7172992,
+    "seen": 1793863618.415193,
+    "ast_hash": "78e1c22a9880d903008894d3f92e5ff9",
+    "semantic_hash": "78e1c22a9880d903008894d3f92e5ff9"
+  },
+  "rust-backend/wacore/src/types/presence.rs": {
+    "mtime": 1787055350.717479,
+    "seen": 1793863618.415194,
+    "ast_hash": "7631b98984468cc8395297028ac48b40",
+    "semantic_hash": "7631b98984468cc8395297028ac48b40"
+  },
+  "rust-backend/wacore/src/types/spam_report.rs": {
+    "mtime": 1787055350.7176583,
+    "seen": 1793863618.415195,
+    "ast_hash": "c21bb6b9f1b1901f5d4a7c511f476611",
+    "semantic_hash": "c21bb6b9f1b1901f5d4a7c511f476611"
+  },
+  "rust-backend/wacore/src/types/user.rs": {
+    "mtime": 1787055350.7177877,
+    "seen": 1793863618.415195,
+    "ast_hash": "909adad0a2607b25693753c39e581048",
+    "semantic_hash": "909adad0a2607b25693753c39e581048"
+  },
+  "rust-backend/wacore/src/upload.rs": {
+    "mtime": 1787055350.7179754,
+    "seen": 1793863618.415196,
+    "ast_hash": "79c1e6faba2c639acaab4d1a5c508318",
+    "semantic_hash": "79c1e6faba2c639acaab4d1a5c508318"
+  },
+  "rust-backend/wacore/src/usync.rs": {
+    "mtime": 1787055350.7184842,
+    "seen": 1793863618.415196,
+    "ast_hash": "a2f02fb03e4751c5428e0efd5b6d6532",
+    "semantic_hash": "a2f02fb03e4751c5428e0efd5b6d6532"
+  },
+  "rust-backend/wacore/src/version.rs": {
+    "mtime": 1787055350.7186906,
+    "seen": 1793863618.415197,
+    "ast_hash": "b82b80ea5df6ef23e808fd8dfb7239f7",
+    "semantic_hash": "b82b80ea5df6ef23e808fd8dfb7239f7"
+  },
+  "rust-backend/wacore/src/webp.rs": {
+    "mtime": 1787055350.7188275,
+    "seen": 1793863618.415197,
+    "ast_hash": "e93f0ff0db34c65f3fbf2f45033459f6",
+    "semantic_hash": "e93f0ff0db34c65f3fbf2f45033459f6"
+  },
+  "rust-backend/wacore/src/xml.rs": {
+    "mtime": 1787055350.7190144,
+    "seen": 1793863618.4151978,
+    "ast_hash": "b6561465c53dbfc16a12e5c6eb418f9e",
+    "semantic_hash": "b6561465c53dbfc16a12e5c6eb418f9e"
+  },
+  "rust-backend/wacore/src/zip.rs": {
+    "mtime": 1787055350.719194,
+    "seen": 1793863618.415199,
+    "ast_hash": "009441ced98b13510fc021ec3dfd9891",
+    "semantic_hash": "009441ced98b13510fc021ec3dfd9891"
+  },
+  "rust-backend/wacore/tests/appstate_external_mutations_test.rs": {
+    "mtime": 1787055350.7194538,
+    "seen": 1793863618.415199,
+    "ast_hash": "f4d3e5319deccfdeebe87b802123ae0c",
+    "semantic_hash": "f4d3e5319deccfdeebe87b802123ae0c"
+  },
+  "rust-backend/wacore/tests/appstate_mac_test.rs": {
+    "mtime": 1787055350.7196667,
+    "seen": 1793863618.4152,
+    "ast_hash": "10e3b75f8e36ebad8054d230d69ab570",
+    "semantic_hash": "10e3b75f8e36ebad8054d230d69ab570"
+  },
+  "rust-backend/wacore/tests/binary_protocol_test.rs": {
+    "mtime": 1787055350.7198708,
+    "seen": 1793863618.4152,
+    "ast_hash": "914153ea7a9665ff2b3d7d60d083f029",
+    "semantic_hash": "914153ea7a9665ff2b3d7d60d083f029"
+  },
+  "rust-backend/wacore/tests/jid_test.rs": {
+    "mtime": 1787055350.720148,
+    "seen": 1793863618.415201,
+    "ast_hash": "4017de7875ffa479df9d541b3533ec79",
+    "semantic_hash": "4017de7875ffa479df9d541b3533ec79"
+  },
+  "rust-backend/wacore/tests/noise_handshake_test.rs": {
+    "mtime": 1787055350.7204127,
+    "seen": 1793863618.415201,
+    "ast_hash": "60a0dba1aecf242f646414a84e9794b9",
+    "semantic_hash": "60a0dba1aecf242f646414a84e9794b9"
+  },
+  "rust-backend/wacore/tests/wire_enum_serde_test.rs": {
+    "mtime": 1787055350.7206118,
+    "seen": 1793863618.4152021,
+    "ast_hash": "8b23e7920c29fb8f090fed373c53344c",
+    "semantic_hash": "8b23e7920c29fb8f090fed373c53344c"
+  },
+  "rust-backend/waproto/Cargo.toml": {
+    "mtime": 1787055350.7209933,
+    "seen": 1793863618.4152021,
+    "ast_hash": "cb45e89929e3b5c75c516151f48a0a26",
+    "semantic_hash": "cb45e89929e3b5c75c516151f48a0a26"
+  },
+  "rust-backend/waproto/build.rs": {
+    "mtime": 1787055350.7211564,
+    "seen": 1793863618.415203,
+    "ast_hash": "36932a94e4e9839b9859d7df77ec78cb",
+    "semantic_hash": "36932a94e4e9839b9859d7df77ec78cb"
+  },
+  "rust-backend/waproto/src/lib.rs": {
+    "mtime": 1787055350.7213936,
+    "seen": 1793863618.415204,
+    "ast_hash": "621cb9399d409b9c258bb8b891fc4be1",
+    "semantic_hash": "621cb9399d409b9c258bb8b891fc4be1"
+  },
+  "src-tauri/Cargo.toml": {
+    "mtime": 1793862492.5302618,
+    "seen": 1793863618.415204,
+    "ast_hash": "8da9e3caa9f54ad3adea66c0bb985954",
+    "semantic_hash": "8da9e3caa9f54ad3adea66c0bb985954"
+  },
+  "src-tauri/build.rs": {
+    "mtime": 1793862492.5311646,
+    "seen": 1793863618.415205,
+    "ast_hash": "1be34a5c61c2c35365de3dab14298f0b",
+    "semantic_hash": "1be34a5c61c2c35365de3dab14298f0b"
+  },
+  "src-tauri/capabilities/default.json": {
+    "mtime": 1793862492.5318289,
+    "seen": 1793863618.415205,
+    "ast_hash": "73ba82e6d501e3826f9eceb6e74cd768",
+    "semantic_hash": "73ba82e6d501e3826f9eceb6e74cd768"
+  },
+  "src-tauri/src/bridge.rs": {
+    "mtime": 1793862492.5472507,
+    "seen": 1793863618.415206,
+    "ast_hash": "ade93516a830a5be51f28da5190dd362",
+    "semantic_hash": "ade93516a830a5be51f28da5190dd362"
+  },
+  "src-tauri/src/commands/auth.rs": {
+    "mtime": 1793862492.5478187,
+    "seen": 1793863618.415207,
+    "ast_hash": "720f522f67456dc39f5c875c9b13f68d",
+    "semantic_hash": "720f522f67456dc39f5c875c9b13f68d"
+  },
+  "src-tauri/src/commands/chat_settings.rs": {
+    "mtime": 1793862492.5482268,
+    "seen": 1793863618.415207,
+    "ast_hash": "2b79a72b8a88fd41075b03fbef78ab04",
+    "semantic_hash": "2b79a72b8a88fd41075b03fbef78ab04"
+  },
+  "src-tauri/src/commands/contacts.rs": {
+    "mtime": 1793862492.5485463,
+    "seen": 1793863618.4152079,
+    "ast_hash": "c0a663ce42400da61a273051ec0c7bac",
+    "semantic_hash": "c0a663ce42400da61a273051ec0c7bac"
+  },
+  "src-tauri/src/commands/media.rs": {
+    "mtime": 1793862492.5491204,
+    "seen": 1793863618.4152079,
+    "ast_hash": "109fccb996197ab20cfcf972fba57b91",
+    "semantic_hash": "109fccb996197ab20cfcf972fba57b91"
+  },
+  "src-tauri/src/commands/messaging.rs": {
+    "mtime": 1793862492.5496504,
+    "seen": 1793863618.415209,
+    "ast_hash": "f63a5aa3c28573ea33c9848425915a97",
+    "semantic_hash": "f63a5aa3c28573ea33c9848425915a97"
+  },
+  "src-tauri/src/commands/mod.rs": {
+    "mtime": 1793862492.5501459,
+    "seen": 1793863618.415209,
+    "ast_hash": "adf35e34289b99677f25287b16814dda",
+    "semantic_hash": "adf35e34289b99677f25287b16814dda"
+  },
+  "src-tauri/src/commands/newsletters.rs": {
+    "mtime": 1793862492.5505412,
+    "seen": 1793863618.41521,
+    "ast_hash": "b29e353ff0d0b6c5ee7a6b0ca1042b12",
+    "semantic_hash": "b29e353ff0d0b6c5ee7a6b0ca1042b12"
+  },
+  "src-tauri/src/dto.rs": {
+    "mtime": 1793862492.55096,
+    "seen": 1793863618.415211,
+    "ast_hash": "b0323fcd97b5ad63f5f5561bd43b6b44",
+    "semantic_hash": "b0323fcd97b5ad63f5f5561bd43b6b44"
+  },
+  "src-tauri/src/error.rs": {
+    "mtime": 1793862492.5513213,
+    "seen": 1793863618.415211,
+    "ast_hash": "72acc1806930c4f85004d01fefef0efd",
+    "semantic_hash": "72acc1806930c4f85004d01fefef0efd"
+  },
+  "src-tauri/src/lib.rs": {
+    "mtime": 1793862492.551586,
+    "seen": 1793863618.415212,
+    "ast_hash": "ab114ac12ba8a546cbf283825866edba",
+    "semantic_hash": "ab114ac12ba8a546cbf283825866edba"
+  },
+  "src-tauri/src/main.rs": {
+    "mtime": 1793862492.5523355,
+    "seen": 1793863618.415212,
+    "ast_hash": "9638141ff350988dabfb4e0d8efc8d15",
+    "semantic_hash": "9638141ff350988dabfb4e0d8efc8d15"
+  },
+  "src-tauri/src/session.rs": {
+    "mtime": 1793862492.5526345,
+    "seen": 1793863618.415213,
+    "ast_hash": "84be0b56efdbb168abdd6b6c0c185cd9",
+    "semantic_hash": "84be0b56efdbb168abdd6b6c0c185cd9"
+  },
+  "src-tauri/tauri.conf.json": {
+    "mtime": 1793862492.5532591,
+    "seen": 1793863618.415213,
+    "ast_hash": "e87e338ec0d43cbf86aa2fa40eab00e6",
+    "semantic_hash": "e87e338ec0d43cbf86aa2fa40eab00e6"
+  },
+  "svelte-frontend/package.json": {
+    "mtime": 1793862492.5546954,
+    "seen": 1793863618.415214,
+    "ast_hash": "1e453b1077c5e39ed512c66e8f160e3b",
+    "semantic_hash": "1e453b1077c5e39ed512c66e8f160e3b"
+  },
+  "svelte-frontend/src/App.svelte": {
+    "mtime": 1793862492.5552757,
+    "seen": 1793863618.415215,
+    "ast_hash": "9e783a14f86b8318d4e1f356d67275a1",
+    "semantic_hash": "9e783a14f86b8318d4e1f356d67275a1"
+  },
+  "svelte-frontend/src/components/chat/AttachMenu.svelte": {
+    "mtime": 1793862492.5564191,
+    "seen": 1793863618.415215,
+    "ast_hash": "c59518d6e633a31229befd3b28d9b2ca",
+    "semantic_hash": "c59518d6e633a31229befd3b28d9b2ca"
+  },
+  "svelte-frontend/src/components/chat/ChatList.svelte": {
+    "mtime": 1793862492.5567276,
+    "seen": 1793863618.4152162,
+    "ast_hash": "ad40f0646ff058927423e01af291030f",
+    "semantic_hash": "ad40f0646ff058927423e01af291030f"
+  },
+  "svelte-frontend/src/components/chat/ChatListItem.svelte": {
+    "mtime": 1793862492.5571184,
+    "seen": 1793863618.4152162,
+    "ast_hash": "c7a6de66d71bd64454f3b3399b3ddcba",
+    "semantic_hash": "c7a6de66d71bd64454f3b3399b3ddcba"
+  },
+  "svelte-frontend/src/components/chat/Conversation.svelte": {
+    "mtime": 1793862492.5574725,
+    "seen": 1793863618.415217,
+    "ast_hash": "770c531368484da5db589ec54072331a",
+    "semantic_hash": "770c531368484da5db589ec54072331a"
+  },
+  "svelte-frontend/src/components/chat/DeleteMessageModal.svelte": {
+    "mtime": 1793862492.5577753,
+    "seen": 1793863618.415217,
+    "ast_hash": "f3c736511d2469a34151fecaf54961fe",
+    "semantic_hash": "f3c736511d2469a34151fecaf54961fe"
+  },
+  "svelte-frontend/src/components/chat/EmojiPicker.svelte": {
+    "mtime": 1793862492.5581043,
+    "seen": 1793863618.4152179,
+    "ast_hash": "61313fcc34774267a4536df31b249b74",
+    "semantic_hash": "61313fcc34774267a4536df31b249b74"
+  },
+  "svelte-frontend/src/components/chat/GifPicker.svelte": {
+    "mtime": 1793862492.5583594,
+    "seen": 1793863618.4152188,
+    "ast_hash": "3f15ce55a8f6d7762a36250660a21b69",
+    "semantic_hash": "3f15ce55a8f6d7762a36250660a21b69"
+  },
+  "svelte-frontend/src/components/chat/Linkify.svelte": {
+    "mtime": 1793862492.5586205,
+    "seen": 1793863618.4152188,
+    "ast_hash": "c02be5c9af4092f9d7a3b6b98b661775",
+    "semantic_hash": "c02be5c9af4092f9d7a3b6b98b661775"
+  },
+  "svelte-frontend/src/components/chat/MainLayout.svelte": {
+    "mtime": 1793862492.558902,
+    "seen": 1793863618.41522,
+    "ast_hash": "1e3acbb91c80eeefafed5526e70dabbd",
+    "semantic_hash": "1e3acbb91c80eeefafed5526e70dabbd"
+  },
+  "svelte-frontend/src/components/chat/MediaLightbox.svelte": {
+    "mtime": 1793862492.559223,
+    "seen": 1793863618.41522,
+    "ast_hash": "cc6645fc9436f48a27ad24ad97e1670d",
+    "semantic_hash": "cc6645fc9436f48a27ad24ad97e1670d"
+  },
+  "svelte-frontend/src/components/chat/MediaPickerPanel.svelte": {
+    "mtime": 1793862492.5610402,
+    "seen": 1793863618.415221,
+    "ast_hash": "f34ee17f2f10a2dbb74a4ece8c6712d0",
+    "semantic_hash": "f34ee17f2f10a2dbb74a4ece8c6712d0"
+  },
+  "svelte-frontend/src/components/chat/MediaPreview.svelte": {
+    "mtime": 1793862492.5613866,
+    "seen": 1793863618.415221,
+    "ast_hash": "53debc5e7abba1cc4d8342fc649d00c9",
+    "semantic_hash": "53debc5e7abba1cc4d8342fc649d00c9"
+  },
+  "svelte-frontend/src/components/chat/MessageBubble.svelte": {
+    "mtime": 1793862542.6623611,
+    "seen": 1793863618.415222,
+    "ast_hash": "27141ce5766dc6ed611301cd8c68854d",
+    "semantic_hash": "27141ce5766dc6ed611301cd8c68854d"
+  },
+  "svelte-frontend/src/components/chat/MessageComposer.svelte": {
+    "mtime": 1793862542.6639872,
+    "seen": 1793863618.415222,
+    "ast_hash": "2978044f7b37270c712a71847d9799b8",
+    "semantic_hash": "2978044f7b37270c712a71847d9799b8"
+  },
+  "svelte-frontend/src/components/chat/MessageContextMenu.svelte": {
+    "mtime": 1793862492.5627851,
+    "seen": 1793863618.4152231,
+    "ast_hash": "f0b26adf1469fbc4217d955e5db0b769",
+    "semantic_hash": "f0b26adf1469fbc4217d955e5db0b769"
+  },
+  "svelte-frontend/src/components/chat/MessageList.svelte": {
+    "mtime": 1793862542.6655667,
+    "seen": 1793863618.415224,
+    "ast_hash": "ee8dcd6c225a891e86cd2daf5f26964f",
+    "semantic_hash": "ee8dcd6c225a891e86cd2daf5f26964f"
+  },
+  "svelte-frontend/src/components/chat/MessageMedia.svelte": {
+    "mtime": 1793862542.6671894,
+    "seen": 1793863618.415224,
+    "ast_hash": "c3f21336db78f2386f1edffcb8247c71",
+    "semantic_hash": "c3f21336db78f2386f1edffcb8247c71"
+  },
+  "svelte-frontend/src/components/chat/ReactionPicker.svelte": {
+    "mtime": 1793862492.5637717,
+    "seen": 1793863618.415225,
+    "ast_hash": "91fe04ce2bbd4582c80b7125e05e583f",
+    "semantic_hash": "91fe04ce2bbd4582c80b7125e05e583f"
+  },
+  "svelte-frontend/src/components/chat/Recorder.svelte": {
+    "mtime": 1793862492.5640688,
+    "seen": 1793863618.415225,
+    "ast_hash": "23aa5c2c91b42d39a0fd10b3520357d4",
+    "semantic_hash": "23aa5c2c91b42d39a0fd10b3520357d4"
+  },
+  "svelte-frontend/src/components/common/Avatar.svelte": {
+    "mtime": 1793862492.5645454,
+    "seen": 1793863618.4152262,
+    "ast_hash": "525610bfbd32adb86b1225292018494c",
+    "semantic_hash": "525610bfbd32adb86b1225292018494c"
+  },
+  "svelte-frontend/src/components/pairing/ConnectionStatus.svelte": {
+    "mtime": 1793862492.5650613,
+    "seen": 1793863618.4152262,
+    "ast_hash": "219e5d25d115539ad6e2084ff848168c",
+    "semantic_hash": "219e5d25d115539ad6e2084ff848168c"
+  },
+  "svelte-frontend/src/components/pairing/LoadingScreen.svelte": {
+    "mtime": 1793862492.5653238,
+    "seen": 1793863618.415227,
+    "ast_hash": "65ef8fa39b6a5aac3b71375ce58c1bc3",
+    "semantic_hash": "65ef8fa39b6a5aac3b71375ce58c1bc3"
+  },
+  "svelte-frontend/src/components/pairing/PairingScreen.svelte": {
+    "mtime": 1793862492.5658076,
+    "seen": 1793863618.415228,
+    "ast_hash": "6a60b1808bf5bfa483e31c47ba0bbf79",
+    "semantic_hash": "6a60b1808bf5bfa483e31c47ba0bbf79"
+  },
+  "svelte-frontend/src/components/pairing/QrCanvas.svelte": {
+    "mtime": 1793862492.5664272,
+    "seen": 1793863618.415228,
+    "ast_hash": "0e272b593063ea27ae4e908b98cd62a2",
+    "semantic_hash": "0e272b593063ea27ae4e908b98cd62a2"
+  },
+  "svelte-frontend/src/components/settings/SettingsPanel.svelte": {
+    "mtime": 1793862492.5669904,
+    "seen": 1793863618.4152288,
+    "ast_hash": "d3254342cbe059f8d24829883cd30ef0",
+    "semantic_hash": "d3254342cbe059f8d24829883cd30ef0"
+  },
+  "svelte-frontend/src/lib/emoji.ts": {
+    "mtime": 1793862492.5677547,
+    "seen": 1793863618.4152288,
+    "ast_hash": "423de258bac2901fba4c910cfaed7843",
+    "semantic_hash": "423de258bac2901fba4c910cfaed7843"
+  },
+  "svelte-frontend/src/lib/ipc.ts": {
+    "mtime": 1793862492.5681186,
+    "seen": 1793863618.41523,
+    "ast_hash": "1875560fca16ef706a818593275584cb",
+    "semantic_hash": "1875560fca16ef706a818593275584cb"
+  },
+  "svelte-frontend/src/lib/klipy.ts": {
+    "mtime": 1793862492.5684154,
+    "seen": 1793863618.41523,
+    "ast_hash": "bb41583af3bab0aed972388cc98488b5",
+    "semantic_hash": "bb41583af3bab0aed972388cc98488b5"
+  },
+  "svelte-frontend/src/lib/media.ts": {
+    "mtime": 1793862492.5687442,
+    "seen": 1793863618.415231,
+    "ast_hash": "86350886b48665c2eda8116e16f6cd10",
+    "semantic_hash": "86350886b48665c2eda8116e16f6cd10"
+  },
+  "svelte-frontend/src/lib/persist.ts": {
+    "mtime": 1793862492.5690498,
+    "seen": 1793863618.415231,
+    "ast_hash": "0f26ce065fd89641b3e42dc6cddb0ed5",
+    "semantic_hash": "0f26ce065fd89641b3e42dc6cddb0ed5"
+  },
+  "svelte-frontend/src/lib/receipts.ts": {
+    "mtime": 1793862542.6691186,
+    "seen": 1793863618.415232,
+    "ast_hash": "aa5fa498cc5f83bbe9ecf31e8b489671",
+    "semantic_hash": "aa5fa498cc5f83bbe9ecf31e8b489671"
+  },
+  "svelte-frontend/src/lib/send-gif.ts": {
+    "mtime": 1793862492.5696757,
+    "seen": 1793863618.4152331,
+    "ast_hash": "b0bbaade16b44b6b19955277118c265b",
+    "semantic_hash": "b0bbaade16b44b6b19955277118c265b"
+  },
+  "svelte-frontend/src/lib/send-media.ts": {
+    "mtime": 1793862492.569952,
+    "seen": 1793863618.4152331,
+    "ast_hash": "199ee4857127e8e95b49d1e3ae47b0e3",
+    "semantic_hash": "199ee4857127e8e95b49d1e3ae47b0e3"
+  },
+  "svelte-frontend/src/lib/stores/chats.svelte.ts": {
+    "mtime": 1793862542.6768358,
+    "seen": 1793863618.415234,
+    "ast_hash": "3c7f7932b566e09afc8efe77d0ab7822",
+    "semantic_hash": "3c7f7932b566e09afc8efe77d0ab7822"
+  },
+  "svelte-frontend/src/lib/stores/compose.svelte.ts": {
+    "mtime": 1793862492.5706956,
+    "seen": 1793863618.415234,
+    "ast_hash": "705edc940eccf44db0f06b0b86f0e141",
+    "semantic_hash": "705edc940eccf44db0f06b0b86f0e141"
+  },
+  "svelte-frontend/src/lib/stores/contacts.svelte.ts": {
+    "mtime": 1793862492.5710082,
+    "seen": 1793863618.415235,
+    "ast_hash": "a599d7319394e6fef0bb02eff64d609e",
+    "semantic_hash": "a599d7319394e6fef0bb02eff64d609e"
+  },
+  "svelte-frontend/src/lib/stores/events.ts": {
+    "mtime": 1793862492.5715222,
+    "seen": 1793863618.415236,
+    "ast_hash": "229efaf621f6ee8466eb5c88d6178149",
+    "semantic_hash": "229efaf621f6ee8466eb5c88d6178149"
+  },
+  "svelte-frontend/src/lib/stores/lid.ts": {
+    "mtime": 1793862492.57205,
+    "seen": 1793863618.415236,
+    "ast_hash": "71b78b5587bdd6005ed36201a90ef639",
+    "semantic_hash": "71b78b5587bdd6005ed36201a90ef639"
+  },
+  "svelte-frontend/src/lib/stores/messages.svelte.ts": {
+    "mtime": 1793862542.679473,
+    "seen": 1793863618.4152372,
+    "ast_hash": "4d3acc99b2cee25e88d2e2cdcab08690",
+    "semantic_hash": "4d3acc99b2cee25e88d2e2cdcab08690"
+  },
+  "svelte-frontend/src/lib/stores/scroll.svelte.ts": {
+    "mtime": 1793862492.5728862,
+    "seen": 1793863618.4152372,
+    "ast_hash": "4acaa2422122fa7a680e52e373a46f3d",
+    "semantic_hash": "4acaa2422122fa7a680e52e373a46f3d"
+  },
+  "svelte-frontend/src/lib/stores/session.svelte.ts": {
+    "mtime": 1793862492.5732841,
+    "seen": 1793863618.415238,
+    "ast_hash": "31f7f188023e8842f4b6decd1a7beb71",
+    "semantic_hash": "31f7f188023e8842f4b6decd1a7beb71"
+  },
+  "svelte-frontend/src/lib/stores/settings.svelte.ts": {
+    "mtime": 1793862492.5736456,
+    "seen": 1793863618.415238,
+    "ast_hash": "3c1cf2adc0191e20b7404531d517bcb4",
+    "semantic_hash": "3c1cf2adc0191e20b7404531d517bcb4"
+  },
+  "svelte-frontend/src/lib/stores/theme.svelte.ts": {
+    "mtime": 1793862492.5742683,
+    "seen": 1793863618.4152389,
+    "ast_hash": "27ccc2c9748ac049bcdfe6a6cf02ba84",
+    "semantic_hash": "27ccc2c9748ac049bcdfe6a6cf02ba84"
+  },
+  "svelte-frontend/src/lib/stores/ui.svelte.ts": {
+    "mtime": 1793862492.574661,
+    "seen": 1793863618.4152389,
+    "ast_hash": "4bb69ea374b0dd719c26aa26258e0f52",
+    "semantic_hash": "4bb69ea374b0dd719c26aa26258e0f52"
+  },
+  "svelte-frontend/src/lib/types.ts": {
+    "mtime": 1793862492.575088,
+    "seen": 1793863618.41524,
+    "ast_hash": "285f380c7ab47797584f2156aa9b3baf",
+    "semantic_hash": "285f380c7ab47797584f2156aa9b3baf"
+  },
+  "svelte-frontend/src/lib/util/jid.ts": {
+    "mtime": 1793862492.575614,
+    "seen": 1793863618.415241,
+    "ast_hash": "2015862dc9f92a90a969f0121ebb9611",
+    "semantic_hash": "2015862dc9f92a90a969f0121ebb9611"
+  },
+  "svelte-frontend/src/lib/util/preview.ts": {
+    "mtime": 1793862542.6802094,
+    "seen": 1793863618.415241,
+    "ast_hash": "1ae5f1339921e977311c990bfbc1220e",
+    "semantic_hash": "1ae5f1339921e977311c990bfbc1220e"
+  },
+  "svelte-frontend/src/lib/util/time.ts": {
+    "mtime": 1793862492.5763023,
+    "seen": 1793863618.415242,
+    "ast_hash": "256da29e19dee26641770c23867ba00b",
+    "semantic_hash": "256da29e19dee26641770c23867ba00b"
+  },
+  "svelte-frontend/src/lib/zoom.ts": {
+    "mtime": 1793862492.5767736,
+    "seen": 1793863618.415242,
+    "ast_hash": "a8329649ae66e2a0edd50a60891c007a",
+    "semantic_hash": "a8329649ae66e2a0edd50a60891c007a"
+  },
+  "svelte-frontend/src/main.ts": {
+    "mtime": 1793862492.5778549,
+    "seen": 1793863618.415243,
+    "ast_hash": "a5a8eb8fee3d3ec27f6ba6415495f5ab",
+    "semantic_hash": "a5a8eb8fee3d3ec27f6ba6415495f5ab"
+  },
+  "svelte-frontend/svelte.config.js": {
+    "mtime": 1793862492.5782814,
+    "seen": 1793863618.415243,
+    "ast_hash": "bf7174b10541059709a0e8f876f69c6a",
+    "semantic_hash": "bf7174b10541059709a0e8f876f69c6a"
+  },
+  "svelte-frontend/tsconfig.json": {
+    "mtime": 1793862492.5786674,
+    "seen": 1793863618.415244,
+    "ast_hash": "213c9ecca9fb873af5096f2f052ddba9",
+    "semantic_hash": "213c9ecca9fb873af5096f2f052ddba9"
+  },
+  "svelte-frontend/vite.config.ts": {
+    "mtime": 1793862492.5792007,
+    "seen": 1793863618.415245,
+    "ast_hash": "9087d851a475f0fb5f6cf4840c352f47",
+    "semantic_hash": "9087d851a475f0fb5f6cf4840c352f47"
+  },
+  ".github/workflows/release.yml": {
+    "mtime": 1787055350.583466,
+    "seen": 1793863618.415245,
+    "ast_hash": "5a305337e7a005de4c4d8d273f082aee",
+    "semantic_hash": "5a305337e7a005de4c4d8d273f082aee"
+  },
+  "README.md": {
+    "mtime": 1793862492.5221045,
+    "seen": 1793863618.415246,
+    "ast_hash": "2dfbd63b3beb004c9ed7d42faa3cbb13",
+    "semantic_hash": "2dfbd63b3beb004c9ed7d42faa3cbb13"
+  },
+  "docs/ARCHITECTURE.md": {
+    "mtime": 1787055350.5861747,
+    "seen": 1793863618.415246,
+    "ast_hash": "7a2891ac4fb5f059c3b3be0fdb7b8a9e",
+    "semantic_hash": "7a2891ac4fb5f059c3b3be0fdb7b8a9e"
+  },
+  "docs/phase-1-api-surface.md": {
+    "mtime": 1787055350.5868611,
+    "seen": 1793863618.4152472,
+    "ast_hash": "bf28c309ae4705e310f7e9f983c1b538",
+    "semantic_hash": "bf28c309ae4705e310f7e9f983c1b538"
+  },
+  "docs/phase-2-frontend.md": {
+    "mtime": 1787055350.587469,
+    "seen": 1793863618.4152472,
+    "ast_hash": "bcedfff993754fcfb524ed1c90ca2ffe",
+    "semantic_hash": "bcedfff993754fcfb524ed1c90ca2ffe"
+  },
+  "rust-backend/AGENTS.md": {
+    "mtime": 1787055350.5912778,
+    "seen": 1793863618.415248,
+    "ast_hash": "2ae748961a002c3c9210fa1ace96220e",
+    "semantic_hash": "2ae748961a002c3c9210fa1ace96220e"
+  },
+  "rust-backend/CLAUDE.md": {
+    "mtime": 1787055350.5915897,
+    "seen": 1793863618.415248,
+    "ast_hash": "5c27369b226fcf2be8a6cfe52224e767",
+    "semantic_hash": "5c27369b226fcf2be8a6cfe52224e767"
+  },
+  "rust-backend/README.md": {
+    "mtime": 1787055350.5944536,
+    "seen": 1793863618.4152489,
+    "ast_hash": "782d56124ecd3d57b6498df75f3de362",
+    "semantic_hash": "782d56124ecd3d57b6498df75f3de362"
+  },
+  "rust-backend/agent_docs/binary_size_ci.md": {
+    "mtime": 1787055350.595031,
+    "seen": 1793863618.4152498,
+    "ast_hash": "206f93f505e18f6fef0e2b7bdc316f84",
+    "semantic_hash": "206f93f505e18f6fef0e2b7bdc316f84"
+  },
+  "rust-backend/agent_docs/debugging.md": {
+    "mtime": 1787055350.5954313,
+    "seen": 1793863618.4152498,
+    "ast_hash": "fc9d4a54bf261134a0ac608bfd7b172c",
+    "semantic_hash": "fc9d4a54bf261134a0ac608bfd7b172c"
+  },
+  "rust-backend/agent_docs/e2e_testing.md": {
+    "mtime": 1787055350.5958664,
+    "seen": 1793863618.415251,
+    "ast_hash": "e5a4728afdbd0aad235311330c9319a4",
+    "semantic_hash": "e5a4728afdbd0aad235311330c9319a4"
+  },
+  "rust-backend/agent_docs/feature_implementation.md": {
+    "mtime": 1787055350.596347,
+    "seen": 1793863618.415251,
+    "ast_hash": "b9c26ab22ffcd74d490cd7650bd09d69",
+    "semantic_hash": "b9c26ab22ffcd74d490cd7650bd09d69"
+  },
+  "rust-backend/agent_docs/protocol_architecture.md": {
+    "mtime": 1787055350.5967314,
+    "seen": 1793863618.415252,
+    "ast_hash": "d7df8a31d8a7ec884abdb3c5a7f4ad5e",
+    "semantic_hash": "d7df8a31d8a7ec884abdb3c5a7f4ad5e"
+  }
+}

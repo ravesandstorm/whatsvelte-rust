@@ -45,3 +45,13 @@ src-tauri/gen/
 *.sw?
 CLAUDE.md
 .claude/
+
+# graphify: publish the graph artifacts, not the rebuild cache
+graphify-out/cache/
+graphify-out/.graphify_root
+graphify-out/.graphify_python
+# graphify: keep local memory out of shared repository
+graphify-out/memory/
+graphify-out/reflections/
+graphify-out/.graphify_learning.json
+graphify-out/2026-*
