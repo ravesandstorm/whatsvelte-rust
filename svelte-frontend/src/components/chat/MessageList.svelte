@@ -1,6 +1,14 @@
 <script lang="ts">
   import { tick, untrack } from "svelte";
-  import { markMessagesRead, type UiMessage } from "../../lib/stores/messages.svelte";
+  import {
+    closeChat,
+    hasOlder as olderInDb,
+    loadOlder,
+    loadUntil,
+    markMessagesRead,
+    openChat,
+    type UiMessage,
+  } from "../../lib/stores/messages.svelte";
   import { isGroup } from "../../lib/util/jid";
   import { scrollTarget, clearScrollTarget } from "../../lib/stores/scroll.svelte";
   import MessageBubble from "./MessageBubble.svelte";
@@ -10,7 +18,8 @@
   // Render only a window of the most recent messages. A full chat can hold
   // thousands of history messages (each with a base64 thumbnail) — mounting
   // them all is what spikes RAM when a chat opens. We start at the latest and
-  // reveal older ones as the user scrolls up.
+  // reveal older ones as the user scrolls up. The store itself only holds a
+  // short tail per chat; older pages are read from IndexedDB on demand.
   const PAGE = 40;
   let limit = $state(PAGE);
   let el: HTMLDivElement | undefined = $state();
@@ -19,7 +28,7 @@
   let pinned = $state(true);
 
   const visible = $derived(messages.slice(Math.max(0, messages.length - limit)));
-  const hasOlder = $derived(messages.length > limit);
+  const hasOlder = $derived(messages.length > limit || olderInDb(chatJid));
 
   // Identify the first unread incoming message to render the "Unread" divider above it
   const firstUnreadId = $derived.by(() => {
@@ -30,15 +39,28 @@
   const unreadCount = $derived(visible.filter((m) => !m.fromMe && m.unread).length);
 
   let prevJid = $state<string | null>(null);
-  let prevMsgLen = $state(0);
+  let prevLastId = $state<string | null>(null);
+
+  // Page the chat's history in from IndexedDB while it's open, and drop it back
+  // to the resident tail when it's closed (switch or unmount).
+  $effect(() => {
+    const jid = chatJid;
+    return () => closeChat(jid);
+  });
 
   // Initial scroll positioning on chat switch or mount
   $effect(() => {
     if (chatJid !== prevJid) {
-      prevJid = chatJid;
-      prevMsgLen = visible.length;
+      const jid = chatJid;
+      prevJid = jid;
       limit = PAGE;
-      void tick().then(() => {
+      untrack(() => {
+        prevLastId = visible[visible.length - 1]?.id ?? null;
+      });
+      void untrack(() => openChat(jid)).then(async () => {
+        if (jid !== chatJid) return; // switched away while loading
+        prevLastId = untrack(() => visible[visible.length - 1]?.id ?? null);
+        await tick();
         if (!el) return;
         const unreadMsg = visible.find((m) => !m.fromMe && m.unread);
         if (unreadMsg) {
@@ -61,24 +83,22 @@
   // Handle auto-scroll logic on new messages:
   // Outgoing messages auto-scroll to bottom.
   // Incoming messages stay unread below the scroll point without auto-scrolling down!
+  // Keyed on the newest message's id (not the list length), so older pages
+  // being prepended from IndexedDB never count as a new arrival.
   $effect(() => {
-    const curLen = visible.length;
-    if (chatJid === prevJid && curLen > prevMsgLen) {
-      const isNewArrival = prevMsgLen > 0;
-      prevMsgLen = curLen;
-      if (isNewArrival) {
-        const newest = visible[curLen - 1];
-        if (newest && newest.fromMe) {
-          void tick().then(() => {
-            if (el) el.scrollTop = el.scrollHeight;
-            pinned = true;
-          });
-        } else {
-          pinned = false;
-        }
-      }
+    const newest = visible[visible.length - 1];
+    const lastId = newest?.id ?? null;
+    if (chatJid !== prevJid || lastId === prevLastId) return;
+    const isNewArrival = prevLastId !== null;
+    prevLastId = lastId;
+    if (!isNewArrival || !newest) return;
+    if (newest.fromMe) {
+      void tick().then(() => {
+        if (el) el.scrollTop = el.scrollHeight;
+        pinned = true;
+      });
     } else {
-      prevMsgLen = curLen;
+      pinned = false;
     }
   });
 
@@ -108,8 +128,11 @@
   });
 
   async function revealAndScroll(id: string) {
+    // Page older history in from IndexedDB until the target is resident.
+    if (!messages.some((m) => m.id === id) && !(await loadUntil(chatJid, id))) return;
+    await tick();
     const idx = messages.findIndex((m) => m.id === id);
-    if (idx < 0) return; // not in this chat / not loaded from history
+    if (idx < 0) return; // not in this chat / never persisted
     const fromEnd = messages.length - idx;
     if (fromEnd > limit) {
       limit = fromEnd + 5;
@@ -126,6 +149,8 @@
     }, 1500);
   }
 
+  let pagingOlder = false;
+
   async function onScroll() {
     const node = el;
     if (!node) return;
@@ -141,9 +166,16 @@
 
     // Near the top with more history available → reveal an older page and keep
     // the current messages visually in place (no jump).
-    if (node.scrollTop < 60 && hasOlder) {
+    if (node.scrollTop < 60 && hasOlder && !pagingOlder) {
+      pagingOlder = true;
       const prevHeight = node.scrollHeight;
       const prevTop = node.scrollTop;
+      try {
+        // Out of resident messages → read the next page from IndexedDB first.
+        if (messages.length <= limit) await loadOlder(chatJid, PAGE);
+      } finally {
+        pagingOlder = false;
+      }
       limit += PAGE;
       await tick();
       node.scrollTop = node.scrollHeight - prevHeight + prevTop;
