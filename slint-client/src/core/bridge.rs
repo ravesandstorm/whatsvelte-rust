@@ -46,17 +46,36 @@ pub enum UiEvent {
     /// `wa://conn/state` — connected or disconnected; re-query status.
     ConnState { session_id: String, connected: bool },
     /// `wa://message`
-    Message { session_id: String, message: MessageDto },
+    Message {
+        session_id: String,
+        message: MessageDto,
+    },
     /// `wa://message/update`
-    MessageUpdate { session_id: String, update: MessageUpdateDto },
+    MessageUpdate {
+        session_id: String,
+        update: MessageUpdateDto,
+    },
     /// `wa://message/delete-for-me`
-    DeleteForMe { session_id: String, chat_jid: String, message_id: String },
+    DeleteForMe {
+        session_id: String,
+        chat_jid: String,
+        message_id: String,
+    },
     /// `wa://history`
-    History { session_id: String, history: HistoryDto },
+    History {
+        session_id: String,
+        history: HistoryDto,
+    },
     /// `wa://receipt`
-    Receipt { session_id: String, receipt: ReceiptDto },
+    Receipt {
+        session_id: String,
+        receipt: ReceiptDto,
+    },
     /// `wa://chat/flags`
-    ChatFlags { session_id: String, flags: ChatFlagsDto },
+    ChatFlags {
+        session_id: String,
+        flags: ChatFlagsDto,
+    },
     /// `wa://error/stream`
     StreamError { session_id: String, message: String },
 }
@@ -115,41 +134,69 @@ pub async fn pump(ui: Sender<UiEvent>, session_id: String, rx: Receiver<Arc<Even
             Event::Message(msg, info) => {
                 // Control messages (revoke/edit/reaction) patch an existing bubble.
                 if let Some(update) = message_update_dto(msg, info) {
-                    Some(UiEvent::MessageUpdate { session_id: sid(), update })
+                    Some(UiEvent::MessageUpdate {
+                        session_id: sid(),
+                        update,
+                    })
                 } else if msg.get_base_message().secret_encrypted_message.is_some() {
                     // Undecryptable encrypted edit/reaction: nothing to show.
                     None
                 } else {
                     let dto = message_dto_live(msg, info);
                     // Device-to-device protocol traffic / album headers: skip.
-                    is_renderable(&dto).then(|| UiEvent::Message { session_id: sid(), message: dto })
+                    is_renderable(&dto).then(|| UiEvent::Message {
+                        session_id: sid(),
+                        message: dto,
+                    })
                 }
             }
             Event::HistorySync(lazy) => {
                 spawn_history_decode(&ui, &session_id, lazy);
                 None
             }
-            Event::Receipt(r) => receipt_dto(r).map(|receipt| UiEvent::Receipt { session_id: sid(), receipt }),
-            Event::MuteUpdate(_) | Event::PinUpdate(_) | Event::ArchiveUpdate(_) => Some(UiEvent::ChatFlags {
+            Event::Receipt(r) => receipt_dto(r).map(|receipt| UiEvent::Receipt {
                 session_id: sid(),
-                flags: chat_flags_dto(event.as_ref()),
+                receipt,
             }),
+            Event::MuteUpdate(_) | Event::PinUpdate(_) | Event::ArchiveUpdate(_) => {
+                Some(UiEvent::ChatFlags {
+                    session_id: sid(),
+                    flags: chat_flags_dto(event.as_ref()),
+                })
+            }
             Event::DeleteMessageForMeUpdate(u) => Some(UiEvent::DeleteForMe {
                 session_id: sid(),
                 chat_jid: u.chat_jid.to_string(),
                 message_id: u.message_id.clone(),
             }),
-            Event::PairingQrCode { code, .. } => Some(UiEvent::Qr { session_id: sid(), code: code.clone() }),
-            Event::PairingCode { code, .. } => Some(UiEvent::PairCode { session_id: sid(), code: code.clone() }),
-            Event::PairSuccess(_) => Some(UiEvent::Paired { session_id: sid() }),
-            Event::PairError(e) => Some(UiEvent::PairError { session_id: sid(), message: format!("{e:?}") }),
-            Event::LoggedOut(_) => Some(UiEvent::LoggedOut { session_id: sid() }),
-            Event::Connected(_) => Some(UiEvent::ConnState { session_id: sid(), connected: true }),
-            Event::Disconnected(_) => Some(UiEvent::ConnState { session_id: sid(), connected: false }),
-            Event::StreamError(_) | Event::ConnectFailure(_) | Event::TemporaryBan(_) => Some(UiEvent::StreamError {
+            Event::PairingQrCode { code, .. } => Some(UiEvent::Qr {
                 session_id: sid(),
-                message: format!("{:?}", event.kind()),
+                code: code.clone(),
             }),
+            Event::PairingCode { code, .. } => Some(UiEvent::PairCode {
+                session_id: sid(),
+                code: code.clone(),
+            }),
+            Event::PairSuccess(_) => Some(UiEvent::Paired { session_id: sid() }),
+            Event::PairError(e) => Some(UiEvent::PairError {
+                session_id: sid(),
+                message: format!("{e:?}"),
+            }),
+            Event::LoggedOut(_) => Some(UiEvent::LoggedOut { session_id: sid() }),
+            Event::Connected(_) => Some(UiEvent::ConnState {
+                session_id: sid(),
+                connected: true,
+            }),
+            Event::Disconnected(_) => Some(UiEvent::ConnState {
+                session_id: sid(),
+                connected: false,
+            }),
+            Event::StreamError(_) | Event::ConnectFailure(_) | Event::TemporaryBan(_) => {
+                Some(UiEvent::StreamError {
+                    session_id: sid(),
+                    message: format!("{:?}", event.kind()),
+                })
+            }
             _ => None,
         };
         if let Some(ev) = out
@@ -306,7 +353,11 @@ fn message_update_dto(msg: &wa::Message, info: &MessageInfo) -> Option<MessageUp
     };
 
     if let Some(pm) = base.protocol_message.as_ref() {
-        let target_id = pm.key.as_ref().and_then(|k| k.id.clone()).unwrap_or_default();
+        let target_id = pm
+            .key
+            .as_ref()
+            .and_then(|k| k.id.clone())
+            .unwrap_or_default();
         if pm.r#type == Some(PmType::Revoke as i32) {
             return Some(make("revoke", target_id, None));
         }
@@ -317,9 +368,17 @@ fn message_update_dto(msg: &wa::Message, info: &MessageInfo) -> Option<MessageUp
     }
 
     if let Some(rm) = base.reaction_message.as_ref() {
-        let target_id = rm.key.as_ref().and_then(|k| k.id.clone()).unwrap_or_default();
+        let target_id = rm
+            .key
+            .as_ref()
+            .and_then(|k| k.id.clone())
+            .unwrap_or_default();
         // An empty/absent emoji means the reaction was removed.
-        return Some(make("reaction", target_id, Some(rm.text.clone().unwrap_or_default())));
+        return Some(make(
+            "reaction",
+            target_id,
+            Some(rm.text.clone().unwrap_or_default()),
+        ));
     }
 
     None
@@ -388,7 +447,13 @@ fn message_dto_history(chat_jid: &str, wmi: &wa::WebMessageInfo) -> MessageDto {
         .participant
         .clone()
         .or_else(|| key.participant.clone())
-        .unwrap_or_else(|| if from_me { String::new() } else { chat_jid.to_string() });
+        .unwrap_or_else(|| {
+            if from_me {
+                String::new()
+            } else {
+                chat_jid.to_string()
+            }
+        });
 
     let (text, kind, thumbnail, media, quoted, album_parent_id) = match wmi.message.as_deref() {
         Some(m) => (
@@ -599,8 +664,9 @@ fn structured_text(b: &wa::Message) -> Option<String> {
         .and_then(|m| m.hydrated_template.as_deref())
     {
         let mut parts: Vec<String> = Vec::new();
-        if let Some(wa::message::template_message::hydrated_four_row_template::Title::HydratedTitleText(t)) =
-            &ht.title
+        if let Some(
+            wa::message::template_message::hydrated_four_row_template::Title::HydratedTitleText(t),
+        ) = &ht.title
         {
             parts.push(t.clone());
         }
@@ -677,13 +743,18 @@ fn structured_text(b: &wa::Message) -> Option<String> {
     }
     // Location.
     if let Some(m) = b.location_message.as_ref() {
-        return Some(m.name.clone().or_else(|| m.address.clone()).unwrap_or_else(|| {
-            format!(
-                "{:.5}, {:.5}",
-                m.degrees_latitude.unwrap_or(0.0),
-                m.degrees_longitude.unwrap_or(0.0)
-            )
-        }));
+        return Some(
+            m.name
+                .clone()
+                .or_else(|| m.address.clone())
+                .unwrap_or_else(|| {
+                    format!(
+                        "{:.5}, {:.5}",
+                        m.degrees_latitude.unwrap_or(0.0),
+                        m.degrees_longitude.unwrap_or(0.0)
+                    )
+                }),
+        );
     }
     None
 }
@@ -713,7 +784,14 @@ fn media_dto(msg: &wa::Message) -> Option<MediaDto> {
     };
 
     if let Some(m) = b.image_message.as_ref() {
-        let d = descriptor(&m.direct_path, &m.media_key, &m.file_sha256, &m.file_enc_sha256, m.file_length, "image")?;
+        let d = descriptor(
+            &m.direct_path,
+            &m.media_key,
+            &m.file_sha256,
+            &m.file_enc_sha256,
+            m.file_length,
+            "image",
+        )?;
         return Some(MediaDto {
             kind: "image".into(),
             mimetype: m.mimetype.clone(),
@@ -726,7 +804,14 @@ fn media_dto(msg: &wa::Message) -> Option<MediaDto> {
         });
     }
     if let Some(m) = b.video_message.as_ref() {
-        let d = descriptor(&m.direct_path, &m.media_key, &m.file_sha256, &m.file_enc_sha256, m.file_length, "video")?;
+        let d = descriptor(
+            &m.direct_path,
+            &m.media_key,
+            &m.file_sha256,
+            &m.file_enc_sha256,
+            m.file_length,
+            "video",
+        )?;
         return Some(MediaDto {
             kind: "video".into(),
             mimetype: m.mimetype.clone(),
@@ -739,7 +824,14 @@ fn media_dto(msg: &wa::Message) -> Option<MediaDto> {
         });
     }
     if let Some(m) = b.ptv_message.as_ref() {
-        let d = descriptor(&m.direct_path, &m.media_key, &m.file_sha256, &m.file_enc_sha256, m.file_length, "video")?;
+        let d = descriptor(
+            &m.direct_path,
+            &m.media_key,
+            &m.file_sha256,
+            &m.file_enc_sha256,
+            m.file_length,
+            "video",
+        )?;
         return Some(MediaDto {
             kind: "video".into(),
             mimetype: m.mimetype.clone(),
@@ -752,7 +844,14 @@ fn media_dto(msg: &wa::Message) -> Option<MediaDto> {
         });
     }
     if let Some(m) = b.audio_message.as_ref() {
-        let d = descriptor(&m.direct_path, &m.media_key, &m.file_sha256, &m.file_enc_sha256, m.file_length, "audio")?;
+        let d = descriptor(
+            &m.direct_path,
+            &m.media_key,
+            &m.file_sha256,
+            &m.file_enc_sha256,
+            m.file_length,
+            "audio",
+        )?;
         return Some(MediaDto {
             kind: "audio".into(),
             mimetype: m.mimetype.clone(),
@@ -765,7 +864,14 @@ fn media_dto(msg: &wa::Message) -> Option<MediaDto> {
         });
     }
     if let Some(m) = b.document_message.as_ref() {
-        let d = descriptor(&m.direct_path, &m.media_key, &m.file_sha256, &m.file_enc_sha256, m.file_length, "document")?;
+        let d = descriptor(
+            &m.direct_path,
+            &m.media_key,
+            &m.file_sha256,
+            &m.file_enc_sha256,
+            m.file_length,
+            "document",
+        )?;
         return Some(MediaDto {
             kind: "document".into(),
             mimetype: m.mimetype.clone(),
@@ -778,7 +884,14 @@ fn media_dto(msg: &wa::Message) -> Option<MediaDto> {
         });
     }
     if let Some(m) = b.sticker_message.as_ref() {
-        let d = descriptor(&m.direct_path, &m.media_key, &m.file_sha256, &m.file_enc_sha256, m.file_length, "sticker")?;
+        let d = descriptor(
+            &m.direct_path,
+            &m.media_key,
+            &m.file_sha256,
+            &m.file_enc_sha256,
+            m.file_length,
+            "sticker",
+        )?;
         return Some(MediaDto {
             kind: "sticker".into(),
             mimetype: m.mimetype.clone(),
@@ -839,9 +952,20 @@ fn thumbnail_b64(msg: &wa::Message) -> Option<String> {
         .image_message
         .as_ref()
         .and_then(|m| m.jpeg_thumbnail.as_ref())
-        .or_else(|| b.video_message.as_ref().and_then(|m| m.jpeg_thumbnail.as_ref()))
-        .or_else(|| b.ptv_message.as_ref().and_then(|m| m.jpeg_thumbnail.as_ref()))
-        .or_else(|| b.extended_text_message.as_ref().and_then(|m| m.jpeg_thumbnail.as_ref()))?;
+        .or_else(|| {
+            b.video_message
+                .as_ref()
+                .and_then(|m| m.jpeg_thumbnail.as_ref())
+        })
+        .or_else(|| {
+            b.ptv_message
+                .as_ref()
+                .and_then(|m| m.jpeg_thumbnail.as_ref())
+        })
+        .or_else(|| {
+            b.extended_text_message
+                .as_ref()
+                .and_then(|m| m.jpeg_thumbnail.as_ref())
+        })?;
     Some(base64::engine::general_purpose::STANDARD.encode(bytes))
 }
-

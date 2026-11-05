@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use crate::core::dto::{ChatDto, MediaDescriptorDto, MediaDto, MessageDto, QuotedDto, StatusDto};
 use crate::store::{MessageStatus, UiMessage};
-use crate::ui::controller::{lock, Controller, DIRTY_ALL};
+use crate::ui::controller::{Controller, DIRTY_ALL, lock};
 use crate::util::time::now_secs;
 
 impl Controller {
@@ -35,7 +35,9 @@ impl Controller {
         let ada = "919876543210@s.whatsapp.net";
         let bob = "447700900123@s.whatsapp.net";
         let thumb = {
-            let img = image::RgbImage::from_fn(160, 120, |x, y| image::Rgb([(x * 255 / 160) as u8, (y * 255 / 120) as u8, 160]));
+            let img = image::RgbImage::from_fn(160, 120, |x, y| {
+                image::Rgb([(x * 255 / 160) as u8, (y * 255 / 120) as u8, 160])
+            });
             crate::media::prep::thumbnail_b64(&image::DynamicImage::ImageRgb8(img)).ok()
         };
         {
@@ -45,17 +47,40 @@ impl Controller {
                 (g, Some("Rust Hackers"), "cargo build --release 🚀", 600, 3),
                 (bob, None, "📷 Photo", 4000, 0),
                 ("100000012345678@lid", None, "ok", 90_000, 0),
-                ("120363000000000002@newsletter", Some("Slint News"), "1.18 released", 200_000, 0),
+                (
+                    "120363000000000002@newsletter",
+                    Some("Slint News"),
+                    "1.18 released",
+                    200_000,
+                    0,
+                ),
                 ("status@broadcast", None, "📷 Photo", 300_000, 0),
-                ("120363000000000003@g.us", Some("Old Project"), "archived chat", 900_000, 0),
+                (
+                    "120363000000000003@g.us",
+                    Some("Old Project"),
+                    "archived chat",
+                    900_000,
+                    0,
+                ),
             ] {
-                s.upsert_chat_dto(&ChatDto { jid: jid.into(), name: name.map(Into::into), last_message: Some(last.into()), timestamp: now - ago, unread });
+                s.upsert_chat_dto(&ChatDto {
+                    jid: jid.into(),
+                    name: name.map(Into::into),
+                    last_message: Some(last.into()),
+                    timestamp: now - ago,
+                    unread,
+                });
             }
             s.set_flag(bob, "pinned", true);
             s.set_flag(g, "muted", true);
             s.set_flag("120363000000000003@g.us", "archived", true);
             s.set_draft("100000012345678@lid", "unsent thought");
-            let mk = |id: &str, sender: &str, from_me: bool, ago: i64, text: Option<&str>, kind: &str| UiMessage {
+            let mk = |id: &str,
+                      sender: &str,
+                      from_me: bool,
+                      ago: i64,
+                      text: Option<&str>,
+                      kind: &str| UiMessage {
                 dto: MessageDto {
                     id: id.into(),
                     chat_jid: g.into(),
@@ -66,7 +91,11 @@ impl Controller {
                     kind: kind.into(),
                     ..Default::default()
                 },
-                status: if from_me { MessageStatus::Read } else { MessageStatus::None },
+                status: if from_me {
+                    MessageStatus::Read
+                } else {
+                    MessageStatus::None
+                },
                 ..Default::default()
             };
             let media = |kind: &str, name: Option<&str>, secs: Option<u32>| MediaDto {
@@ -75,13 +104,37 @@ impl Controller {
                 duration_secs: secs,
                 width: Some(160),
                 height: Some(120),
-                descriptor: MediaDescriptorDto { file_length: 482_133, ..Default::default() },
+                descriptor: MediaDescriptorDto {
+                    file_length: 482_133,
+                    ..Default::default()
+                },
                 ..Default::default()
             };
             let mut msgs = vec![
-                mk("m1", ada, false, 90_000, Some("Has anyone tried Slint for desktop apps? Docs: https://slint.dev/docs"), "text"),
-                mk("m2", me, true, 89_000, Some("Yes! Rewriting our Tauri client in it right now.\\nNo WebView at all."), "text"),
-                mk("m2b", me, true, 88_990, Some("Memory went way down."), "text"),
+                mk(
+                    "m1",
+                    ada,
+                    false,
+                    90_000,
+                    Some("Has anyone tried Slint for desktop apps? Docs: https://slint.dev/docs"),
+                    "text",
+                ),
+                mk(
+                    "m2",
+                    me,
+                    true,
+                    89_000,
+                    Some("Yes! Rewriting our Tauri client in it right now.\\nNo WebView at all."),
+                    "text",
+                ),
+                mk(
+                    "m2b",
+                    me,
+                    true,
+                    88_990,
+                    Some("Memory went way down."),
+                    "text",
+                ),
             ];
             for k in 0..5 {
                 let mut p = mk(&format!("al{k}"), bob, false, 5000 - k * 10, None, "image");
@@ -89,8 +142,21 @@ impl Controller {
                 p.dto.thumbnail = thumb.clone();
                 msgs.push(p);
             }
-            let mut reply = mk("m4", me, true, 2000, Some("Way lower — no JS heap, no IPC serialization."), "text");
-            reply.dto.quoted = Some(QuotedDto { id: "m1".into(), sender_jid: Some(ada.into()), text: Some("Has anyone tried Slint for desktop apps?".into()), kind: "text".into(), thumbnail: None });
+            let mut reply = mk(
+                "m4",
+                me,
+                true,
+                2000,
+                Some("Way lower — no JS heap, no IPC serialization."),
+                "text",
+            );
+            reply.dto.quoted = Some(QuotedDto {
+                id: "m1".into(),
+                sender_jid: Some(ada.into()),
+                text: Some("Has anyone tried Slint for desktop apps?".into()),
+                kind: "text".into(),
+                thumbnail: None,
+            });
             for (k, e) in [("a", "🔥"), ("b", "🔥"), ("c", "👍")] {
                 reply.reactions.insert(k.into(), e.into());
             }
@@ -101,8 +167,22 @@ impl Controller {
             let mut voice = mk("m5b", bob, false, 1400, None, "audio");
             voice.dto.media = Some(media("audio", None, Some(14)));
             msgs.push(voice);
-            msgs.push(mk("m5c", ada, false, 1300, Some("What should we name it?\\n• Wha.rs\\n• Slinky"), "poll"));
-            let mut edited = mk("m6", me, true, 600, Some("cargo build --release 🚀"), "text");
+            msgs.push(mk(
+                "m5c",
+                ada,
+                false,
+                1300,
+                Some("What should we name it?\\n• Wha.rs\\n• Slinky"),
+                "poll",
+            ));
+            let mut edited = mk(
+                "m6",
+                me,
+                true,
+                600,
+                Some("cargo build --release 🚀"),
+                "text",
+            );
             edited.edited_at = Some(now - 500);
             edited.status = MessageStatus::Delivered;
             msgs.push(edited);
@@ -123,7 +203,12 @@ impl Controller {
             Ok("delete") => self.ask_delete("m6".into()),
             Ok("album") => {
                 tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-                let row = lock(&self.view).albums.keys().next().cloned().unwrap_or_default();
+                let row = lock(&self.view)
+                    .albums
+                    .keys()
+                    .next()
+                    .cloned()
+                    .unwrap_or_default();
                 self.open_album(row);
             }
             Ok("viewer") => {

@@ -58,11 +58,19 @@ pub fn format_phone(jid: &str) -> String {
     }
     let digits: String = user.chars().filter(|c| c.is_ascii_digit()).collect();
     if digits.len() < 10 {
-        return if digits.is_empty() { user.to_string() } else { format!("+{digits}") };
+        return if digits.is_empty() {
+            user.to_string()
+        } else {
+            format!("+{digits}")
+        };
     }
     let (code, national) = digits.split_at(digits.len() - 10);
     let grouped = format!("{} {}", &national[..5], &national[5..]);
-    if code.is_empty() { grouped } else { format!("+{code} {grouped}") }
+    if code.is_empty() {
+        grouped
+    } else {
+        format!("+{code} {grouped}")
+    }
 }
 
 pub fn display_name(jid: &str, name: Option<&str>, push_name: Option<&str>) -> String {
@@ -98,7 +106,10 @@ mod tests {
 
     #[test]
     fn formats_phones_and_lids() {
-        assert_eq!(format_phone("919876543210@s.whatsapp.net"), "+91 98765 43210");
+        assert_eq!(
+            format_phone("919876543210@s.whatsapp.net"),
+            "+91 98765 43210"
+        );
         assert_eq!(format_phone("100000012345678@lid"), "~5678");
         assert_eq!(format_phone("123@s.whatsapp.net"), "+123");
     }
@@ -112,6 +123,9 @@ mod tests {
 
     #[test]
     fn normalizes_device_suffix() {
-        assert_eq!(normalize_jid("12345.0:7@s.whatsapp.net"), "12345@s.whatsapp.net");
+        assert_eq!(
+            normalize_jid("12345.0:7@s.whatsapp.net"),
+            "12345@s.whatsapp.net"
+        );
     }
 }

@@ -73,7 +73,12 @@ impl AudioPlayer {
                                     p.append(source);
                                     p.play();
                                     player = Some(p);
-                                    *lock(&st) = PlayState { key: Some(key), playing: true, position: Duration::ZERO, duration };
+                                    *lock(&st) = PlayState {
+                                        key: Some(key),
+                                        playing: true,
+                                        position: Duration::ZERO,
+                                        duration,
+                                    };
                                 }
                                 Err(e) => {
                                     log::warn!("can't play {}: {e}", path.display());
@@ -122,7 +127,10 @@ impl AudioPlayer {
         let _ = if loaded {
             self.tx.send(Cmd::Toggle)
         } else {
-            self.tx.send(Cmd::Play { key: key.to_string(), path: path.to_path_buf() })
+            self.tx.send(Cmd::Play {
+                key: key.to_string(),
+                path: path.to_path_buf(),
+            })
         };
     }
 
@@ -157,7 +165,9 @@ fn load(path: &Path) -> anyhow::Result<Loaded> {
 
 /// Ogg container whose first packet is an `OpusHead`.
 fn is_ogg_opus(path: &Path) -> bool {
-    let Ok(mut f) = File::open(path) else { return false };
+    let Ok(mut f) = File::open(path) else {
+        return false;
+    };
     let mut head = [0u8; 64];
     let n = f.read(&mut head).unwrap_or(0);
     let _ = f.seek(SeekFrom::Start(0));
@@ -167,11 +177,23 @@ fn is_ogg_opus(path: &Path) -> bool {
 /// Decode an Ogg/Opus file to interleaved f32 at 48 kHz.
 pub fn decode_ogg_opus(path: &Path) -> anyhow::Result<(u16, Vec<f32>)> {
     let mut reader = ogg::PacketReader::new(BufReader::new(File::open(path)?));
-    let head = reader.read_packet()?.ok_or_else(|| anyhow::anyhow!("empty ogg"))?;
-    anyhow::ensure!(head.data.starts_with(b"OpusHead") && head.data.len() >= 19, "not an Opus stream");
+    let head = reader
+        .read_packet()?
+        .ok_or_else(|| anyhow::anyhow!("empty ogg"))?;
+    anyhow::ensure!(
+        head.data.starts_with(b"OpusHead") && head.data.len() >= 19,
+        "not an Opus stream"
+    );
     let channels = head.data[9].clamp(1, 2) as u16;
     let pre_skip = u16::from_le_bytes([head.data[10], head.data[11]]) as usize;
-    let mut decoder = opus::Decoder::new(48_000, if channels == 2 { opus::Channels::Stereo } else { opus::Channels::Mono })?;
+    let mut decoder = opus::Decoder::new(
+        48_000,
+        if channels == 2 {
+            opus::Channels::Stereo
+        } else {
+            opus::Channels::Mono
+        },
+    )?;
     let mut out = Vec::new();
     let mut frame = vec![0f32; 5760 * channels as usize];
     while let Some(packet) = reader.read_packet()? {

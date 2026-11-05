@@ -235,13 +235,18 @@ fn models(app: &AppState<'_>) -> Rc<Models> {
 
 impl Models {
     fn image(&self, px: Option<Pixels>) -> (Image, bool) {
-        let Some(px) = px else { return (Image::default(), false) };
+        let Some(px) = px else {
+            return (Image::default(), false);
+        };
         let key = (px.as_bytes().as_ptr() as usize, px.width(), px.height());
         let mut cache = self.images.borrow_mut();
         if cache.len() > 1500 {
             cache.clear();
         }
-        let img = cache.entry(key).or_insert_with(|| Image::from_rgba8(px)).clone();
+        let img = cache
+            .entry(key)
+            .or_insert_with(|| Image::from_rgba8(px))
+            .clone();
         (img, true)
     }
 }
@@ -249,7 +254,11 @@ impl Models {
 /// Patch `model` to equal `rows`: update changed rows in place, append/trim
 /// the tail; fall back to a full reset only when `same` says the leading rows
 /// diverge. In-place updates keep the ListView's scroll position.
-fn sync_model<T: Clone + PartialEq + 'static>(model: &VecModel<T>, rows: Vec<T>, same: impl Fn(&T, &T) -> bool) {
+fn sync_model<T: Clone + PartialEq + 'static>(
+    model: &VecModel<T>,
+    rows: Vec<T>,
+    same: impl Fn(&T, &T) -> bool,
+) {
     let old_len = model.row_count();
     let common = old_len.min(rows.len());
     let prefix_ok = (0..common).all(|i| model.row_data(i).is_some_and(|o| same(&o, &rows[i])));
@@ -278,7 +287,13 @@ fn tiles(m: &Models, tiles: Vec<TileData>) -> ModelRc<AlbumTile> {
         .into_iter()
         .map(|t| {
             let (image, has_image) = m.image(t.image);
-            AlbumTile { id: ss(t.id), image, has_image, is_video: t.is_video, more: t.more }
+            AlbumTile {
+                id: ss(t.id),
+                image,
+                has_image,
+                is_video: t.is_video,
+                more: t.more,
+            }
         })
         .collect();
     ModelRc::new(VecModel::from(v))
@@ -406,7 +421,11 @@ impl Frame {
                         audio_progress: r.audio_progress,
                         audio_label: ss(r.audio_label),
                         is_album,
-                        album: if is_album { tiles(&m, r.album) } else { ModelRc::default() },
+                        album: if is_album {
+                            tiles(&m, r.album)
+                        } else {
+                            ModelRc::default()
+                        },
                         day: ss(r.day),
                         unread: r.unread,
                         unread_divider: r.unread_divider,
@@ -448,7 +467,10 @@ impl Frame {
             let sugg: Vec<Suggestion> = c
                 .suggestions
                 .into_iter()
-                .map(|(emoji, code)| Suggestion { emoji: ss(emoji), code: ss(code) })
+                .map(|(emoji, code)| Suggestion {
+                    emoji: ss(emoji),
+                    code: ss(code),
+                })
                 .collect();
             app.set_suggestions(ModelRc::new(VecModel::from(sugg)));
             app.set_suggestion_index(c.suggestion_index);
@@ -480,7 +502,11 @@ impl Frame {
             let tabs: Vec<EmojiTab> = o
                 .emoji_tabs
                 .into_iter()
-                .map(|(key, icon, label)| EmojiTab { key: ss(key), icon: ss(icon), label: ss(label) })
+                .map(|(key, icon, label)| EmojiTab {
+                    key: ss(key),
+                    icon: ss(icon),
+                    label: ss(label),
+                })
                 .collect();
             app.set_emoji_tabs(ModelRc::new(VecModel::from(tabs)));
             app.set_emoji_tab(o.emoji_tab);
@@ -493,7 +519,11 @@ impl Frame {
                 .into_iter()
                 .map(|(id, px)| {
                     let (image, has_image) = m.image(px);
-                    GifItem { id: ss(id), image, has_image }
+                    GifItem {
+                        id: ss(id),
+                        image,
+                        has_image,
+                    }
                 })
                 .collect();
             app.set_gifs(ModelRc::new(VecModel::from(gifs)));

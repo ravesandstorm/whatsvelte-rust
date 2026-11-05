@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use base64::Engine;
-use image::codecs::jpeg::JpegEncoder;
 use image::DynamicImage;
+use image::codecs::jpeg::JpegEncoder;
 
 /// Standard / HD image sends: longest edge and JPEG quality (never upscaled).
 pub const STANDARD_EDGE: u32 = 1600;
@@ -18,7 +18,9 @@ pub const THUMB_EDGE: u32 = 200;
 pub const THUMB_QUALITY: u8 = 60;
 
 pub fn decode(path: &Path) -> anyhow::Result<DynamicImage> {
-    Ok(image::ImageReader::open(path)?.with_guessed_format()?.decode()?)
+    Ok(image::ImageReader::open(path)?
+        .with_guessed_format()?
+        .decode()?)
 }
 
 fn encode_jpeg(img: &DynamicImage, quality: u8) -> anyhow::Result<Vec<u8>> {
@@ -29,7 +31,11 @@ fn encode_jpeg(img: &DynamicImage, quality: u8) -> anyhow::Result<Vec<u8>> {
 
 /// Base64 JPEG thumbnail (no `data:` prefix), longest edge ≤ 200px, q60.
 pub fn thumbnail_b64(img: &DynamicImage) -> anyhow::Result<String> {
-    let t = if img.width() > THUMB_EDGE || img.height() > THUMB_EDGE { img.thumbnail(THUMB_EDGE, THUMB_EDGE) } else { img.clone() };
+    let t = if img.width() > THUMB_EDGE || img.height() > THUMB_EDGE {
+        img.thumbnail(THUMB_EDGE, THUMB_EDGE)
+    } else {
+        img.clone()
+    };
     Ok(base64::engine::general_purpose::STANDARD.encode(encode_jpeg(&t, THUMB_QUALITY)?))
 }
 
@@ -37,7 +43,11 @@ pub fn thumbnail_b64(img: &DynamicImage) -> anyhow::Result<String> {
 pub fn compress_image(src: &Path, hd: bool) -> anyhow::Result<(PathBuf, String)> {
     let img = decode(src)?;
     let edge = if hd { HD_EDGE } else { STANDARD_EDGE };
-    let img = if img.width() > edge || img.height() > edge { img.resize(edge, edge, image::imageops::FilterType::Lanczos3) } else { img };
+    let img = if img.width() > edge || img.height() > edge {
+        img.resize(edge, edge, image::imageops::FilterType::Lanczos3)
+    } else {
+        img
+    };
     let bytes = encode_jpeg(&img, if hd { HD_QUALITY } else { STANDARD_QUALITY })?;
     let path = stage_path("jpg");
     std::fs::write(&path, bytes)?;
@@ -56,7 +66,8 @@ pub fn stage_path(ext: &str) -> PathBuf {
 }
 
 pub fn is_gif(path: &Path) -> bool {
-    path.extension().is_some_and(|e| e.eq_ignore_ascii_case("gif"))
+    path.extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("gif"))
 }
 
 pub fn is_image_path(path: &Path) -> bool {
@@ -95,7 +106,10 @@ pub fn mime_for_path(path: &Path) -> Option<&'static str> {
 
 /// Best-effort removal of a staged temp file after sending.
 pub fn unstage(path: &Path) {
-    if path.file_name().is_some_and(|n| n.to_string_lossy().starts_with("wa-send-")) {
+    if path
+        .file_name()
+        .is_some_and(|n| n.to_string_lossy().starts_with("wa-send-"))
+    {
         let _ = std::fs::remove_file(path);
     }
 }
@@ -107,7 +121,9 @@ mod tests {
     #[test]
     fn compresses_and_thumbnails() {
         let src = stage_path("png");
-        image::RgbImage::from_pixel(4000, 2000, image::Rgb([200, 10, 10])).save(&src).unwrap();
+        image::RgbImage::from_pixel(4000, 2000, image::Rgb([200, 10, 10]))
+            .save(&src)
+            .unwrap();
         let (out, thumb) = compress_image(&src, false).unwrap();
         let img = decode(&out).unwrap();
         assert_eq!((img.width(), img.height()), (1600, 800));

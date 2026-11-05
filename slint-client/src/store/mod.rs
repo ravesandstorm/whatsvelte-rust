@@ -16,9 +16,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 
 use crate::core::dto::{ChatDto, ChatFlagsDto, MessageDto, QuotedDto};
-use crate::util::jid::{
-    is_lid, is_newsletter, is_regular_chat, is_status, normalize_jid,
-};
+use crate::util::jid::{is_lid, is_newsletter, is_regular_chat, is_status, normalize_jid};
 use crate::util::time::now_secs;
 use persist::Persist;
 
@@ -88,13 +86,16 @@ pub struct UiMessage {
 
 impl UiMessage {
     pub fn is_pending(&self) -> bool {
-        self.dto.id.starts_with("tmp-") || matches!(self.status, MessageStatus::Sending | MessageStatus::Failed)
+        self.dto.id.starts_with("tmp-")
+            || matches!(self.status, MessageStatus::Sending | MessageStatus::Failed)
     }
     pub fn proto_chat_jid(&self) -> &str {
         self.wire_chat_jid.as_deref().unwrap_or(&self.dto.chat_jid)
     }
     pub fn proto_sender_jid(&self) -> &str {
-        self.wire_sender_jid.as_deref().unwrap_or(&self.dto.sender_jid)
+        self.wire_sender_jid
+            .as_deref()
+            .unwrap_or(&self.dto.sender_jid)
     }
 }
 
@@ -227,7 +228,9 @@ impl Store {
     /// Rehydrate chat rows, names and the LID map. Returns the chat jids whose
     /// newest messages should be loaded next ([`Store::hydrate_tails`]).
     pub fn hydrate_rows(&mut self) -> Vec<String> {
-        let Some(p) = self.persist.as_ref() else { return Vec::new() };
+        let Some(p) = self.persist.as_ref() else {
+            return Vec::new();
+        };
         self.names = p.load_map("names");
         self.lid_to_pn = p.load_map("lid");
         let rows = p.load_chats();
@@ -240,7 +243,8 @@ impl Store {
                     let mut merged = p.load_messages(&jid);
                     let ids: HashSet<String> = merged.iter().map(|m| m.dto.id.clone()).collect();
                     for mut m in msgs.into_iter().filter(|m| !ids.contains(&m.dto.id)) {
-                        m.wire_chat_jid.get_or_insert_with(|| m.dto.chat_jid.clone());
+                        m.wire_chat_jid
+                            .get_or_insert_with(|| m.dto.chat_jid.clone());
                         m.dto.chat_jid = jid.clone();
                         merged.push(m);
                     }
@@ -250,7 +254,10 @@ impl Store {
                 }
                 self.dirty_chats = true;
             }
-            let row = Chat { jid: jid.clone(), ..c };
+            let row = Chat {
+                jid: jid.clone(),
+                ..c
+            };
             match self.chats.get(&jid) {
                 Some(prev) if prev.timestamp > row.timestamp => {}
                 _ => {
@@ -264,14 +271,21 @@ impl Store {
     /// Load the newest message of each chat (previews + ticks); the rest of the
     /// history pages in when a chat is opened.
     pub fn hydrate_tails(&mut self, jids: &[String]) {
-        let Some(p) = self.persist.as_ref() else { return };
+        let Some(p) = self.persist.as_ref() else {
+            return;
+        };
         for jid in jids {
             let all = p.load_messages(jid);
             let start = all.len().saturating_sub(1);
-            self.msgs.insert(jid.clone(), ChatMsgs { msgs: all[start..].to_vec(), full: false });
+            self.msgs.insert(
+                jid.clone(),
+                ChatMsgs {
+                    msgs: all[start..].to_vec(),
+                    full: false,
+                },
+            );
         }
     }
-
 
     pub fn set_account(&mut self, jid: &str) {
         if let Some(p) = &self.persist {
@@ -298,7 +312,9 @@ impl Store {
 
     /// Write every dirty piece back to disk, then trim non-open chats.
     pub fn flush(&mut self) {
-        let Some(p) = self.persist.as_ref() else { return };
+        let Some(p) = self.persist.as_ref() else {
+            return;
+        };
         if self.dirty_chats {
             let rows: Vec<&Chat> = self.chats.values().collect();
             p.save_chats(&rows);
@@ -325,7 +341,10 @@ impl Store {
     fn trim_inactive(&mut self) {
         let active = self.active.clone();
         for (jid, cm) in self.msgs.iter_mut() {
-            if Some(jid) != active.as_ref() && cm.msgs.len() > RESIDENT_TAIL && !self.dirty_msgs.contains(jid) {
+            if Some(jid) != active.as_ref()
+                && cm.msgs.len() > RESIDENT_TAIL
+                && !self.dirty_msgs.contains(jid)
+            {
                 cm.msgs.drain(..cm.msgs.len() - RESIDENT_TAIL);
                 cm.full = false;
             }
@@ -338,10 +357,17 @@ impl Store {
         if full {
             return;
         }
-        let disk = self.persist.as_ref().map(|p| p.load_messages(jid)).unwrap_or_default();
+        let disk = self
+            .persist
+            .as_ref()
+            .map(|p| p.load_messages(jid))
+            .unwrap_or_default();
         let cm = self.msgs.entry(jid.to_string()).or_default();
         let mem_ids: HashSet<String> = cm.msgs.iter().map(|m| m.dto.id.clone()).collect();
-        let mut merged: Vec<UiMessage> = disk.into_iter().filter(|m| !mem_ids.contains(&m.dto.id)).collect();
+        let mut merged: Vec<UiMessage> = disk
+            .into_iter()
+            .filter(|m| !mem_ids.contains(&m.dto.id))
+            .collect();
         merged.append(&mut cm.msgs);
         merged.sort_by_key(|m| m.dto.timestamp);
         cm.msgs = merged;
@@ -373,11 +399,17 @@ impl Store {
                 q.is_empty()
                     || self.title_for(&c.jid).to_lowercase().contains(&q)
                     || c.jid.contains(&q)
-                    || c.last_message.as_deref().is_some_and(|m| m.to_lowercase().contains(&q))
+                    || c.last_message
+                        .as_deref()
+                        .is_some_and(|m| m.to_lowercase().contains(&q))
             })
             .collect();
         out.sort_by(|a, b| {
-            let pin = if section == Section::Chats { b.is_pinned().cmp(&a.is_pinned()) } else { std::cmp::Ordering::Equal };
+            let pin = if section == Section::Chats {
+                b.is_pinned().cmp(&a.is_pinned())
+            } else {
+                std::cmp::Ordering::Equal
+            };
             pin.then(b.timestamp.cmp(&a.timestamp))
         });
         out
@@ -403,7 +435,11 @@ impl Store {
     pub fn title_for(&self, jid: &str) -> String {
         let name = self.chats.get(jid).and_then(|c| c.name.as_deref());
         let push = self.names.get(jid).map(String::as_str);
-        let shown = if is_lid(jid) { self.lid_to_pn.get(jid).map(String::as_str).unwrap_or(jid) } else { jid };
+        let shown = if is_lid(jid) {
+            self.lid_to_pn.get(jid).map(String::as_str).unwrap_or(jid)
+        } else {
+            jid
+        };
         crate::util::jid::display_name(shown, name, push)
     }
 
@@ -414,7 +450,10 @@ impl Store {
         if !is_lid(jid) {
             return jid.to_string();
         }
-        self.lid_to_pn.get(jid).cloned().unwrap_or_else(|| jid.to_string())
+        self.lid_to_pn
+            .get(jid)
+            .cloned()
+            .unwrap_or_else(|| jid.to_string())
     }
 
     pub fn knows_lid(&self, lid: &str) -> bool {
@@ -445,7 +484,11 @@ impl Store {
         if let Some(src) = self.chats.remove(from) {
             let merged = match self.chats.remove(to) {
                 Some(dst) => {
-                    let newer = if src.timestamp >= dst.timestamp { &src } else { &dst };
+                    let newer = if src.timestamp >= dst.timestamp {
+                        &src
+                    } else {
+                        &dst
+                    };
                     Chat {
                         jid: to.to_string(),
                         name: dst.name.clone().or(src.name.clone()),
@@ -458,7 +501,10 @@ impl Store {
                         draft: dst.draft.clone().or(src.draft.clone()),
                     }
                 }
-                None => Chat { jid: to.to_string(), ..src },
+                None => Chat {
+                    jid: to.to_string(),
+                    ..src
+                },
             };
             self.chats.insert(to.to_string(), merged);
             self.dirty_chats = true;
@@ -498,7 +544,11 @@ impl Store {
         let wire_chat_jid = (chat != m.chat_jid).then(|| m.chat_jid.clone());
         let wire_sender_jid = (sender != m.sender_jid).then(|| m.sender_jid.clone());
         UiMessage {
-            dto: MessageDto { chat_jid: chat, sender_jid: sender, ..m },
+            dto: MessageDto {
+                chat_jid: chat,
+                sender_jid: sender,
+                ..m
+            },
             wire_chat_jid,
             wire_sender_jid,
             ..Default::default()
@@ -526,14 +576,23 @@ impl Store {
         let newer = prev.as_ref().is_none_or(|p| d.timestamp >= p.timestamp);
         let row = Chat {
             jid: jid.clone(),
-            name: d.name.clone().or(prev.as_ref().and_then(|p| p.name.clone())),
+            name: d
+                .name
+                .clone()
+                .or(prev.as_ref().and_then(|p| p.name.clone())),
             last_message: if newer {
-                d.last_message.clone().or(prev.as_ref().and_then(|p| p.last_message.clone()))
+                d.last_message
+                    .clone()
+                    .or(prev.as_ref().and_then(|p| p.last_message.clone()))
             } else {
                 prev.as_ref().and_then(|p| p.last_message.clone())
             },
             timestamp: d.timestamp.max(prev.as_ref().map_or(0, |p| p.timestamp)),
-            unread: if d.unread > 0 { d.unread } else { prev.as_ref().map_or(0, |p| p.unread) },
+            unread: if d.unread > 0 {
+                d.unread
+            } else {
+                prev.as_ref().map_or(0, |p| p.unread)
+            },
             muted: prev.as_ref().and_then(|p| p.muted),
             pinned: prev.as_ref().and_then(|p| p.pinned),
             archived: prev.as_ref().and_then(|p| p.archived),
@@ -545,7 +604,10 @@ impl Store {
 
     fn touch_chat(&mut self, jid: &str, preview: Option<String>, ts: i64, incoming: bool) {
         let active = self.active.as_deref() == Some(jid);
-        let c = self.chats.entry(jid.to_string()).or_insert_with(|| Chat { jid: jid.to_string(), ..Default::default() });
+        let c = self.chats.entry(jid.to_string()).or_insert_with(|| Chat {
+            jid: jid.to_string(),
+            ..Default::default()
+        });
         if ts >= c.timestamp {
             if preview.is_some() {
                 c.last_message = preview;
@@ -587,7 +649,14 @@ impl Store {
             Some(c) if c.draft != draft => c.draft = draft,
             Some(_) => return,
             None if draft.is_some() => {
-                self.chats.insert(jid.to_string(), Chat { jid: jid.to_string(), draft, ..Default::default() });
+                self.chats.insert(
+                    jid.to_string(),
+                    Chat {
+                        jid: jid.to_string(),
+                        draft,
+                        ..Default::default()
+                    },
+                );
             }
             None => return,
         }
@@ -598,7 +667,14 @@ impl Store {
         self.active = Some(jid.to_string());
         self.ensure_full(jid);
         if !self.chats.contains_key(jid) {
-            self.chats.insert(jid.to_string(), Chat { jid: jid.to_string(), timestamp: now_secs(), ..Default::default() });
+            self.chats.insert(
+                jid.to_string(),
+                Chat {
+                    jid: jid.to_string(),
+                    timestamp: now_secs(),
+                    ..Default::default()
+                },
+            );
             self.dirty_chats = true;
         }
         self.apply_unread_flags(jid);
@@ -608,7 +684,9 @@ impl Store {
     /// Flag the last `chat.unread` incoming messages unread and the rest read.
     fn apply_unread_flags(&mut self, jid: &str) {
         let count = self.chats.get(jid).map_or(0, |c| c.unread as usize);
-        let Some(cm) = self.msgs.get_mut(jid) else { return };
+        let Some(cm) = self.msgs.get_mut(jid) else {
+            return;
+        };
         let mut left = count;
         let mut changed = false;
         for m in cm.msgs.iter_mut().rev() {
@@ -630,7 +708,12 @@ impl Store {
     /// unread (the caller then queues a read receipt, and marks the whole chat
     /// read once the counter reaches zero).
     pub fn mark_message_read(&mut self, jid: &str, id: &str) -> Option<bool> {
-        let m = self.msgs.get_mut(jid)?.msgs.iter_mut().find(|m| m.dto.id == id && m.unread)?;
+        let m = self
+            .msgs
+            .get_mut(jid)?
+            .msgs
+            .iter_mut()
+            .find(|m| m.dto.id == id && m.unread)?;
         m.unread = false;
         self.dirty_msgs.insert(jid.to_string());
         let c = self.chats.get_mut(jid)?;
@@ -650,7 +733,9 @@ impl Store {
         match cm.msgs.iter_mut().find(|x| x.dto.id == m.dto.id) {
             Some(x) => *x = m,
             None => {
-                let pos = cm.msgs.partition_point(|x| x.dto.timestamp <= m.dto.timestamp);
+                let pos = cm
+                    .msgs
+                    .partition_point(|x| x.dto.timestamp <= m.dto.timestamp);
                 cm.msgs.insert(pos, m);
             }
         }
@@ -741,17 +826,28 @@ impl Store {
 
     /// Find a message by id, paging the chat's full history in on a miss.
     fn message_mut(&mut self, jid: &str, id: &str) -> Option<&mut UiMessage> {
-        let resident = self.msgs.get(jid).is_some_and(|c| c.msgs.iter().any(|m| m.dto.id == id));
+        let resident = self
+            .msgs
+            .get(jid)
+            .is_some_and(|c| c.msgs.iter().any(|m| m.dto.id == id));
         if !resident {
             self.ensure_full(jid);
         }
         self.dirty_msgs.insert(jid.to_string());
-        self.msgs.get_mut(jid)?.msgs.iter_mut().find(|m| m.dto.id == id)
+        self.msgs
+            .get_mut(jid)?
+            .msgs
+            .iter_mut()
+            .find(|m| m.dto.id == id)
     }
 
     pub fn apply_receipt(&mut self, jid: &str, ids: &[String], status: MessageStatus) {
         for id in ids {
-            match self.msgs.get_mut(jid).and_then(|c| c.msgs.iter_mut().find(|m| &m.dto.id == id)) {
+            match self
+                .msgs
+                .get_mut(jid)
+                .and_then(|c| c.msgs.iter_mut().find(|m| &m.dto.id == id))
+            {
                 Some(m) => {
                     if m.dto.from_me && status.rank() > m.status.rank() {
                         m.status = status;
@@ -773,7 +869,14 @@ impl Store {
 
     /// Revoke from the wire: tombstone the message, or insert a tombstone when
     /// we never had it (so the "deleted" bubble still shows in place).
-    pub fn apply_revoke_event(&mut self, jid: &str, id: &str, sender: &str, from_me: bool, ts: i64) {
+    pub fn apply_revoke_event(
+        &mut self,
+        jid: &str,
+        id: &str,
+        sender: &str,
+        from_me: bool,
+        ts: i64,
+    ) {
         if self.message_mut(jid, id).is_none() && !id.is_empty() {
             let m = UiMessage {
                 dto: MessageDto {
@@ -841,7 +944,11 @@ impl Store {
 
     fn refresh_preview(&mut self, jid: &str) {
         let last = self.messages(jid).last().map(|m| {
-            if m.deleted { Some("🚫 This message was deleted".to_string()) } else { Self::preview_of(&m.dto) }
+            if m.deleted {
+                Some("🚫 This message was deleted".to_string())
+            } else {
+                Self::preview_of(&m.dto)
+            }
         });
         if let (Some(preview), Some(c)) = (last, self.chats.get_mut(jid)) {
             c.last_message = preview;
@@ -850,7 +957,14 @@ impl Store {
     }
 
     /// Insert an optimistic outgoing bubble; returns its temporary id.
-    pub fn add_optimistic(&mut self, jid: &str, kind: &str, text: Option<String>, thumbnail: Option<String>, quoted: Option<QuotedDto>) -> String {
+    pub fn add_optimistic(
+        &mut self,
+        jid: &str,
+        kind: &str,
+        text: Option<String>,
+        thumbnail: Option<String>,
+        quoted: Option<QuotedDto>,
+    ) -> String {
         self.tmp_seq += 1;
         let id = format!("tmp-{}-{}", now_secs(), self.tmp_seq);
         let m = UiMessage {
@@ -874,20 +988,33 @@ impl Store {
 
     /// Swap an optimistic bubble's temp id for the server id.
     pub fn confirm_optimistic(&mut self, jid: &str, tmp: &str, real: &str) {
-        let early = self.early_receipts.remove(real).unwrap_or(MessageStatus::Sent);
-        let Some(cm) = self.msgs.get_mut(jid) else { return };
+        let early = self
+            .early_receipts
+            .remove(real)
+            .unwrap_or(MessageStatus::Sent);
+        let Some(cm) = self.msgs.get_mut(jid) else {
+            return;
+        };
         if cm.msgs.iter().any(|m| m.dto.id == real) {
             // The server echo already arrived under the real id.
             cm.msgs.retain(|m| m.dto.id != tmp);
         } else if let Some(m) = cm.msgs.iter_mut().find(|m| m.dto.id == tmp) {
             m.dto.id = real.to_string();
-            m.status = if early.rank() > MessageStatus::Sent.rank() { early } else { MessageStatus::Sent };
+            m.status = if early.rank() > MessageStatus::Sent.rank() {
+                early
+            } else {
+                MessageStatus::Sent
+            };
         }
         self.dirty_msgs.insert(jid.to_string());
     }
 
     pub fn fail_optimistic(&mut self, jid: &str, tmp: &str) {
-        if let Some(m) = self.msgs.get_mut(jid).and_then(|c| c.msgs.iter_mut().find(|m| m.dto.id == tmp)) {
+        if let Some(m) = self
+            .msgs
+            .get_mut(jid)
+            .and_then(|c| c.msgs.iter_mut().find(|m| m.dto.id == tmp))
+        {
             m.status = MessageStatus::Failed;
         }
     }
@@ -919,7 +1046,10 @@ mod tests {
         assert!(s.add_message(msg("a@s.whatsapp.net", "1", 10, false, "hi")));
         assert!(!s.add_message(msg("a@s.whatsapp.net", "1", 10, false, "hi")));
         assert_eq!(s.chats["a@s.whatsapp.net"].unread, 1);
-        assert_eq!(s.chats["a@s.whatsapp.net"].last_message.as_deref(), Some("hi"));
+        assert_eq!(
+            s.chats["a@s.whatsapp.net"].last_message.as_deref(),
+            Some("hi")
+        );
     }
 
     #[test]

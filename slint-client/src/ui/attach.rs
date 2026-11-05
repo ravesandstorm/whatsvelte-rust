@@ -13,7 +13,10 @@ use crate::media::klipy;
 use crate::media::prep;
 use crate::media::voice::VoiceRecorder;
 use crate::store::UiMessage;
-use crate::ui::controller::{lock, Controller, Preview, Rec, Viewer, CTRL, DIRTY_ALL, DIRTY_CHATS, DIRTY_CONV, DIRTY_OVERLAY, DIRTY_SESSION};
+use crate::ui::controller::{
+    CTRL, Controller, DIRTY_ALL, DIRTY_CHATS, DIRTY_CONV, DIRTY_OVERLAY, DIRTY_SESSION, Preview,
+    Rec, Viewer, lock,
+};
 use crate::ui::images::{self, Pixels};
 
 /// Longest edge decoded for the lightbox.
@@ -24,7 +27,11 @@ fn ctrl() -> Option<Arc<Controller>> {
 }
 
 fn rgba_pixels(img: &image::DynamicImage, max_edge: u32) -> Pixels {
-    let img = if img.width() > max_edge || img.height() > max_edge { img.thumbnail(max_edge, max_edge) } else { img.clone() };
+    let img = if img.width() > max_edge || img.height() > max_edge {
+        img.thumbnail(max_edge, max_edge)
+    } else {
+        img.clone()
+    };
     let rgba = img.into_rgba8();
     slint::SharedPixelBuffer::clone_from_slice(rgba.as_raw(), rgba.width(), rgba.height())
 }
@@ -33,7 +40,9 @@ impl Controller {
     // ================================================================ downloads
 
     pub(crate) fn spawn_image_load(&self, m: UiMessage) {
-        if lock(&self.media_failed).contains(&m.dto.id) || !lock(&self.media_inflight).insert(m.dto.id.clone()) {
+        if lock(&self.media_failed).contains(&m.dto.id)
+            || !lock(&self.media_inflight).insert(m.dto.id.clone())
+        {
             return;
         }
         let api = self.api.clone();
@@ -41,10 +50,12 @@ impl Controller {
         self.rt.spawn(async move {
             let Some(ctrl) = ctrl() else { return };
             if let Some(path) = ctrl.media_path(&api, &m, false).await {
-                let px = tokio::task::spawn_blocking(move || images::decode_file(&path, images::BUBBLE_MAX_EDGE))
-                    .await
-                    .ok()
-                    .flatten();
+                let px = tokio::task::spawn_blocking(move || {
+                    images::decode_file(&path, images::BUBBLE_MAX_EDGE)
+                })
+                .await
+                .ok()
+                .flatten();
                 match px {
                     Some(px) => lock(&ctrl.images).insert(format!("full:{id}"), px),
                     None => {
@@ -61,11 +72,21 @@ impl Controller {
 
     /// Download (or hit the cache for) a message's media; returns its path.
     pub(crate) async fn media_path(&self, api: &Api, m: &UiMessage, loud: bool) -> Option<PathBuf> {
-        if let Some(p) = lock(&self.media_paths).get(&m.dto.id).filter(|p| p.exists()) {
+        if let Some(p) = lock(&self.media_paths)
+            .get(&m.dto.id)
+            .filter(|p| p.exists())
+        {
             return Some(p.clone());
         }
         let md = m.dto.media.as_ref()?;
-        match api.download_media(md.descriptor.clone(), md.mimetype.clone(), md.file_name.clone()).await {
+        match api
+            .download_media(
+                md.descriptor.clone(),
+                md.mimetype.clone(),
+                md.file_name.clone(),
+            )
+            .await
+        {
             Ok(p) => {
                 let p = PathBuf::from(p);
                 lock(&self.media_paths).insert(m.dto.id.clone(), p.clone());
@@ -92,12 +113,16 @@ impl Controller {
 
     /// Documents / videos: open the decrypted file in the OS default app.
     pub async fn open_media(self: Arc<Self>, id: String) {
-        let Some(m) = self.active_message(&id) else { return };
+        let Some(m) = self.active_message(&id) else {
+            return;
+        };
         if m.dto.media.is_none() {
             return;
         }
         let api = self.api.clone();
-        let path = self.with_spinner(&id, self.media_path(&api, &m, true)).await;
+        let path = self
+            .with_spinner(&id, self.media_path(&api, &m, true))
+            .await;
         if let Some(p) = path
             && let Err(e) = open::that_detached(&p)
         {
@@ -106,15 +131,26 @@ impl Controller {
     }
 
     pub async fn save_media(self: Arc<Self>, id: String) {
-        let Some(m) = self.active_message(&id) else { return };
-        let Some(md) = m.dto.media.clone() else { return };
+        let Some(m) = self.active_message(&id) else {
+            return;
+        };
+        let Some(md) = m.dto.media.clone() else {
+            return;
+        };
         let in_viewer = self.viewer_set_label("Saving…", &id);
-        match self.api.save_media_to_downloads(md.descriptor, md.mimetype, md.file_name).await {
+        match self
+            .api
+            .save_media_to_downloads(md.descriptor, md.mimetype, md.file_name)
+            .await
+        {
             Ok(p) => {
                 if in_viewer {
                     self.viewer_set_label("✓ Saved", &id);
                 } else {
-                    let name = Path::new(&p).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or(p);
+                    let name = Path::new(&p)
+                        .file_name()
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or(p);
                     self.toast(format!("Saved to Downloads: {name}"));
                 }
             }
@@ -132,7 +168,9 @@ impl Controller {
 
     fn viewer_set_label(&self, label: &str, id: &str) -> bool {
         let mut v = lock(&self.view);
-        let Some(viewer) = v.viewer.as_mut() else { return false };
+        let Some(viewer) = v.viewer.as_mut() else {
+            return false;
+        };
         if viewer.ids.get(viewer.index).map(String::as_str) != Some(id) {
             return false;
         }
@@ -146,7 +184,11 @@ impl Controller {
     pub fn view_image(self: &Arc<Self>, id: String) {
         let gallery = {
             let v = lock(&self.view);
-            v.albums.values().find(|ids| ids.contains(&id)).cloned().unwrap_or_else(|| vec![id.clone()])
+            v.albums
+                .values()
+                .find(|ids| ids.contains(&id))
+                .cloned()
+                .unwrap_or_else(|| vec![id.clone()])
         };
         let index = gallery.iter().position(|x| *x == id).unwrap_or(0);
         lock(&self.view).viewer = Some(Viewer {
@@ -165,7 +207,9 @@ impl Controller {
     pub fn viewer_step(self: &Arc<Self>, dir: i32) {
         {
             let mut v = lock(&self.view);
-            let Some(viewer) = v.viewer.as_mut() else { return };
+            let Some(viewer) = v.viewer.as_mut() else {
+                return;
+            };
             let next = viewer.index as i32 + dir;
             if next < 0 || next >= viewer.ids.len() as i32 {
                 return;
@@ -186,15 +230,21 @@ impl Controller {
     fn load_viewer(self: &Arc<Self>) {
         let (id, generation) = {
             let mut v = lock(&self.view);
-            let Some(viewer) = v.viewer.as_mut() else { return };
+            let Some(viewer) = v.viewer.as_mut() else {
+                return;
+            };
             viewer.generation += 1;
             (viewer.ids[viewer.index].clone(), viewer.generation)
         };
-        let Some(m) = self.active_message(&id) else { return };
+        let Some(m) = self.active_message(&id) else {
+            return;
+        };
         let is_video = m.dto.kind == "video";
         let thumb = {
             let cache = lock(&self.images);
-            cache.get(&format!("full:{id}")).or_else(|| cache.get(&format!("thumb:{id}")))
+            cache
+                .get(&format!("full:{id}"))
+                .or_else(|| cache.get(&format!("thumb:{id}")))
         };
         let thumb = thumb.or_else(|| m.dto.thumbnail.as_deref().and_then(images::decode_b64));
         {
@@ -215,11 +265,18 @@ impl Controller {
             let api = me.api.clone();
             let path = me.media_path(&api, &m, false).await;
             let px = match path {
-                Some(p) => tokio::task::spawn_blocking(move || images::decode_file(&p, VIEWER_EDGE)).await.ok().flatten(),
+                Some(p) => {
+                    tokio::task::spawn_blocking(move || images::decode_file(&p, VIEWER_EDGE))
+                        .await
+                        .ok()
+                        .flatten()
+                }
                 None => None,
             };
             let mut v = lock(&me.view);
-            let Some(viewer) = v.viewer.as_mut().filter(|x| x.generation == generation) else { return };
+            let Some(viewer) = v.viewer.as_mut().filter(|x| x.generation == generation) else {
+                return;
+            };
             viewer.loading = false;
             match px {
                 Some(px) => viewer.image = Some(px),
@@ -249,9 +306,13 @@ impl Controller {
 
     /// Play / pause a voice note or audio message inline (one at a time).
     pub async fn toggle_audio(self: Arc<Self>, id: String) {
-        let Some(m) = self.active_message(&id) else { return };
+        let Some(m) = self.active_message(&id) else {
+            return;
+        };
         let api = self.api.clone();
-        let path = self.with_spinner(&id, self.media_path(&api, &m, true)).await;
+        let path = self
+            .with_spinner(&id, self.media_path(&api, &m, true))
+            .await;
         if let Some(p) = path {
             self.audio.toggle(&id, &p);
         }
@@ -267,7 +328,9 @@ impl Controller {
         }
         let me = self.clone();
         self.rt.spawn(async move {
-            let Ok(_permit) = me.avatar_permits.acquire().await else { return };
+            let Ok(_permit) = me.avatar_permits.acquire().await else {
+                return;
+            };
             let canonical = lock(&me.store).canonical(&jid);
             let contact = match me.api.get_contact(canonical.clone()).await {
                 Ok(c) => c,
@@ -301,13 +364,23 @@ impl Controller {
     // ================================================================ attachments
 
     fn open_preview(&self, kind: &str, path: PathBuf, staged: bool, duration: Option<u32>) {
-        let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "file".into());
+        let name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "file".into());
         let image = if kind == "image" {
             prep::decode(&path).ok().map(|img| rgba_pixels(&img, 1200))
         } else {
             None
         };
-        lock(&self.view).preview = Some(Preview { kind: kind.into(), path, name, image, duration, staged });
+        lock(&self.view).preview = Some(Preview {
+            kind: kind.into(),
+            path,
+            name,
+            image,
+            duration,
+            staged,
+        });
         self.mark(DIRTY_OVERLAY);
     }
 
@@ -323,7 +396,9 @@ impl Controller {
         if let Some(f) = picked {
             let me = self.clone();
             let path = f.path().to_path_buf();
-            let _ = tokio::task::spawn_blocking(move || me.open_preview("image", path, false, None)).await;
+            let _ =
+                tokio::task::spawn_blocking(move || me.open_preview("image", path, false, None))
+                    .await;
         }
     }
 
@@ -331,7 +406,11 @@ impl Controller {
         if self.active().is_none() {
             return;
         }
-        if let Some(f) = rfd::AsyncFileDialog::new().set_title("Send a document").pick_file().await {
+        if let Some(f) = rfd::AsyncFileDialog::new()
+            .set_title("Send a document")
+            .pick_file()
+            .await
+        {
             self.open_preview("document", f.path().to_path_buf(), false, None);
         }
     }
@@ -343,7 +422,11 @@ impl Controller {
         }
         let me = self.clone();
         self.rt.spawn_blocking(move || {
-            let kind = if prep::is_image_path(&path) { "image" } else { "document" };
+            let kind = if prep::is_image_path(&path) {
+                "image"
+            } else {
+                "document"
+            };
             me.open_preview(kind, path, false, None);
         });
     }
@@ -355,10 +438,21 @@ impl Controller {
         }
         let me = self.clone();
         self.rt.spawn_blocking(move || {
-            let Ok(mut clip) = arboard::Clipboard::new() else { return };
+            let Ok(mut clip) = arboard::Clipboard::new() else {
+                return;
+            };
             let Ok(img) = clip.get_image() else { return };
-            let Some(buf) = image::RgbaImage::from_raw(img.width as u32, img.height as u32, img.bytes.into_owned()) else { return };
-            let path = prep::stage_path("png").with_file_name(format!("pasted-image-{}.png", crate::util::time::now_secs()));
+            let Some(buf) = image::RgbaImage::from_raw(
+                img.width as u32,
+                img.height as u32,
+                img.bytes.into_owned(),
+            ) else {
+                return;
+            };
+            let path = prep::stage_path("png").with_file_name(format!(
+                "pasted-image-{}.png",
+                crate::util::time::now_secs()
+            ));
             if buf.save(&path).is_ok() {
                 me.open_preview("image", path, true, None);
             }
@@ -386,30 +480,42 @@ impl Controller {
     /// Send the previewed attachment (port of send-media.ts rules).
     pub async fn preview_send(self: Arc<Self>, caption: String, hd: bool) {
         self.audio.stop();
-        let Some(p) = lock(&self.view).preview.take() else { return };
+        let Some(p) = lock(&self.view).preview.take() else {
+            return;
+        };
         self.mark(DIRTY_OVERLAY);
         let Some(jid) = self.active() else { return };
-        let caption = Some(caption.trim().to_string()).filter(|c| !c.is_empty() && p.kind != "audio");
+        let caption =
+            Some(caption.trim().to_string()).filter(|c| !c.is_empty() && p.kind != "audio");
 
         // Prepare off the async workers: compression / thumbnails.
         let kind = p.kind.clone();
         let src = p.path.clone();
-        let prepared = tokio::task::spawn_blocking(move || -> anyhow::Result<(PathBuf, Option<String>, Option<String>, bool)> {
-            match kind.as_str() {
-                "image" if prep::is_gif(&src) => {
-                    let thumb = prep::decode(&src).ok().and_then(|i| prep::thumbnail_b64(&i).ok());
-                    let staged = prep::stage_path("gif");
-                    std::fs::copy(&src, &staged)?;
-                    Ok((staged, thumb, Some("image/gif".into()), true))
+        let prepared = tokio::task::spawn_blocking(
+            move || -> anyhow::Result<(PathBuf, Option<String>, Option<String>, bool)> {
+                match kind.as_str() {
+                    "image" if prep::is_gif(&src) => {
+                        let thumb = prep::decode(&src)
+                            .ok()
+                            .and_then(|i| prep::thumbnail_b64(&i).ok());
+                        let staged = prep::stage_path("gif");
+                        std::fs::copy(&src, &staged)?;
+                        Ok((staged, thumb, Some("image/gif".into()), true))
+                    }
+                    "image" => {
+                        let (path, thumb) = prep::compress_image(&src, hd)?;
+                        Ok((path, Some(thumb), Some("image/jpeg".into()), true))
+                    }
+                    "audio" => Ok((src, None, Some("audio/ogg; codecs=opus".into()), false)),
+                    _ => Ok((
+                        src.clone(),
+                        None,
+                        prep::mime_for_path(&src).map(str::to_string),
+                        false,
+                    )),
                 }
-                "image" => {
-                    let (path, thumb) = prep::compress_image(&src, hd)?;
-                    Ok((path, Some(thumb), Some("image/jpeg".into()), true))
-                }
-                "audio" => Ok((src, None, Some("audio/ogg; codecs=opus".into()), false)),
-                _ => Ok((src.clone(), None, prep::mime_for_path(&src).map(str::to_string), false)),
-            }
-        })
+            },
+        )
         .await;
         let (path, thumb, mimetype, staged_here) = match prepared {
             Ok(Ok(x)) => x,
@@ -425,7 +531,11 @@ impl Controller {
             _ => caption.clone().or_else(|| Some(format!("📄 {}", p.name))),
         };
         // With a thumbnail the bubble shows the caption; otherwise the label.
-        let text = if thumb.is_some() { caption.clone() } else { label };
+        let text = if thumb.is_some() {
+            caption.clone()
+        } else {
+            label
+        };
         let tmp = lock(&self.store).add_optimistic(&jid, &p.kind, text, thumb.clone(), None);
         lock(&self.view).scroll_token += 1;
         self.mark(DIRTY_CHATS | DIRTY_CONV);
@@ -441,7 +551,12 @@ impl Controller {
         };
         let result = self
             .api
-            .send_media(jid.clone(), path.to_string_lossy().into_owned(), p.kind.clone(), Some(opts))
+            .send_media(
+                jid.clone(),
+                path.to_string_lossy().into_owned(),
+                p.kind.clone(),
+                Some(opts),
+            )
             .await;
         if staged_here {
             prep::unstage(&path);
@@ -449,7 +564,12 @@ impl Controller {
         if p.staged {
             let _ = std::fs::remove_file(&p.path);
         }
-        self.finish_send(&jid, &tmp, result.map(|r| r.message_id), "Attachment not sent");
+        self.finish_send(
+            &jid,
+            &tmp,
+            result.map(|r| r.message_id),
+            "Attachment not sent",
+        );
     }
 
     // ================================================================ recording
@@ -483,7 +603,11 @@ impl Controller {
                 b.mark(DIRTY_OVERLAY);
             },
         );
-        lock(&self.view).rec = Some(Rec::Photo { session, frame: None, error: None });
+        lock(&self.view).rec = Some(Rec::Photo {
+            session,
+            frame: None,
+            error: None,
+        });
         self.mark(DIRTY_OVERLAY);
     }
 
@@ -510,7 +634,9 @@ impl Controller {
     pub async fn rec_capture(self: Arc<Self>) {
         let rec = lock(&self.view).rec.take();
         self.mark(DIRTY_OVERLAY);
-        let Some(Rec::Photo { session, .. }) = rec else { return };
+        let Some(Rec::Photo { session, .. }) = rec else {
+            return;
+        };
         let me = self.clone();
         let _ = tokio::task::spawn_blocking(move || match session.capture() {
             Ok(path) => me.open_preview("image", path, true, None),
@@ -620,7 +746,10 @@ impl Controller {
         let Some(jid) = self.active() else { return };
         let (gif, preview) = {
             let v = lock(&self.view);
-            (v.gif.items.iter().find(|g| g.id == id).cloned(), v.gif.previews.get(&id).cloned())
+            (
+                v.gif.items.iter().find(|g| g.id == id).cloned(),
+                v.gif.previews.get(&id).cloned(),
+            )
         };
         let Some(gif) = gif else { return };
         let thumb = preview.and_then(|px| {
@@ -655,7 +784,15 @@ impl Controller {
             gif_playback: is_mp4.then_some(true),
             ..Default::default()
         };
-        let result = self.api.send_media(jid.clone(), path.to_string_lossy().into_owned(), kind.into(), Some(opts)).await;
+        let result = self
+            .api
+            .send_media(
+                jid.clone(),
+                path.to_string_lossy().into_owned(),
+                kind.into(),
+                Some(opts),
+            )
+            .await;
         prep::unstage(&path);
         self.finish_send(&jid, &tmp, result.map(|r| r.message_id), "GIF not sent");
     }
@@ -664,7 +801,9 @@ impl Controller {
 
     pub(crate) fn load_wallpaper(&self) {
         let path = lock(&self.settings).wallpaper_path.clone();
-        let px = path.and_then(|p| prep::decode(Path::new(&p)).ok()).map(|img| rgba_pixels(&img, 1600));
+        let px = path
+            .and_then(|p| prep::decode(Path::new(&p)).ok())
+            .map(|img| rgba_pixels(&img, 1600));
         *lock(&self.wallpaper) = px;
         self.mark(DIRTY_SESSION);
     }
@@ -681,7 +820,10 @@ impl Controller {
             .await;
         let Some(f) = picked else { return };
         let src = f.path().to_path_buf();
-        let ext = src.extension().map(|e| e.to_string_lossy().into_owned()).unwrap_or_else(|| "img".into());
+        let ext = src
+            .extension()
+            .map(|e| e.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "img".into());
         let dest = paths::app_data_dir().join(format!("wallpaper.{ext}"));
         if let Err(e) = std::fs::copy(&src, &dest) {
             self.toast(format!("Couldn't use that image: {e}"));

@@ -11,8 +11,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-
-
 use tokio::sync::Mutex;
 use whatsapp_rust::prelude::*;
 
@@ -119,7 +117,10 @@ impl SessionManager {
     async fn delete_db_files(&self, session_id: &str) {
         let paths: Vec<PathBuf> = ["", "-shm", "-wal"]
             .iter()
-            .map(|suffix| self.base_dir.join(format!("whatsapp-{session_id}.db{suffix}")))
+            .map(|suffix| {
+                self.base_dir
+                    .join(format!("whatsapp-{session_id}.db{suffix}"))
+            })
             .collect();
         for attempt in 0..30 {
             let mut busy = false;
@@ -130,10 +131,7 @@ impl SessionManager {
                     Err(e) => {
                         busy = true;
                         if attempt == 29 {
-                            log::warn!(
-                                "[{session_id}] failed to delete {}: {e}",
-                                path.display()
-                            );
+                            log::warn!("[{session_id}] failed to delete {}: {e}", path.display());
                         }
                     }
                 }
@@ -182,8 +180,14 @@ impl SessionManager {
             if dead_client.is_logged_in() {
                 log::info!("[{dead_sid}] run loop ended (logged in)");
             } else {
-                log::warn!("[{dead_sid}] run loop ended while unpaired; QR is dead, restart required");
-                let _ = dead_ui.send(UiEvent::ClientDead { session_id: dead_sid }).await;
+                log::warn!(
+                    "[{dead_sid}] run loop ended while unpaired; QR is dead, restart required"
+                );
+                let _ = dead_ui
+                    .send(UiEvent::ClientDead {
+                        session_id: dead_sid,
+                    })
+                    .await;
             }
         });
 

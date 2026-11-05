@@ -32,7 +32,12 @@ pub fn decode_b64(b64: &str) -> Option<Pixels> {
 
 /// Decode a cached media file, downscaled to `max_edge`.
 pub fn decode_file(path: &Path, max_edge: u32) -> Option<Pixels> {
-    let img = image::ImageReader::open(path).ok()?.with_guessed_format().ok()?.decode().ok()?;
+    let img = image::ImageReader::open(path)
+        .ok()?
+        .with_guessed_format()
+        .ok()?
+        .decode()
+        .ok()?;
     Some(to_pixels(img, max_edge))
 }
 
@@ -45,7 +50,11 @@ pub struct ImageCache {
 
 impl ImageCache {
     pub fn new(cap: usize) -> Self {
-        Self { map: HashMap::new(), order: VecDeque::new(), cap }
+        Self {
+            map: HashMap::new(),
+            order: VecDeque::new(),
+            cap,
+        }
     }
 
     pub fn get(&self, key: &str) -> Option<Pixels> {

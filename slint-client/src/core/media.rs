@@ -4,18 +4,18 @@
 //! documents), so large media never sits in UI memory.
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use base64::Engine;
 use serde::Deserialize;
 use tokio::sync::Semaphore;
+use whatsapp_rust::UploadOptions;
 use whatsapp_rust::download::DownloadParams;
 use whatsapp_rust::media::{self, AudioOptions, DocumentOptions, ImageOptions, VideoOptions};
 use whatsapp_rust::wacore::download::MediaType;
-use whatsapp_rust::UploadOptions;
 
-use crate::core::api::{parse_jid, Api};
+use crate::core::api::{Api, parse_jid};
 use crate::core::dto::{MediaDescriptorDto, SendResultDto};
 use crate::core::error::{ApiError, ApiResult};
 use crate::core::paths;
@@ -227,7 +227,12 @@ fn safe_file_name(name: &str) -> Option<String> {
     if out.is_empty() || out.chars().all(|c| c == '.' || c == '_') {
         return None;
     }
-    let stem = out.split('.').next().unwrap_or("").trim().to_ascii_uppercase();
+    let stem = out
+        .split('.')
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_uppercase();
     let reserved = matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
         || ((stem.starts_with("COM") || stem.starts_with("LPT"))
             && stem.len() == 4
@@ -263,7 +268,11 @@ impl Api {
         let (_, session) = self.mgr.session(None).await?;
 
         // Display-name fallback: the cache file's own name (content hash + ext).
-        let ext = ext_for(mimetype.as_deref(), &descriptor.media_type, filename.as_deref());
+        let ext = ext_for(
+            mimetype.as_deref(),
+            &descriptor.media_type,
+            filename.as_deref(),
+        );
         let file_sha256 = b64_decode(&descriptor.file_sha256)?;
         let stem = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&file_sha256);
 
@@ -276,8 +285,8 @@ impl Api {
         )
         .await?;
 
-        let downloads = paths::download_dir()
-            .ok_or_else(|| ApiError::library("no downloads dir"))?;
+        let downloads =
+            paths::download_dir().ok_or_else(|| ApiError::library("no downloads dir"))?;
         std::fs::create_dir_all(&downloads).map_err(ApiError::library)?;
 
         // Prefer the message's display name; fall back to the content hash + ext.
@@ -351,7 +360,12 @@ impl Api {
         let to = parse_jid(&jid)?;
         let opts = options.unwrap_or_default();
         // WhatsApp clients can't play GIF bytes inside a video message.
-        if media_type == "video" && opts.mimetype.as_deref().is_some_and(|m| m.starts_with("image/gif")) {
+        if media_type == "video"
+            && opts
+                .mimetype
+                .as_deref()
+                .is_some_and(|m| m.starts_with("image/gif"))
+        {
             return Err(ApiError::library(
                 "GIF bytes can't be sent as a video; send an MP4 with gifPlayback",
             ));
@@ -437,9 +451,15 @@ mod tests {
     fn safe_file_name_stays_a_single_component() {
         assert_eq!(safe_file_name("report.pdf").as_deref(), Some("report.pdf"));
         assert_eq!(safe_file_name("../../x.dll").as_deref(), Some("x.dll"));
-        assert_eq!(safe_file_name("C:\\Windows\\x.dll").as_deref(), Some("x.dll"));
+        assert_eq!(
+            safe_file_name("C:\\Windows\\x.dll").as_deref(),
+            Some("x.dll")
+        );
         assert_eq!(safe_file_name("C:x.dll").as_deref(), Some("C_x.dll"));
-        assert_eq!(safe_file_name("a.txt:stream").as_deref(), Some("a.txt_stream"));
+        assert_eq!(
+            safe_file_name("a.txt:stream").as_deref(),
+            Some("a.txt_stream")
+        );
         assert_eq!(safe_file_name("CON.txt").as_deref(), Some("_CON.txt"));
         assert_eq!(safe_file_name("com1").as_deref(), Some("_com1"));
         assert_eq!(safe_file_name("name. . ").as_deref(), Some("name"));

@@ -17,6 +17,7 @@ use std::time::{Duration, Instant};
 
 use tokio::sync::{Notify, Semaphore};
 
+use crate::AppWindow;
 use crate::core::api::Api;
 use crate::core::bridge::UiEvent;
 use crate::core::dto::{MessageDto, StatusDto};
@@ -31,7 +32,6 @@ use crate::store::{MessageStatus, Section, Store};
 use crate::ui::images::{ImageCache, Pixels};
 use crate::ui::qr;
 use crate::util::jid::{is_group, is_lid, normalize_jid};
-use crate::AppWindow;
 
 pub(crate) const DIRTY_SESSION: u8 = 1;
 pub(crate) const DIRTY_CHATS: u8 = 2;
@@ -73,7 +73,11 @@ pub(crate) struct Preview {
 
 pub(crate) enum Rec {
     Voice(VoiceRecorder),
-    Photo { session: CameraSession, frame: Option<Pixels>, error: Option<String> },
+    Photo {
+        session: CameraSession,
+        frame: Option<Pixels>,
+        error: Option<String>,
+    },
 }
 
 pub(crate) struct Viewer {
@@ -318,7 +322,8 @@ impl Controller {
                 let me = self.clone();
                 let chunk = chunk.to_vec();
                 let n = chunk.len() as i32;
-                let _ = tokio::task::spawn_blocking(move || lock(&me.store).hydrate_tails(&chunk)).await;
+                let _ = tokio::task::spawn_blocking(move || lock(&me.store).hydrate_tails(&chunk))
+                    .await;
                 lock(&self.view).loading_done += n;
                 self.mark(DIRTY_SESSION);
                 tokio::task::yield_now().await;
@@ -349,7 +354,11 @@ impl Controller {
                 continue;
             }
             let frame = self.build_frame(bits);
-            if self.window.upgrade_in_event_loop(move |w| frame.apply(&w)).is_err() {
+            if self
+                .window
+                .upgrade_in_event_loop(move |w| frame.apply(&w))
+                .is_err()
+            {
                 break;
             }
         }
@@ -375,12 +384,17 @@ impl Controller {
                 if v.toasts.len() != before {
                     bits |= DIRTY_SESSION;
                 }
-                let syncing = v.last_history_chunk.is_some_and(|t| t.elapsed() < Duration::from_millis(2500));
+                let syncing = v
+                    .last_history_chunk
+                    .is_some_and(|t| t.elapsed() < Duration::from_millis(2500));
                 if syncing != v.syncing_shown {
                     v.syncing_shown = syncing;
                     bits |= DIRTY_SESSION | DIRTY_CHATS;
                 }
-                if v.flash.as_ref().is_some_and(|(_, t)| t.elapsed() > Duration::from_millis(1500)) {
+                if v.flash
+                    .as_ref()
+                    .is_some_and(|(_, t)| t.elapsed() > Duration::from_millis(1500))
+                {
                     v.flash = None;
                     bits |= DIRTY_CONV;
                 }
@@ -542,7 +556,11 @@ impl Controller {
                         }
                         let cm = s.canonical_message(m);
                         if let (Some(n), false) = (&cm.dto.push_name, cm.dto.from_me) {
-                            let who = if cm.dto.sender_jid.is_empty() { cm.dto.chat_jid.clone() } else { cm.dto.sender_jid.clone() };
+                            let who = if cm.dto.sender_jid.is_empty() {
+                                cm.dto.chat_jid.clone()
+                            } else {
+                                cm.dto.sender_jid.clone()
+                            };
                             s.learn_name(&who, n);
                         }
                         list.push(cm);
@@ -562,7 +580,11 @@ impl Controller {
                     self.clone().unify_lid(receipt.chat_jid.clone()).await;
                     jid = lock(&self.store).canonical(&receipt.chat_jid);
                 }
-                lock(&self.store).apply_receipt(&jid, &receipt.message_ids, MessageStatus::parse(&receipt.status));
+                lock(&self.store).apply_receipt(
+                    &jid,
+                    &receipt.message_ids,
+                    MessageStatus::parse(&receipt.status),
+                );
                 self.mark_jid(&jid);
             }
             UiEvent::ChatFlags { flags, .. } => {
@@ -573,20 +595,41 @@ impl Controller {
             UiEvent::MessageUpdate { update, .. } => {
                 let (jid, sender) = {
                     let s = lock(&self.store);
-                    (s.canonical(&update.chat_jid), s.canonical(update.sender_jid.as_deref().unwrap_or("")))
+                    (
+                        s.canonical(&update.chat_jid),
+                        s.canonical(update.sender_jid.as_deref().unwrap_or("")),
+                    )
                 };
                 {
                     let mut s = lock(&self.store);
                     match update.kind.as_str() {
-                        "revoke" => s.apply_revoke_event(&jid, &update.target_id, &sender, update.from_me, update.timestamp),
-                        "edit" => s.apply_edit(&jid, &update.target_id, update.text.clone(), update.timestamp),
+                        "revoke" => s.apply_revoke_event(
+                            &jid,
+                            &update.target_id,
+                            &sender,
+                            update.from_me,
+                            update.timestamp,
+                        ),
+                        "edit" => s.apply_edit(
+                            &jid,
+                            &update.target_id,
+                            update.text.clone(),
+                            update.timestamp,
+                        ),
                         "reaction" => {
                             let reactor = if update.from_me {
-                                self.self_jid().map(|j| normalize_jid(&j)).unwrap_or_else(|| normalize_jid(&sender))
+                                self.self_jid()
+                                    .map(|j| normalize_jid(&j))
+                                    .unwrap_or_else(|| normalize_jid(&sender))
                             } else {
                                 normalize_jid(&sender)
                             };
-                            s.apply_reaction(&jid, &update.target_id, &reactor, update.text.as_deref().unwrap_or(""));
+                            s.apply_reaction(
+                                &jid,
+                                &update.target_id,
+                                &reactor,
+                                update.text.as_deref().unwrap_or(""),
+                            );
                         }
                         _ => {}
                     }
@@ -597,7 +640,11 @@ impl Controller {
                 }
                 self.mark_jid(&jid);
             }
-            UiEvent::DeleteForMe { chat_jid, message_id, .. } => {
+            UiEvent::DeleteForMe {
+                chat_jid,
+                message_id,
+                ..
+            } => {
                 let jid = lock(&self.store).canonical(&chat_jid);
                 lock(&self.store).remove_message(&jid, &message_id);
                 tokio::spawn(self.clone().unify_lid(chat_jid));
@@ -629,7 +676,11 @@ impl Controller {
                 {
                     c.name = Some(n.clone());
                 }
-                let who = if cm.dto.sender_jid.is_empty() { jid.clone() } else { cm.dto.sender_jid.clone() };
+                let who = if cm.dto.sender_jid.is_empty() {
+                    jid.clone()
+                } else {
+                    cm.dto.sender_jid.clone()
+                };
                 s.learn_name(&who, &n);
             }
             s.add_message(cm);
@@ -676,7 +727,11 @@ impl Controller {
     /// queue a read receipt (batched, deduplicated).
     pub fn seen(self: &Arc<Self>, id: String) {
         let Some(jid) = self.active() else { return };
-        let ids = lock(&self.view).albums.get(&id).cloned().unwrap_or_else(|| vec![id]);
+        let ids = lock(&self.view)
+            .albums
+            .get(&id)
+            .cloned()
+            .unwrap_or_else(|| vec![id]);
         let send = lock(&self.settings).send_read_receipts;
         let mut chat_read = false;
         let mut any = false;
@@ -684,7 +739,10 @@ impl Controller {
             let (result, wire) = {
                 let mut s = lock(&self.store);
                 let wire = s.find_message(&jid, &id).map(|m| {
-                    (m.proto_chat_jid().to_string(), is_group(&jid).then(|| m.proto_sender_jid().to_string()))
+                    (
+                        m.proto_chat_jid().to_string(),
+                        is_group(&jid).then(|| m.proto_sender_jid().to_string()),
+                    )
                 });
                 (s.mark_message_read(&jid, &id), wire)
             };

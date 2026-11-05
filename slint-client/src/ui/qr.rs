@@ -22,7 +22,12 @@ pub fn render(data: &str, scale: u32) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
                 && (my as u32) < width
                 && colors[(my as u32 * width + mx as u32) as usize] == Color::Dark;
             let v = if dark { 0x11 } else { 0xff };
-            pixels[(py * side + px) as usize] = Rgba8Pixel { r: v, g: v, b: v, a: 0xff };
+            pixels[(py * side + px) as usize] = Rgba8Pixel {
+                r: v,
+                g: v,
+                b: v,
+                a: 0xff,
+            };
         }
     }
     Some(buf)

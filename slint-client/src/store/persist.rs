@@ -16,8 +16,8 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 use super::{Chat, UiMessage};
 
@@ -59,7 +59,13 @@ impl Persist {
     fn msgs_path(&self, jid: &str) -> PathBuf {
         let safe: String = jid
             .chars()
-            .map(|c| if c.is_ascii_alphanumeric() || matches!(c, '@' | '.' | '-' | '_') { c } else { '_' })
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || matches!(c, '@' | '.' | '-' | '_') {
+                    c
+                } else {
+                    '_'
+                }
+            })
             .collect();
         self.root.join("msgs").join(format!("{safe}.json"))
     }
@@ -73,7 +79,10 @@ impl Persist {
     }
 
     pub fn save_account(&self, jid: &str) {
-        Self::write(&self.root.join("account.json"), &serde_json::json!({ "jid": jid }));
+        Self::write(
+            &self.root.join("account.json"),
+            &serde_json::json!({ "jid": jid }),
+        );
     }
 
     pub fn load_chats(&self) -> Vec<Chat> {

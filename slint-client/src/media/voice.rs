@@ -7,8 +7,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use rodio::microphone::MicrophoneBuilder;
 use rodio::Source;
+use rodio::microphone::MicrophoneBuilder;
 
 /// (sample rate, channels, interleaved samples) from the capture thread.
 type Captured = anyhow::Result<(u32, u16, Vec<f32>)>;
@@ -53,7 +53,12 @@ impl VoiceRecorder {
                 Ok((rate, channels, samples))
             })
             .expect("spawn mic thread");
-        Self { stop, worker: Some(worker), started: Instant::now(), error }
+        Self {
+            stop,
+            worker: Some(worker),
+            started: Instant::now(),
+            error,
+        }
     }
 
     pub fn elapsed_label(&self) -> String {
@@ -87,7 +92,10 @@ fn to_mono(samples: &[f32], channels: usize) -> Vec<f32> {
     if channels <= 1 {
         return samples.to_vec();
     }
-    samples.chunks(channels).map(|f| f.iter().sum::<f32>() / f.len() as f32).collect()
+    samples
+        .chunks(channels)
+        .map(|f| f.iter().sum::<f32>() / f.len() as f32)
+        .collect()
 }
 
 /// Linear resampler — plenty for speech.
@@ -145,12 +153,21 @@ pub fn encode_ogg_opus(pcm: &[f32], path: &Path) -> anyhow::Result<()> {
         frame[..chunk.len()].copy_from_slice(chunk);
         let n = enc.encode_float(&frame, &mut buf)?;
         granule += chunk.len() as u64;
-        let end = if i + 1 == total { ogg::PacketWriteEndInfo::EndStream } else { ogg::PacketWriteEndInfo::NormalPacket };
+        let end = if i + 1 == total {
+            ogg::PacketWriteEndInfo::EndStream
+        } else {
+            ogg::PacketWriteEndInfo::NormalPacket
+        };
         w.write_packet(buf[..n].to_vec(), serial, end, granule)?;
     }
     if frames.is_empty() {
         let n = enc.encode_float(&[0f32; FRAME], &mut buf)?;
-        w.write_packet(buf[..n].to_vec(), serial, ogg::PacketWriteEndInfo::EndStream, pre_skip as u64 + FRAME as u64)?;
+        w.write_packet(
+            buf[..n].to_vec(),
+            serial,
+            ogg::PacketWriteEndInfo::EndStream,
+            pre_skip as u64 + FRAME as u64,
+        )?;
     }
     Ok(())
 }
@@ -161,12 +178,18 @@ mod tests {
 
     #[test]
     fn opus_roundtrip() {
-        let pcm: Vec<f32> = (0..48_000).map(|i| (i as f32 * 440.0 * std::f32::consts::TAU / 48_000.0).sin() * 0.3).collect();
+        let pcm: Vec<f32> = (0..48_000)
+            .map(|i| (i as f32 * 440.0 * std::f32::consts::TAU / 48_000.0).sin() * 0.3)
+            .collect();
         let path = crate::media::prep::stage_path("ogg");
         encode_ogg_opus(&pcm, &path).unwrap();
         let (ch, out) = crate::media::audio::decode_ogg_opus(&path).unwrap();
         assert_eq!(ch, 1);
-        assert!((out.len() as i64 - 48_000).abs() < 2_000, "decoded {} samples", out.len());
+        assert!(
+            (out.len() as i64 - 48_000).abs() < 2_000,
+            "decoded {} samples",
+            out.len()
+        );
         crate::media::prep::unstage(&path);
     }
 

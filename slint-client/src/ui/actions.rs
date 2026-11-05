@@ -7,8 +7,10 @@ use std::time::Instant;
 use crate::core::dto::QuotedDto;
 use crate::core::error::ApiError;
 use crate::store::settings::ZOOM_STEP;
-use crate::store::{quoted_text, MessageStatus, Section, UiMessage};
-use crate::ui::controller::{lock, Controller, DIRTY_ALL, DIRTY_CHATS, DIRTY_CONV, DIRTY_OVERLAY, DIRTY_SESSION, PAGE};
+use crate::store::{MessageStatus, Section, UiMessage, quoted_text};
+use crate::ui::controller::{
+    Controller, DIRTY_ALL, DIRTY_CHATS, DIRTY_CONV, DIRTY_OVERLAY, DIRTY_SESSION, PAGE, lock,
+};
 use crate::util::emoji;
 use crate::util::jid::{is_group, normalize_jid};
 use crate::util::time::now_secs;
@@ -35,8 +37,16 @@ impl Controller {
         self.audio.stop();
         let (draft, first_unread) = {
             let s = lock(&self.store);
-            let draft = s.chats.get(&jid).and_then(|c| c.draft.clone()).unwrap_or_default();
-            let first_unread = s.messages(&jid).iter().find(|m| m.unread).map(|m| m.dto.id.clone());
+            let draft = s
+                .chats
+                .get(&jid)
+                .and_then(|c| c.draft.clone())
+                .unwrap_or_default();
+            let first_unread = s
+                .messages(&jid)
+                .iter()
+                .find(|m| m.unread)
+                .map(|m| m.dto.id.clone());
             (draft, first_unread)
         };
         {
@@ -135,7 +145,11 @@ impl Controller {
             let Some(jid) = s.active.clone() else { return };
             let limit = lock(&self.view).window_limit;
             let all = s.messages(&jid);
-            all[all.len().saturating_sub(limit)..].iter().filter(|m| m.unread).map(|m| m.dto.id.clone()).collect()
+            all[all.len().saturating_sub(limit)..]
+                .iter()
+                .filter(|m| m.unread)
+                .map(|m| m.dto.id.clone())
+                .collect()
         };
         for id in ids {
             self.seen(id);
@@ -174,7 +188,9 @@ impl Controller {
         let idx_from_end = {
             let s = lock(&self.store);
             let all = s.messages(&jid);
-            all.iter().position(|m| m.dto.id == id).map(|p| all.len() - p)
+            all.iter()
+                .position(|m| m.dto.id == id)
+                .map(|p| all.len() - p)
         };
         let Some(from_end) = idx_from_end else {
             self.toast("The original message isn't available");
@@ -216,7 +232,10 @@ impl Controller {
             Some(token) => {
                 v.suggestion_start = caret - token.len() - 1;
                 v.suggestion_caret = caret;
-                emoji::search(token, 8).into_iter().map(|(code, e)| (e.to_string(), code.to_string())).collect()
+                emoji::search(token, 8)
+                    .into_iter()
+                    .map(|(code, e)| (e.to_string(), code.to_string()))
+                    .collect()
             }
             None => Vec::new(),
         };
@@ -227,9 +246,14 @@ impl Controller {
 
     pub fn accept_suggestion(&self, index: usize) {
         let mut v = lock(&self.view);
-        let Some((emoji, _)) = v.suggestions.get(index).cloned() else { return };
+        let Some((emoji, _)) = v.suggestions.get(index).cloned() else {
+            return;
+        };
         let text = v.composer_text.clone();
-        let (start, caret) = (v.suggestion_start.min(text.len()), v.suggestion_caret.min(text.len()));
+        let (start, caret) = (
+            v.suggestion_start.min(text.len()),
+            v.suggestion_caret.min(text.len()),
+        );
         let new_text = format!("{}{}{}", &text[..start], emoji, &text[caret..]);
         let new_caret = (start + emoji.len()) as i32;
         v.suggestions.clear();
@@ -279,7 +303,9 @@ impl Controller {
     }
 
     pub fn reply_to(&self, id: String) {
-        let Some(m) = self.active_message(&id) else { return };
+        let Some(m) = self.active_message(&id) else {
+            return;
+        };
         if m.deleted || m.is_pending() {
             return;
         }
@@ -296,7 +322,9 @@ impl Controller {
     }
 
     pub fn start_edit(&self, id: String) {
-        let Some(m) = self.active_message(&id) else { return };
+        let Some(m) = self.active_message(&id) else {
+            return;
+        };
         let mut v = lock(&self.view);
         if v.editing.is_none() {
             v.edit_stash = Some(v.composer_text.clone());
@@ -320,7 +348,11 @@ impl Controller {
         let (reply_to, editing) = {
             let mut v = lock(&self.view);
             let editing = v.editing.take();
-            let restore = if editing.is_some() { v.edit_stash.take().unwrap_or_default() } else { String::new() };
+            let restore = if editing.is_some() {
+                v.edit_stash.take().unwrap_or_default()
+            } else {
+                String::new()
+            };
             v.composer_text = restore.clone();
             v.composer_override = Some((restore, None));
             v.suggestions.clear();
@@ -329,10 +361,16 @@ impl Controller {
         };
 
         if let Some(id) = editing {
-            let Some(before) = self.active_message(&id) else { return };
+            let Some(before) = self.active_message(&id) else {
+                return;
+            };
             lock(&self.store).apply_edit(&jid, &id, Some(body.clone()), now_secs());
             self.mark(DIRTY_CHATS | DIRTY_CONV);
-            if let Err(e) = self.api.edit_message(before.proto_chat_jid().to_string(), id, body).await {
+            if let Err(e) = self
+                .api
+                .edit_message(before.proto_chat_jid().to_string(), id, body)
+                .await
+            {
                 log::warn!("edit failed: {e}");
                 lock(&self.store).restore_message(before);
                 self.toast("Couldn't edit the message");
@@ -345,7 +383,11 @@ impl Controller {
         let target = reply_to.and_then(|id| self.active_message(&id));
         let quoted = target.as_ref().map(|q| QuotedDto {
             id: q.dto.id.clone(),
-            sender_jid: Some(if q.dto.from_me { self.self_jid().unwrap_or_default() } else { q.dto.sender_jid.clone() }),
+            sender_jid: Some(if q.dto.from_me {
+                self.self_jid().unwrap_or_default()
+            } else {
+                q.dto.sender_jid.clone()
+            }),
             text: q.dto.text.clone(),
             kind: q.dto.kind.clone(),
             thumbnail: q.dto.thumbnail.clone(),
@@ -356,21 +398,41 @@ impl Controller {
         let result = match &target {
             Some(q) => {
                 let sender = if q.dto.from_me {
-                    self.self_jid().map(|j| normalize_jid(&j)).unwrap_or_default()
+                    self.self_jid()
+                        .map(|j| normalize_jid(&j))
+                        .unwrap_or_default()
                 } else if q.proto_sender_jid().is_empty() {
                     q.proto_chat_jid().to_string()
                 } else {
                     q.proto_sender_jid().to_string()
                 };
-                let qt = quoted_text(&q.dto.kind, q.dto.text.as_deref(), q.dto.media.as_ref().and_then(|m| m.file_name.as_deref()));
-                self.api.send_reply(q.proto_chat_jid().to_string(), body, q.dto.id.clone(), sender, Some(qt)).await
+                let qt = quoted_text(
+                    &q.dto.kind,
+                    q.dto.text.as_deref(),
+                    q.dto.media.as_ref().and_then(|m| m.file_name.as_deref()),
+                );
+                self.api
+                    .send_reply(
+                        q.proto_chat_jid().to_string(),
+                        body,
+                        q.dto.id.clone(),
+                        sender,
+                        Some(qt),
+                    )
+                    .await
             }
             None => self.api.send_text(jid.clone(), body).await,
         };
         self.finish_send(&jid, &tmp, result.map(|r| r.message_id), "Message not sent");
     }
 
-    pub(crate) fn finish_send(&self, jid: &str, tmp: &str, result: Result<String, ApiError>, failure: &str) {
+    pub(crate) fn finish_send(
+        &self,
+        jid: &str,
+        tmp: &str,
+        result: Result<String, ApiError>,
+        failure: &str,
+    ) {
         match result {
             Ok(real) => lock(&self.store).confirm_optimistic(jid, tmp, &real),
             Err(e) => {
@@ -383,7 +445,9 @@ impl Controller {
     }
 
     pub async fn retry(self: Arc<Self>, id: String) {
-        let Some(m) = self.active_message(&id) else { return };
+        let Some(m) = self.active_message(&id) else {
+            return;
+        };
         if m.status != MessageStatus::Failed || m.dto.kind != "text" {
             return;
         }
@@ -394,32 +458,57 @@ impl Controller {
     // ================================================================ reactions / delete
 
     pub fn open_reactions(&self, id: String) {
-        let Some(m) = self.active_message(&id) else { return };
+        let Some(m) = self.active_message(&id) else {
+            return;
+        };
         if m.deleted || m.is_pending() {
             return;
         }
-        let me = self.self_jid().map(|j| normalize_jid(&j)).unwrap_or_default();
+        let me = self
+            .self_jid()
+            .map(|j| normalize_jid(&j))
+            .unwrap_or_default();
         let current = m.reactions.get(&me).cloned().unwrap_or_default();
         lock(&self.view).open_reaction = Some((id, current));
         self.mark(DIRTY_OVERLAY);
     }
 
     pub async fn react(self: Arc<Self>, id: String, emoji: String) {
-        let Some(before) = self.active_message(&id) else { return };
+        let Some(before) = self.active_message(&id) else {
+            return;
+        };
         if before.is_pending() || before.deleted {
             return;
         }
         let jid = before.dto.chat_jid.clone();
-        let me = self.self_jid().map(|j| normalize_jid(&j)).unwrap_or_default();
+        let me = self
+            .self_jid()
+            .map(|j| normalize_jid(&j))
+            .unwrap_or_default();
         // Picking your current reaction again removes it.
-        let emoji = if before.reactions.get(&me) == Some(&emoji) { String::new() } else { emoji };
+        let emoji = if before.reactions.get(&me) == Some(&emoji) {
+            String::new()
+        } else {
+            emoji
+        };
         if !emoji.is_empty() {
             lock(&self.settings).push_recent_emoji(&emoji);
         }
         lock(&self.store).apply_reaction(&jid, &id, &me, &emoji);
         self.mark(DIRTY_CONV);
-        let participant = (is_group(&jid) && !before.dto.from_me).then(|| before.proto_sender_jid().to_string());
-        if let Err(e) = self.api.send_reaction(before.proto_chat_jid().to_string(), id, before.dto.from_me, emoji, participant).await {
+        let participant =
+            (is_group(&jid) && !before.dto.from_me).then(|| before.proto_sender_jid().to_string());
+        if let Err(e) = self
+            .api
+            .send_reaction(
+                before.proto_chat_jid().to_string(),
+                id,
+                before.dto.from_me,
+                emoji,
+                participant,
+            )
+            .await
+        {
             log::warn!("reaction failed: {e}");
             lock(&self.store).restore_message(before);
             self.toast("Couldn't send reaction");
@@ -428,24 +517,35 @@ impl Controller {
     }
 
     pub fn ask_delete(&self, id: String) {
-        let Some(m) = self.active_message(&id) else { return };
+        let Some(m) = self.active_message(&id) else {
+            return;
+        };
         let everyone = m.dto.from_me && !m.deleted && !m.is_pending();
         lock(&self.view).open_delete = Some((id, everyone));
         self.mark(DIRTY_OVERLAY);
     }
 
     pub async fn delete_for_me(self: Arc<Self>, id: String) {
-        let Some(before) = self.active_message(&id) else { return };
+        let Some(before) = self.active_message(&id) else {
+            return;
+        };
         let jid = before.dto.chat_jid.clone();
         lock(&self.store).remove_message(&jid, &id);
         self.mark(DIRTY_CHATS | DIRTY_CONV);
         if before.is_pending() {
             return; // local-only bubble
         }
-        let participant = (is_group(&jid) && !before.dto.from_me).then(|| before.proto_sender_jid().to_string());
+        let participant =
+            (is_group(&jid) && !before.dto.from_me).then(|| before.proto_sender_jid().to_string());
         if let Err(e) = self
             .api
-            .delete_for_me(before.proto_chat_jid().to_string(), id, before.dto.from_me, participant, Some(before.dto.timestamp))
+            .delete_for_me(
+                before.proto_chat_jid().to_string(),
+                id,
+                before.dto.from_me,
+                participant,
+                Some(before.dto.timestamp),
+            )
             .await
         {
             log::warn!("delete for me failed: {e}");
@@ -456,14 +556,20 @@ impl Controller {
     }
 
     pub async fn delete_for_everyone(self: Arc<Self>, id: String) {
-        let Some(before) = self.active_message(&id) else { return };
+        let Some(before) = self.active_message(&id) else {
+            return;
+        };
         if !before.dto.from_me || before.is_pending() || before.deleted {
             return;
         }
         let jid = before.dto.chat_jid.clone();
         lock(&self.store).apply_revoke(&jid, &id);
         self.mark(DIRTY_CHATS | DIRTY_CONV);
-        if let Err(e) = self.api.revoke_message(before.proto_chat_jid().to_string(), id, None).await {
+        if let Err(e) = self
+            .api
+            .revoke_message(before.proto_chat_jid().to_string(), id, None)
+            .await
+        {
             log::warn!("revoke failed: {e}");
             lock(&self.store).restore_message(before);
             self.toast("Couldn't delete the message for everyone");

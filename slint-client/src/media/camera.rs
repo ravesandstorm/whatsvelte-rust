@@ -7,9 +7,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use image::RgbImage;
+use nokhwa::Camera;
 use nokhwa::pixel_format::RgbFormat;
 use nokhwa::utils::{CameraIndex, RequestedFormat, RequestedFormatType};
-use nokhwa::Camera;
 
 pub struct CameraSession {
     stop: Arc<AtomicBool>,
@@ -36,20 +36,28 @@ impl CameraSession {
                     nokhwa::nokhwa_initialize(move |granted| {
                         let _ = tx.send(granted);
                     });
-                    if !rx.recv_timeout(std::time::Duration::from_secs(60)).unwrap_or(false) {
+                    if !rx
+                        .recv_timeout(std::time::Duration::from_secs(60))
+                        .unwrap_or(false)
+                    {
                         on_error("Camera permission was denied.".into());
                         return;
                     }
                 }
-                let format = RequestedFormat::new::<RgbFormat>(RequestedFormatType::AbsoluteHighestFrameRate);
-                let mut cam = match Camera::new(CameraIndex::Index(0), format).and_then(|mut c| c.open_stream().map(|_| c)) {
+                let format = RequestedFormat::new::<RgbFormat>(
+                    RequestedFormatType::AbsoluteHighestFrameRate,
+                );
+                let mut cam = match Camera::new(CameraIndex::Index(0), format)
+                    .and_then(|mut c| c.open_stream().map(|_| c))
+                {
                     Ok(c) => c,
                     Err(e) => {
                         on_error(e.to_string());
                         return;
                     }
                 };
-                let mut last_preview = std::time::Instant::now() - std::time::Duration::from_secs(1);
+                let mut last_preview =
+                    std::time::Instant::now() - std::time::Duration::from_secs(1);
                 while !stop2.load(Ordering::Relaxed) {
                     let frame = match cam.frame().and_then(|b| b.decode_image::<RgbFormat>()) {
                         Ok(f) => f,
@@ -58,11 +66,17 @@ impl CameraSession {
                             break;
                         }
                     };
-                    let Some(img) = RgbImage::from_raw(frame.width(), frame.height(), frame.into_raw()) else { continue };
+                    let Some(img) =
+                        RgbImage::from_raw(frame.width(), frame.height(), frame.into_raw())
+                    else {
+                        continue;
+                    };
                     // ~15 fps preview, downscaled to keep UI memory flat.
                     if last_preview.elapsed() >= std::time::Duration::from_millis(66) {
                         last_preview = std::time::Instant::now();
-                        let small = image::DynamicImage::ImageRgb8(img.clone()).thumbnail(640, 640).into_rgb8();
+                        let small = image::DynamicImage::ImageRgb8(img.clone())
+                            .thumbnail(640, 640)
+                            .into_rgb8();
                         on_frame(small);
                     }
                     *latest2.lock().unwrap_or_else(|p| p.into_inner()) = Some(img);

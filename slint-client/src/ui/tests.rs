@@ -9,7 +9,7 @@ use std::sync::{Arc, Once};
 use crate::core::api::Api;
 use crate::core::session::SessionManager;
 use crate::store::MessageStatus;
-use crate::ui::controller::{lock, Controller, DIRTY_CHATS, DIRTY_CONV};
+use crate::ui::controller::{Controller, DIRTY_CHATS, DIRTY_CONV, lock};
 
 const G: &str = "120363000000000001@g.us";
 const ADA: &str = "919876543210@s.whatsapp.net";
@@ -31,17 +31,28 @@ async fn demo() -> Arc<Controller> {
     env();
     let (tx, _rx) = async_channel::unbounded();
     let mgr = Arc::new(SessionManager::new(tx, std::env::temp_dir()));
-    let c = Controller::new(Api::new(mgr), tokio::runtime::Handle::current(), slint::Weak::default());
+    let c = Controller::new(
+        Api::new(mgr),
+        tokio::runtime::Handle::current(),
+        slint::Weak::default(),
+    );
     c.clone().run_demo().await;
     c
 }
 
 fn msg(c: &Controller, id: &str) -> crate::store::UiMessage {
-    lock(&c.store).find_message(G, id).cloned().expect("message")
+    lock(&c.store)
+        .find_message(G, id)
+        .cloned()
+        .expect("message")
 }
 
 fn toasts(c: &Controller) -> Vec<String> {
-    lock(&c.view).toasts.iter().map(|(t, _)| t.clone()).collect()
+    lock(&c.view)
+        .toasts
+        .iter()
+        .map(|(t, _)| t.clone())
+        .collect()
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -84,7 +95,10 @@ async fn edit_stashes_and_restores_the_composer() {
     assert_eq!(lock(&c.view).composer_text, "cargo build --release 🚀");
     c.clone().send("cargo build".into()).await;
     // rolled back + stash restored
-    assert_eq!(msg(&c, "m6").dto.text.as_deref(), Some("cargo build --release 🚀"));
+    assert_eq!(
+        msg(&c, "m6").dto.text.as_deref(),
+        Some("cargo build --release 🚀")
+    );
     assert_eq!(lock(&c.view).composer_text, "half-typed");
     assert!(lock(&c.view).editing.is_none());
     assert!(toasts(&c).contains(&"Couldn't edit the message".to_string()));
@@ -125,7 +139,10 @@ async fn shortcode_and_emoji_insertion() {
     c.composer_edited("ab".into(), 1);
     c.emoji_picked("🔥".into(), 1);
     assert_eq!(lock(&c.view).composer_text, "a🔥b");
-    assert_eq!(lock(&c.settings).emoji_recent.first().map(String::as_str), Some("🔥"));
+    assert_eq!(
+        lock(&c.settings).emoji_recent.first().map(String::as_str),
+        Some("🔥")
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -135,7 +152,12 @@ async fn quote_jump_reveals_and_flashes() {
     assert!(toasts(&c).contains(&"The original message isn't available".to_string()));
     c.reveal_quote("m1".into());
     let v = lock(&c.view);
-    assert_eq!(v.reveal.as_ref().map(|(_, id, center)| (id.as_str(), *center)), Some(("m1", true)));
+    assert_eq!(
+        v.reveal
+            .as_ref()
+            .map(|(_, id, center)| (id.as_str(), *center)),
+        Some(("m1", true))
+    );
     assert_eq!(v.flash.as_ref().map(|(id, _)| id.as_str()), Some("m1"));
 }
 
@@ -170,14 +192,21 @@ async fn frames_group_albums_and_parse_links() {
     let c = demo().await;
     let frame = c.build_frame(DIRTY_CONV | DIRTY_CHATS);
     let conv = frame.conv.expect("conv frame");
-    let album = conv.rows.iter().find(|r| !r.album.is_empty()).expect("album row");
+    let album = conv
+        .rows
+        .iter()
+        .find(|r| !r.album.is_empty())
+        .expect("album row");
     assert_eq!(album.album.len(), 4);
     assert_eq!(album.album[3].more, 2);
     let poll = conv.rows.iter().find(|r| r.id == "m5c").unwrap();
     assert_eq!(poll.structured, "Poll");
     let link = conv.rows.iter().find(|r| r.id == "m1").unwrap();
     let md = link.rich_md.as_deref().expect("markdown for a link");
-    assert!(slint::StyledText::from_markdown(md).is_ok(), "bad markdown: {md}");
+    assert!(
+        slint::StyledText::from_markdown(md).is_ok(),
+        "bad markdown: {md}"
+    );
     let deleted = conv.rows.iter().find(|r| r.id == "m7").unwrap();
     assert!(deleted.deleted && deleted.text.is_empty());
     // chat list: group rows get a sender prefix, drafts show in place of the preview
@@ -197,7 +226,10 @@ fn tricky_link_markdown_always_parses() {
         "emoji 🚀 https://x.io 😀\n\nnext paragraph",
     ] {
         let md = crate::ui::views::linkify_markdown(text).expect("has links");
-        assert!(slint::StyledText::from_markdown(&md).is_ok(), "failed for {text:?}: {md}");
+        assert!(
+            slint::StyledText::from_markdown(&md).is_ok(),
+            "failed for {text:?}: {md}"
+        );
     }
 }
 
@@ -207,7 +239,11 @@ async fn retry_replaces_the_failed_bubble() {
     c.clone().send("again".into()).await;
     let failed = lock(&c.store).messages(G).last().cloned().unwrap();
     c.clone().retry(failed.dto.id.clone()).await;
-    let n = lock(&c.store).messages(G).iter().filter(|m| m.dto.text.as_deref() == Some("again")).count();
+    let n = lock(&c.store)
+        .messages(G)
+        .iter()
+        .filter(|m| m.dto.text.as_deref() == Some("again"))
+        .count();
     assert_eq!(n, 1, "retry must not duplicate the bubble");
 }
 
@@ -215,13 +251,19 @@ async fn retry_replaces_the_failed_bubble() {
 async fn drafts_follow_the_chat() {
     let c = demo().await;
     c.composer_edited("note to self".into(), 12);
-    assert_eq!(lock(&c.store).chats[G].draft.as_deref(), Some("note to self"));
+    assert_eq!(
+        lock(&c.store).chats[G].draft.as_deref(),
+        Some("note to self")
+    );
     c.clone().select_chat("100000012345678@lid".into()).await;
     assert_eq!(lock(&c.view).composer_text, "unsent thought");
     c.clone().select_chat(G.into()).await;
     assert_eq!(lock(&c.view).composer_text, "note to self");
     c.clone().send("note to self".into()).await;
-    assert!(lock(&c.store).chats[G].draft.is_none(), "sending clears the draft");
+    assert!(
+        lock(&c.store).chats[G].draft.is_none(),
+        "sending clears the draft"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -230,7 +272,10 @@ async fn deleting_a_failed_bubble_is_local() {
     c.clone().send("oops".into()).await;
     let failed = lock(&c.store).messages(G).last().cloned().unwrap();
     c.ask_delete(failed.dto.id.clone());
-    assert_eq!(lock(&c.view).open_delete.clone(), Some((failed.dto.id.clone(), false)));
+    assert_eq!(
+        lock(&c.view).open_delete.clone(),
+        Some((failed.dto.id.clone(), false))
+    );
     c.clone().delete_for_me(failed.dto.id.clone()).await;
     assert!(lock(&c.store).find_message(G, &failed.dto.id).is_none());
     assert!(!toasts(&c).contains(&"Couldn't delete the message".to_string()));

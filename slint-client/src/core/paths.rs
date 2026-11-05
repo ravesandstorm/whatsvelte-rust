@@ -26,7 +26,9 @@ pub fn data_dir() -> PathBuf {
 pub fn app_data_dir() -> PathBuf {
     let dir = match std::env::var_os("WA_APP_DATA_DIR") {
         Some(d) => PathBuf::from(d),
-        None => dirs::data_dir().unwrap_or_else(|| PathBuf::from(".")).join(APP_IDENTIFIER),
+        None => dirs::data_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join(APP_IDENTIFIER),
     };
     let _ = std::fs::create_dir_all(&dir);
     dir

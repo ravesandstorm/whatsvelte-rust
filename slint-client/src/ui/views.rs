@@ -4,28 +4,40 @@
 use std::collections::HashMap;
 
 use crate::core::dto::MessageDto;
-use crate::store::{media_label, quoted_text, MessageStatus, Section, Store, UiMessage};
-use crate::ui::controller::{lock, Controller, Rec, DIRTY_CHATS, DIRTY_CONV, DIRTY_OVERLAY, DIRTY_SESSION};
+use crate::store::{MessageStatus, Section, Store, UiMessage, media_label, quoted_text};
+use crate::ui::controller::{
+    Controller, DIRTY_CHATS, DIRTY_CONV, DIRTY_OVERLAY, DIRTY_SESSION, Rec, lock,
+};
 use crate::ui::frame::{
-    ChatRowData, ChatsFrame, ConvFrame, Frame, MsgRowData, OverlayFrame, PreviewData, SessionFrame, TileData, ViewerData,
+    ChatRowData, ChatsFrame, ConvFrame, Frame, MsgRowData, OverlayFrame, PreviewData, SessionFrame,
+    TileData, ViewerData,
 };
 use crate::ui::images::{self, Pixels};
 use crate::util::emoji;
-use crate::util::jid::{format_phone, initials, is_group, is_newsletter, is_phone, is_self, is_status, normalize_jid};
+use crate::util::jid::{
+    format_phone, initials, is_group, is_newsletter, is_phone, is_self, is_status, normalize_jid,
+};
 use crate::util::time::{clock, list_stamp};
 
 /// Stable avatar / sender tint per jid.
 pub fn tint_for(jid: &str) -> u32 {
     const PALETTE: [u32; 10] = [
-        0x25d366, 0x34b7f1, 0xe542a3, 0xff8a65, 0x7e57c2, 0x26a69a, 0xf4511e, 0x5c6bc0, 0x8d6e63, 0x00897b,
+        0x25d366, 0x34b7f1, 0xe542a3, 0xff8a65, 0x7e57c2, 0x26a69a, 0xf4511e, 0x5c6bc0, 0x8d6e63,
+        0x00897b,
     ];
-    let h = jid.bytes().fold(0u32, |h, b| h.wrapping_mul(31).wrapping_add(b as u32));
+    let h = jid
+        .bytes()
+        .fold(0u32, |h, b| h.wrapping_mul(31).wrapping_add(b as u32));
     PALETTE[(h % PALETTE.len() as u32) as usize]
 }
 
 /// Avatar letters (Avatar.svelte): "#" for groups, else two initials.
 fn avatar_initials(jid: &str, title: &str) -> String {
-    if is_group(jid) { "#".into() } else { initials(title) }
+    if is_group(jid) {
+        "#".into()
+    } else {
+        initials(title)
+    }
 }
 
 /// Avatars use one neutral colour (Avatar.svelte `#6a7175`).
@@ -83,7 +95,8 @@ pub fn find_links(text: &str) -> Vec<(usize, usize)> {
             continue;
         }
         let rest = &lower[i..];
-        let is_start = rest.starts_with("http://") || rest.starts_with("https://") || rest.starts_with("www.");
+        let is_start =
+            rest.starts_with("http://") || rest.starts_with("https://") || rest.starts_with("www.");
         if !is_start {
             i += 1;
             continue;
@@ -113,7 +126,8 @@ pub fn find_links(text: &str) -> Vec<(usize, usize)> {
 fn md_escape(s: &str, out: &mut String) {
     for c in s.chars() {
         match c {
-            '\\' | '`' | '*' | '_' | '[' | ']' | '(' | ')' | '#' | '+' | '-' | '.' | '!' | '<' | '>' | '~' | '|' | '{' | '}' | '&' => {
+            '\\' | '`' | '*' | '_' | '[' | ']' | '(' | ')' | '#' | '+' | '-' | '.' | '!' | '<'
+            | '>' | '~' | '|' | '{' | '}' | '&' => {
                 out.push('\\');
                 out.push(c);
             }
@@ -134,7 +148,11 @@ pub fn linkify_markdown(text: &str) -> Option<String> {
     for (s, e) in links {
         md_escape(&text[last..s], &mut out);
         let shown = &text[s..e];
-        let href = if shown.to_ascii_lowercase().starts_with("www.") { format!("https://{shown}") } else { shown.to_string() };
+        let href = if shown.to_ascii_lowercase().starts_with("www.") {
+            format!("https://{shown}")
+        } else {
+            shown.to_string()
+        };
         out.push('[');
         md_escape(shown, &mut out);
         out.push_str("](<");
@@ -175,7 +193,11 @@ pub fn album_len(msgs: &[UiMessage], i: usize) -> usize {
     if let Some(parent) = &first.dto.album_parent_id {
         let n = 1 + msgs[i + 1..]
             .iter()
-            .take_while(|m| albumable(m) && m.dto.album_parent_id.as_ref() == Some(parent) && same_sender(&m.dto, &first.dto))
+            .take_while(|m| {
+                albumable(m)
+                    && m.dto.album_parent_id.as_ref() == Some(parent)
+                    && same_sender(&m.dto, &first.dto)
+            })
             .count();
         return if n >= 2 { n } else { 1 };
     }
@@ -214,7 +236,11 @@ impl Controller {
         let me = self.self_jid();
         let lid = lock(&self.view).status.lid.clone();
         if is_self(jid, me.as_deref()) || is_self(jid, lid.as_deref()) {
-            let name = lock(&self.view).status.push_name.clone().unwrap_or_else(|| s.title_for(jid));
+            let name = lock(&self.view)
+                .status
+                .push_name
+                .clone()
+                .unwrap_or_else(|| s.title_for(jid));
             return format!("{name} (You)");
         }
         s.title_for(jid)
@@ -225,9 +251,15 @@ impl Controller {
         if m.dto.from_me {
             return "You".into();
         }
-        let sj = if m.dto.sender_jid.is_empty() { chat.to_string() } else { normalize_jid(&m.dto.sender_jid) };
+        let sj = if m.dto.sender_jid.is_empty() {
+            chat.to_string()
+        } else {
+            normalize_jid(&m.dto.sender_jid)
+        };
         let t = s.title_for(&sj);
-        if (t.starts_with('~') || t.starts_with('+')) && let Some(p) = m.dto.push_name.as_ref().filter(|p| !p.is_empty()) {
+        if (t.starts_with('~') || t.starts_with('+'))
+            && let Some(p) = m.dto.push_name.as_ref().filter(|p| !p.is_empty())
+        {
             return p.clone();
         }
         t
@@ -277,7 +309,12 @@ impl Controller {
                 .or_else(|| v.status.jid.as_deref().map(format_phone))
                 .unwrap_or_else(|| "WhatsApp".into()),
             // Settings shows the raw number, like jidUser(session.jid).
-            self_jid: v.status.jid.as_deref().map(|j| crate::util::jid::jid_user(j).to_string()).unwrap_or_default(),
+            self_jid: v
+                .status
+                .jid
+                .as_deref()
+                .map(|j| crate::util::jid::jid_user(j).to_string())
+                .unwrap_or_default(),
             toasts: v.toasts.iter().map(|(t, _)| t.clone()).collect(),
             theme: settings.theme,
             zoom: settings.zoom,
@@ -310,7 +347,10 @@ impl Controller {
             .into_iter()
             .map(|c| {
                 let title = self.chat_title(&s, &c.jid);
-                let draft = c.draft.as_deref().filter(|d| !d.trim().is_empty() && active.as_deref() != Some(&c.jid));
+                let draft = c
+                    .draft
+                    .as_deref()
+                    .filter(|d| !d.trim().is_empty() && active.as_deref() != Some(&c.jid));
                 let last = s.messages(&c.jid).last();
                 let (prefix, tick, body) = match (draft, last) {
                     (Some(d), _) => (String::new(), 0, d.lines().next().unwrap_or("").to_string()),
@@ -318,17 +358,37 @@ impl Controller {
                         let body = if m.deleted {
                             "🚫 This message was deleted".to_string()
                         } else {
-                            m.dto.text.clone().filter(|t| !t.is_empty()).unwrap_or_else(|| media_label(&m.dto.kind).to_string())
+                            m.dto
+                                .text
+                                .clone()
+                                .filter(|t| !t.is_empty())
+                                .unwrap_or_else(|| media_label(&m.dto.kind).to_string())
                         };
                         let prefix = if is_group(&c.jid) {
-                            if m.dto.from_me { "You:".to_string() } else { format!("{}:", self.sender_name(&s, m, &c.jid)) }
+                            if m.dto.from_me {
+                                "You:".to_string()
+                            } else {
+                                format!("{}:", self.sender_name(&s, m, &c.jid))
+                            }
                         } else {
                             String::new()
                         };
-                        let tick = if m.dto.from_me && !m.deleted { status_code(m.status) } else { 0 };
+                        let tick = if m.dto.from_me && !m.deleted {
+                            status_code(m.status)
+                        } else {
+                            0
+                        };
                         (prefix, tick, body.lines().next().unwrap_or("").to_string())
                     }
-                    (None, None) => (String::new(), 0, c.last_message.as_deref().and_then(|t| t.lines().next()).unwrap_or("").to_string()),
+                    (None, None) => (
+                        String::new(),
+                        0,
+                        c.last_message
+                            .as_deref()
+                            .and_then(|t| t.lines().next())
+                            .unwrap_or("")
+                            .to_string(),
+                    ),
                 };
                 ChatRowData {
                     jid: c.jid.clone(),
@@ -373,13 +433,29 @@ impl Controller {
         if let Some(px) = cache.get(&key) {
             return Some(px);
         }
-        let px = m.dto.thumbnail.as_deref().filter(|_| !m.deleted).and_then(images::decode_b64)?;
+        let px = m
+            .dto
+            .thumbnail
+            .as_deref()
+            .filter(|_| !m.deleted)
+            .and_then(images::decode_b64)?;
         cache.insert(key, px.clone());
         Some(px)
     }
 
     fn conv_frame(&self) -> ConvFrame {
-        let (limit, reply_to, editing, composer, scroll_token, reveal, focus_token, suggestions, sugg_idx, flash) = {
+        let (
+            limit,
+            reply_to,
+            editing,
+            composer,
+            scroll_token,
+            reveal,
+            focus_token,
+            suggestions,
+            sugg_idx,
+            flash,
+        ) = {
             let mut v = lock(&self.view);
             (
                 v.window_limit,
@@ -394,14 +470,22 @@ impl Controller {
                 v.flash.as_ref().map(|(id, _)| id.clone()),
             )
         };
-        let me_norm = self.self_jid().map(|j| normalize_jid(&j)).unwrap_or_default();
+        let me_norm = self
+            .self_jid()
+            .map(|j| normalize_jid(&j))
+            .unwrap_or_default();
         let auto_load = lock(&self.settings).auto_load_images;
         let playing = self.audio.snapshot();
         let avatars = lock(&self.avatars).clone();
         let inflight = lock(&self.media_inflight).clone();
         let s = lock(&self.store);
         let Some(jid) = s.active.clone() else {
-            return ConvFrame { composer, scroll_token, focus_token, ..Default::default() };
+            return ConvFrame {
+                composer,
+                scroll_token,
+                focus_token,
+                ..Default::default()
+            };
         };
         let chat = s.chats.get(&jid);
         let title = self.chat_title(&s, &jid);
@@ -439,7 +523,9 @@ impl Controller {
 
             // The Svelte list has no day separators; runs group across days.
             let day_text = String::new();
-            let grouped = prev.is_some_and(|p| !p.deleted && p.dto.from_me == d.from_me && p.dto.sender_jid == d.sender_jid);
+            let grouped = prev.is_some_and(|p| {
+                !p.deleted && p.dto.from_me == d.from_me && p.dto.sender_jid == d.sender_jid
+            });
             prev = Some(m);
 
             let unread = group_items.iter().any(|x| x.unread);
@@ -448,18 +534,26 @@ impl Controller {
             }
             let unread_divider = unread && !divider_done;
             divider_done |= unread;
-            if reveal.as_ref().is_some_and(|(_, id, _)| group_items.iter().any(|x| &x.dto.id == id)) {
+            if reveal
+                .as_ref()
+                .is_some_and(|(_, id, _)| group_items.iter().any(|x| &x.dto.id == id))
+            {
                 reveal_index = Some(rows.len() as i32);
             }
 
             // ---- album
             let mut album = Vec::new();
             if n > 1 {
-                albums.insert(d.id.clone(), group_items.iter().map(|x| x.dto.id.clone()).collect());
+                albums.insert(
+                    d.id.clone(),
+                    group_items.iter().map(|x| x.dto.id.clone()).collect(),
+                );
                 let shown_tiles = if n > 4 { 4 } else { n };
                 for (k, item) in group_items.iter().take(shown_tiles).enumerate() {
                     let wants = item.dto.kind == "image" && auto_load;
-                    let has_full = lock(&self.images).get(&format!("full:{}", item.dto.id)).is_some();
+                    let has_full = lock(&self.images)
+                        .get(&format!("full:{}", item.dto.id))
+                        .is_some();
                     if wants && !has_full && !inflight.contains(&item.dto.id) {
                         to_load.push(item.clone());
                     }
@@ -477,7 +571,8 @@ impl Controller {
             let mut image = None;
             if n == 1 && matches!(d.kind.as_str(), "image" | "sticker" | "video") && !m.deleted {
                 image = self.message_image(m);
-                let wants_full = matches!(d.kind.as_str(), "image" | "sticker") && d.media.is_some();
+                let wants_full =
+                    matches!(d.kind.as_str(), "image" | "sticker") && d.media.is_some();
                 let has_full = lock(&self.images).get(&format!("full:{}", d.id)).is_some();
                 if wants_full && auto_load && !has_full && !inflight.contains(&d.id) {
                     to_load.push(m.clone());
@@ -486,19 +581,47 @@ impl Controller {
             let (image_w, image_h) = image
                 .as_ref()
                 .map(|p| (p.width() as i32, p.height() as i32))
-                .or_else(|| d.media.as_ref().map(|md| (md.width.unwrap_or(0) as i32, md.height.unwrap_or(0) as i32)))
+                .or_else(|| {
+                    d.media
+                        .as_ref()
+                        .map(|md| (md.width.unwrap_or(0) as i32, md.height.unwrap_or(0) as i32))
+                })
                 .unwrap_or((0, 0));
 
             // ---- audio
             let is_audio = d.kind == "audio" && d.media.is_some() && !m.deleted;
             let (audio_playing, audio_progress, audio_label) = if is_audio {
-                let secs = d.media.as_ref().and_then(|md| md.duration_secs).unwrap_or(0) as u64;
+                let secs = d
+                    .media
+                    .as_ref()
+                    .and_then(|md| md.duration_secs)
+                    .unwrap_or(0) as u64;
                 if playing.key.as_deref() == Some(&d.id) {
-                    let dur = playing.duration.map(|x| x.as_secs_f32()).unwrap_or(secs as f32).max(0.001);
+                    let dur = playing
+                        .duration
+                        .map(|x| x.as_secs_f32())
+                        .unwrap_or(secs as f32)
+                        .max(0.001);
                     let pos = playing.position.as_secs_f32();
-                    (playing.playing, pos / dur, format!("{} / {}", fmt_duration(pos as u64), fmt_duration(dur as u64)))
+                    (
+                        playing.playing,
+                        pos / dur,
+                        format!(
+                            "{} / {}",
+                            fmt_duration(pos as u64),
+                            fmt_duration(dur as u64)
+                        ),
+                    )
                 } else {
-                    (false, 0.0, if secs > 0 { format!("Voice / audio {}", fmt_duration(secs)) } else { "Voice / audio".into() })
+                    (
+                        false,
+                        0.0,
+                        if secs > 0 {
+                            format!("Voice / audio {}", fmt_duration(secs))
+                        } else {
+                            "Voice / audio".into()
+                        },
+                    )
                 }
             } else {
                 (false, 0.0, String::new())
@@ -508,9 +631,18 @@ impl Controller {
                 (Some(md), "document") => {
                     let name = md.file_name.clone().unwrap_or_else(|| "Document".into());
                     let size = fmt_size(md.descriptor.file_length);
-                    if size.is_empty() { format!("📄 {name}") } else { format!("📄 {name} · {size}") }
+                    if size.is_empty() {
+                        format!("📄 {name}")
+                    } else {
+                        format!("📄 {name} · {size}")
+                    }
                 }
-                (Some(md), "video") => format!("🎥 Video{}", md.duration_secs.map(|x| format!(" · {}", fmt_duration(x as u64))).unwrap_or_default()),
+                (Some(md), "video") => format!(
+                    "🎥 Video{}",
+                    md.duration_secs
+                        .map(|x| format!(" · {}", fmt_duration(x as u64)))
+                        .unwrap_or_default()
+                ),
                 (Some(_), k) => media_label(k).to_string(),
                 (None, _) => String::new(),
             };
@@ -519,13 +651,24 @@ impl Controller {
             let (has_quote, quote_id, quote_sender, quote_text, quote_thumb) = match &d.quoted {
                 Some(q) => {
                     let qs = match q.sender_jid.as_deref() {
-                        Some(sj) if normalize_jid(&s.canonical(&normalize_jid(sj))) == me_norm || normalize_jid(sj) == me_norm => "You".to_string(),
+                        Some(sj)
+                            if normalize_jid(&s.canonical(&normalize_jid(sj))) == me_norm
+                                || normalize_jid(sj) == me_norm =>
+                        {
+                            "You".to_string()
+                        }
                         Some(sj) => s.title_for(&s.canonical(&normalize_jid(sj))),
                         None if d.from_me => title.clone(),
                         None => "You".to_string(),
                     };
                     let target = s.find_message(&jid, &q.id);
-                    let qt = quoted_text(&q.kind, q.text.as_deref(), target.and_then(|t| t.dto.media.as_ref()).and_then(|md| md.file_name.as_deref()));
+                    let qt = quoted_text(
+                        &q.kind,
+                        q.text.as_deref(),
+                        target
+                            .and_then(|t| t.dto.media.as_ref())
+                            .and_then(|md| md.file_name.as_deref()),
+                    );
                     let mut thumb = None;
                     if let Some(b64) = q.thumbnail.as_deref() {
                         let key = format!("qthumb:{}", d.id);
@@ -537,7 +680,9 @@ impl Controller {
                         });
                     }
                     if thumb.is_none()
-                        && let Some(t) = target.filter(|t| matches!(t.dto.kind.as_str(), "image" | "sticker" | "video"))
+                        && let Some(t) = target.filter(|t| {
+                            matches!(t.dto.kind.as_str(), "image" | "sticker" | "video")
+                        })
                     {
                         thumb = self.message_image(t);
                     }
@@ -556,19 +701,32 @@ impl Controller {
             }
             let reactions = counts
                 .iter()
-                .map(|(e, c)| if *c > 1 { format!("{e} {c}") } else { e.clone() })
+                .map(|(e, c)| {
+                    if *c > 1 {
+                        format!("{e} {c}")
+                    } else {
+                        e.clone()
+                    }
+                })
                 .collect::<Vec<_>>()
                 .join("  ");
 
             let caption = if n > 1 {
-                group_items.iter().find_map(|x| x.dto.text.clone().filter(|t| !t.trim().is_empty())).unwrap_or_default()
+                group_items
+                    .iter()
+                    .find_map(|x| x.dto.text.clone().filter(|t| !t.trim().is_empty()))
+                    .unwrap_or_default()
             } else {
                 d.text.clone().unwrap_or_default()
             };
             let structured = structured_label(&d.kind);
             let text = if m.deleted {
                 String::new()
-            } else if caption.is_empty() && d.media.is_none() && d.thumbnail.is_none() && structured.is_empty() {
+            } else if caption.is_empty()
+                && d.media.is_none()
+                && d.thumbnail.is_none()
+                && structured.is_empty()
+            {
                 format!("[{}]", d.kind)
             } else {
                 caption
@@ -581,7 +739,11 @@ impl Controller {
                 grouped,
                 tint: tint_for(&d.sender_jid),
                 sender: self.sender_name(&s, m, &jid),
-                rich_md: if m.deleted { None } else { linkify_markdown(&text) },
+                rich_md: if m.deleted {
+                    None
+                } else {
+                    linkify_markdown(&text)
+                },
                 text,
                 kind: d.kind.clone(),
                 structured: structured.to_string(),
@@ -611,20 +773,35 @@ impl Controller {
                 day: day_text,
                 unread,
                 unread_divider,
-                flash: flash.as_deref().is_some_and(|f| group_items.iter().any(|x| x.dto.id == f)),
+                flash: flash
+                    .as_deref()
+                    .is_some_and(|f| group_items.iter().any(|x| x.dto.id == f)),
                 pending,
                 can_reply: !m.deleted && !pending,
-                can_edit: d.from_me && !m.deleted && !pending && d.media.is_none() && d.text.as_deref().is_some_and(|t| !t.is_empty()),
+                can_edit: d.from_me
+                    && !m.deleted
+                    && !pending
+                    && d.media.is_none()
+                    && d.text.as_deref().is_some_and(|t| !t.is_empty()),
                 can_delete: !m.deleted && (!pending || m.status == MessageStatus::Failed),
             });
         }
 
-        let quote_target = reply_to.as_deref().or(editing.as_deref()).and_then(|id| s.find_message(&jid, id));
+        let quote_target = reply_to
+            .as_deref()
+            .or(editing.as_deref())
+            .and_then(|id| s.find_message(&jid, id));
         let (reply_sender, reply_text, reply_thumb) = quote_target
             .map(|q| {
                 let who = self.sender_name(&s, q, &jid);
-                let text = quoted_text(&q.dto.kind, q.dto.text.as_deref(), q.dto.media.as_ref().and_then(|md| md.file_name.as_deref()));
-                let thumb = matches!(q.dto.kind.as_str(), "image" | "sticker" | "video").then(|| self.message_image(q)).flatten();
+                let text = quoted_text(
+                    &q.dto.kind,
+                    q.dto.text.as_deref(),
+                    q.dto.media.as_ref().and_then(|md| md.file_name.as_deref()),
+                );
+                let thumb = matches!(q.dto.kind.as_str(), "image" | "sticker" | "video")
+                    .then(|| self.message_image(q))
+                    .flatten();
                 (who, text, thumb)
             })
             .unwrap_or_default();
@@ -670,16 +847,32 @@ impl Controller {
         };
         let album_open = lock(&self.view).open_album.take();
         let album = album_open.map(|row| {
-            let ids = lock(&self.view).albums.get(&row).cloned().unwrap_or_default();
+            let ids = lock(&self.view)
+                .albums
+                .get(&row)
+                .cloned()
+                .unwrap_or_default();
             let s = lock(&self.store);
             let jid = s.active.clone().unwrap_or_default();
-            let items: Vec<UiMessage> = ids.iter().filter_map(|id| s.find_message(&jid, id).cloned()).collect();
+            let items: Vec<UiMessage> = ids
+                .iter()
+                .filter_map(|id| s.find_message(&jid, id).cloned())
+                .collect();
             drop(s);
             let any_video = items.iter().any(|m| m.dto.kind == "video");
-            let title = if any_video { format!("{} items", items.len()) } else { format!("{} photos", items.len()) };
+            let title = if any_video {
+                format!("{} items", items.len())
+            } else {
+                format!("{} photos", items.len())
+            };
             let tiles = items
                 .iter()
-                .map(|m| TileData { id: m.dto.id.clone(), image: self.message_image(m), is_video: m.dto.kind == "video", more: 0 })
+                .map(|m| TileData {
+                    id: m.dto.id.clone(),
+                    image: self.message_image(m),
+                    is_video: m.dto.kind == "video",
+                    more: 0,
+                })
                 .collect();
             (title, tiles)
         });
@@ -695,12 +888,24 @@ impl Controller {
         }
         let tab = (v.emoji_tab.max(0) as usize).min(tabs.len() - 1);
         let (grid, empty): (Vec<String>, &str) = if !v.emoji_search.trim().is_empty() {
-            (emoji::search(v.emoji_search.trim(), 64).into_iter().map(|(_, e)| e.to_string()).collect(), "No emoji found")
+            (
+                emoji::search(v.emoji_search.trim(), 64)
+                    .into_iter()
+                    .map(|(_, e)| e.to_string())
+                    .collect(),
+                "No emoji found",
+            )
         } else if tabs[tab].0 == "recent" {
             (settings.emoji_recent.clone(), "No emoji yet")
         } else {
-            let c = emoji::CATEGORIES.iter().find(|c| c.key == tabs[tab].0).unwrap();
-            (c.emojis.iter().map(|e| e.to_string()).collect(), "No emoji yet")
+            let c = emoji::CATEGORIES
+                .iter()
+                .find(|c| c.key == tabs[tab].0)
+                .unwrap();
+            (
+                c.emojis.iter().map(|e| e.to_string()).collect(),
+                "No emoji yet",
+            )
         };
         let gifs = v
             .gif
@@ -739,9 +944,18 @@ impl Controller {
                 "voice".to_string(),
                 rec.elapsed_label(),
                 None,
-                rec.error.lock().unwrap_or_else(|p| p.into_inner()).clone().unwrap_or_default(),
+                rec.error
+                    .lock()
+                    .unwrap_or_else(|p| p.into_inner())
+                    .clone()
+                    .unwrap_or_default(),
             ),
-            Rec::Photo { frame, error, .. } => ("photo".to_string(), String::new(), frame.clone(), error.clone().unwrap_or_default()),
+            Rec::Photo { frame, error, .. } => (
+                "photo".to_string(),
+                String::new(),
+                frame.clone(),
+                error.clone().unwrap_or_default(),
+            ),
         });
         let viewer = v.viewer.as_ref().map(|x| ViewerData {
             id: x.ids.get(x.index).cloned().unwrap_or_default(),
@@ -805,13 +1019,24 @@ mod tests {
 
     #[test]
     fn album_rules() {
-        let explicit = vec![media_msg("1", 0, Some("p")), media_msg("2", 1, Some("p")), media_msg("3", 500, None)];
+        let explicit = vec![
+            media_msg("1", 0, Some("p")),
+            media_msg("2", 1, Some("p")),
+            media_msg("3", 500, None),
+        ];
         assert_eq!(album_len(&explicit, 0), 2);
-        let inferred: Vec<UiMessage> = (0..5).map(|i| media_msg(&i.to_string(), i * 30, None)).collect();
+        let inferred: Vec<UiMessage> = (0..5)
+            .map(|i| media_msg(&i.to_string(), i * 30, None))
+            .collect();
         assert_eq!(album_len(&inferred, 0), 5);
         let short: Vec<UiMessage> = (0..3).map(|i| media_msg(&i.to_string(), i, None)).collect();
         assert_eq!(album_len(&short, 0), 1);
-        let gappy = vec![media_msg("a", 0, None), media_msg("b", 10, None), media_msg("c", 100, None), media_msg("d", 110, None)];
+        let gappy = vec![
+            media_msg("a", 0, None),
+            media_msg("b", 10, None),
+            media_msg("c", 100, None),
+            media_msg("d", 110, None),
+        ];
         assert_eq!(album_len(&gappy, 0), 1);
     }
 }

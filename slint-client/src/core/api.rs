@@ -6,7 +6,9 @@
 use std::sync::Arc;
 
 use whatsapp_rust::pair_code::PairCodeOptions;
-use whatsapp_rust::wacore::proto_helpers::{build_quote_context, build_reaction_message, MessageExt};
+use whatsapp_rust::wacore::proto_helpers::{
+    MessageExt, build_quote_context, build_reaction_message,
+};
 use whatsapp_rust::waproto::whatsapp as wa;
 use whatsapp_rust::{Jid, NewsletterMetadata, RevokeType};
 
@@ -48,9 +50,12 @@ impl Api {
             jid: session.client.get_pn().map(|j| j.to_string()),
             lid: session.client.get_lid().map(|j| j.to_string()),
             registered: device.is_registered(),
-            push_name: if push_name.is_empty() { None } else { Some(push_name) },
+            push_name: if push_name.is_empty() {
+                None
+            } else {
+                Some(push_name)
+            },
         })
-
     }
 
     /// Ensure the session is running so QR pairing starts. Idempotent. The code is
@@ -118,11 +123,7 @@ impl Api {
     // ---- messaging ----
 
     /// Send a plain text message to a JID (user or group).
-    pub async fn send_text(
-        &self,
-        jid: String,
-        text: String,
-    ) -> ApiResult<SendResultDto> {
+    pub async fn send_text(&self, jid: String, text: String) -> ApiResult<SendResultDto> {
         let (id, session) = self.mgr.session(None).await?;
         let to = parse_jid(&jid)?;
         let result = session
@@ -276,7 +277,14 @@ impl Api {
         session
             .client
             .chat_actions()
-            .delete_message_for_me(&chat, participant_jid.as_ref(), &message_id, from_me, false, timestamp)
+            .delete_message_for_me(
+                &chat,
+                participant_jid.as_ref(),
+                &message_id,
+                from_me,
+                false,
+                timestamp,
+            )
             .await
             .map_err(ApiError::library)?;
         Ok(())
@@ -308,10 +316,7 @@ impl Api {
     }
 
     /// Mark a chat as read (clears the unread badge for the whole chat).
-    pub async fn mark_read(
-        &self,
-        jid: String,
-    ) -> ApiResult<()> {
+    pub async fn mark_read(&self, jid: String) -> ApiResult<()> {
         let (_, session) = self.mgr.session(None).await?;
         let chat = parse_jid(&jid)?;
         session
@@ -324,11 +329,7 @@ impl Api {
 
     // ---- chat_settings ----
 
-    pub async fn set_chat_muted(
-        &self,
-        jid: String,
-        muted: bool,
-    ) -> ApiResult<()> {
+    pub async fn set_chat_muted(&self, jid: String, muted: bool) -> ApiResult<()> {
         let (_, session) = self.mgr.session(None).await?;
         let chat = parse_jid(&jid)?;
         let actions = session.client.chat_actions();
@@ -340,11 +341,7 @@ impl Api {
         .map_err(ApiError::library)
     }
 
-    pub async fn set_chat_pinned(
-        &self,
-        jid: String,
-        pinned: bool,
-    ) -> ApiResult<()> {
+    pub async fn set_chat_pinned(&self, jid: String, pinned: bool) -> ApiResult<()> {
         let (_, session) = self.mgr.session(None).await?;
         let chat = parse_jid(&jid)?;
         let actions = session.client.chat_actions();
@@ -356,11 +353,7 @@ impl Api {
         .map_err(ApiError::library)
     }
 
-    pub async fn set_chat_archived(
-        &self,
-        jid: String,
-        archived: bool,
-    ) -> ApiResult<()> {
+    pub async fn set_chat_archived(&self, jid: String, archived: bool) -> ApiResult<()> {
         let (_, session) = self.mgr.session(None).await?;
         let chat = parse_jid(&jid)?;
         let actions = session.client.chat_actions();
@@ -374,10 +367,7 @@ impl Api {
 
     // ---- contacts ----
 
-    pub async fn get_contact(
-        &self,
-        jid: String,
-    ) -> ApiResult<ContactDto> {
+    pub async fn get_contact(&self, jid: String) -> ApiResult<ContactDto> {
         let (_, session) = self.mgr.session(None).await?;
         let parsed = parse_jid(&jid)?;
 
@@ -394,7 +384,9 @@ impl Api {
         let verified_name = info
             .as_ref()
             .and_then(|u| u.verified_name.as_ref().and_then(|vn| vn.name.clone()));
-        let lid = info.as_ref().and_then(|u| u.lid.as_ref().map(|l| l.to_string()));
+        let lid = info
+            .as_ref()
+            .and_then(|u| u.lid.as_ref().map(|l| l.to_string()));
 
         let picture_url = session
             .client
@@ -416,10 +408,7 @@ impl Api {
 
     /// Resolve a JID's LID ↔ phone-number identities so the UI can unify the two
     /// addressing forms of one contact into a single conversation.
-    pub async fn resolve_jid(
-        &self,
-        jid: String,
-    ) -> ApiResult<ResolveJidDto> {
+    pub async fn resolve_jid(&self, jid: String) -> ApiResult<ResolveJidDto> {
         let (_, session) = self.mgr.session(None).await?;
         let parsed = parse_jid(&jid)?;
         let entry = session
@@ -432,7 +421,10 @@ impl Api {
                 pn: Some(format!("{}@s.whatsapp.net", e.phone_number)),
                 lid: Some(format!("{}@lid", e.lid)),
             },
-            None => ResolveJidDto { pn: None, lid: None },
+            None => ResolveJidDto {
+                pn: None,
+                lid: None,
+            },
         })
     }
 

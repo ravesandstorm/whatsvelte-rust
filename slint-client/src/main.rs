@@ -20,7 +20,7 @@ use slint::ComponentHandle;
 use crate::core::api::Api;
 use crate::core::paths;
 use crate::core::session::SessionManager;
-use crate::ui::controller::{Controller, CTRL};
+use crate::ui::controller::{CTRL, Controller};
 
 slint::include_modules!();
 
@@ -83,7 +83,11 @@ fn install_window_hooks(window: &AppWindow, ctrl: &Arc<Controller>) {
         match event {
             WindowEvent::ModifiersChanged(m) => mods = m.state(),
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed => {
-                let cmd = if cfg!(target_os = "macos") { mods.super_key() } else { mods.control_key() };
+                let cmd = if cfg!(target_os = "macos") {
+                    mods.super_key()
+                } else {
+                    mods.control_key()
+                };
                 if cmd && let Key::Character(c) = &event.logical_key {
                     let dir = match c.as_str() {
                         "+" | "=" => Some(1),
@@ -109,14 +113,20 @@ fn install_window_hooks(window: &AppWindow, ctrl: &Arc<Controller>) {
 /// headlessly, without screen-recording permissions.
 #[cfg(debug_assertions)]
 fn debug_snapshot(window: &AppWindow) {
-    let Ok(path) = std::env::var("WA_SNAPSHOT") else { return };
-    let delay = std::env::var("WA_SNAPSHOT_DELAY").ok().and_then(|s| s.parse().ok()).unwrap_or(8);
+    let Ok(path) = std::env::var("WA_SNAPSHOT") else {
+        return;
+    };
+    let delay = std::env::var("WA_SNAPSHOT_DELAY")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(8);
     let weak = window.as_weak();
     slint::Timer::single_shot(std::time::Duration::from_secs(delay), move || {
         let Some(w) = weak.upgrade() else { return };
         match w.window().take_snapshot() {
             Ok(buf) => {
-                let img = image::RgbaImage::from_raw(buf.width(), buf.height(), buf.as_bytes().to_vec());
+                let img =
+                    image::RgbaImage::from_raw(buf.width(), buf.height(), buf.as_bytes().to_vec());
                 if let Some(img) = img
                     && let Err(e) = img.save(&path)
                 {
