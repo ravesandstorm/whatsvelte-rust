@@ -8,6 +8,8 @@ pub mod demo;
 pub mod frame;
 pub mod images;
 pub mod qr;
+#[cfg(test)]
+mod tests;
 pub mod views;
 
 use std::sync::Arc;
