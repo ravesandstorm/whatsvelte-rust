@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "svelte-check --tsconfig ./tsconfig.json"
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "test": "vitest run"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
@@ -20,9 +21,11 @@
     "@sveltejs/vite-plugin-svelte": "^4",
     "@tsconfig/svelte": "^5",
     "@types/qrcode": "^1.5",
+    "fake-indexeddb": "^6.0.0",
     "svelte": "^5",
     "svelte-check": "^4",
     "typescript": "^5",
-    "vite": "^5"
+    "vite": "^5",
+    "vitest": "^2.1.9"
   }
 }
