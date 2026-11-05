@@ -12,7 +12,7 @@
     resetting = false;
   }
 
-  // Determinate bar once we know how many messages we're restoring from the
+  // Determinate bar once we know how many chats we're restoring from the
   // cache; before that (the IndexedDB read itself) it's an indeterminate wait.
   const total = $derived(session.hydrateTotal);
   const label = $derived(session.hydrateLabel || "Loading your chats…");
@@ -27,7 +27,7 @@
     <div class="bar" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
       <div class="fill" style:width={`${pct}%`}></div>
     </div>
-    <p class="count">{session.hydrateDone} of {total} messages · {pct}%</p>
+    <p class="count">{session.hydrateDone} of {total} chats · {pct}%</p>
   {:else}
     <div class="spinner"></div>
     <p class="title">{label}</p>

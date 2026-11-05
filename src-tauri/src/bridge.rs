@@ -122,41 +122,55 @@ pub async fn pump(app: AppHandle, session_id: String, rx: Receiver<Arc<Event>>) 
     log::info!("[{session_id}] event bridge stopped");
 }
 
-/// Decodes a `HistorySync` blob on a blocking thread (zlib + protobuf), then
-/// emits one `wa://history` chunk per conversation so the UI renders
-/// progressively without the whole sync ever being materialized at once.
+/// Serializes history-sync decodes. A pairing delivers many `HistorySync`
+/// events back to back; decoding them concurrently stacks every blob's inflate
+/// window, protobufs and DTOs in memory at once. One at a time keeps the peak
+/// at a single conversation. Held only on blocking-pool threads.
+static HISTORY_DECODE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Decodes a `HistorySync` blob on a blocking thread (zlib + protobuf) and
+/// emits one `wa://history` chunk per conversation *as it is decoded*, so the
+/// whole sync is never materialized at once (only one conversation is alive).
 fn spawn_history_decode(
     app: &AppHandle,
     session_id: &str,
     lazy: &whatsapp_rust::wacore::types::events::LazyHistorySync,
 ) {
+    // `Bytes` clone is a refcount bump, not a copy.
     let compressed = lazy.compressed_bytes().clone();
     let size = lazy.decompressed_size();
     let app = app.clone();
     let session_id = session_id.to_string();
-    tauri::async_runtime::spawn(async move {
-        let chunks = tauri::async_runtime::spawn_blocking(move || decode_history(&compressed, size))
-            .await
-            .unwrap_or_default();
-        log::info!("[{session_id}] history sync decoded: {} conversation(s)", chunks.len());
-        for chunk in chunks {
+    tauri::async_runtime::spawn_blocking(move || {
+        // A poisoned lock only means a previous decode panicked; the guarded
+        // data is `()`, so it is always safe to continue.
+        let _guard = HISTORY_DECODE_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let count = stream_history(&compressed, size, |chunk| {
             let envelope = json!({
                 "sessionId": session_id,
                 "kind": "HistorySync",
                 "payload": chunk,
             });
             let _ = app.emit("wa://history", envelope);
-        }
+        });
+        log::info!("[{session_id}] history sync decoded: {count} conversation(s)");
     });
 }
 
-fn decode_history(compressed: &[u8], size: usize) -> Vec<HistoryDto> {
+/// Walks the history blob one conversation at a time, handing each converted
+/// chunk to `emit` before decoding the next. Returns the conversation count.
+fn stream_history(compressed: &[u8], size: usize, mut emit: impl FnMut(HistoryDto)) -> usize {
     use whatsapp_rust::wacore::history_sync::HistorySyncStream;
     let mut stream = HistorySyncStream::new(compressed, size as u64);
-    let mut out = Vec::new();
+    let mut count = 0;
     loop {
         match stream.next_conversation() {
-            Ok(Some(conv)) => out.push(convert_conversation(conv)),
+            Ok(Some(conv)) => {
+                emit(convert_conversation(conv));
+                count += 1;
+            }
             Ok(None) => break,
             Err(e) => {
                 log::warn!("history decode error: {e}");
@@ -164,7 +178,7 @@ fn decode_history(compressed: &[u8], size: usize) -> Vec<HistoryDto> {
             }
         }
     }
-    out
+    count
 }
 
 fn convert_conversation(conv: wa::Conversation) -> HistoryDto {
