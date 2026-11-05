@@ -15,7 +15,6 @@ use serde_json::json;
 use tauri::Emitter;
 use tokio::sync::Mutex;
 use whatsapp_rust::prelude::*;
-use whatsapp_rust::wacore::types::events::ChannelEventHandler;
 
 use crate::bridge;
 use crate::error::{ApiError, ApiResult};
@@ -124,7 +123,7 @@ impl SessionManager {
         // Register the event bridge BEFORE spawning the run loop, so the QR /
         // pairing events emitted right after connect are never missed.
         let client = bot.client();
-        let (handler, rx) = ChannelEventHandler::new();
+        let (handler, rx) = bridge::BridgeHandler::new();
         client.register_handler(handler);
 
         // Drive the run loop ourselves (rather than `bot.spawn()`) so we can react
