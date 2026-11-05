@@ -15,7 +15,7 @@ slint-build = "1.18"
 [dependencies]
 # Native UI toolkit: no WebView, no JS runtime. Default features give the winit
 # backend with the femtovg (OpenGL) renderer and the software fallback.
-slint = "1.18"
+slint = { version = "1.18", features = ["unstable-winit-030"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
@@ -38,6 +38,18 @@ rfd = { version = "0.16", default-features = false, features = ["xdg-portal", "t
 open = "5"
 # OS data / download directories (replaces tauri's app.path()).
 dirs = "6"
+# HTTPS for profile pictures and the Klipy GIF API (same ureq the backend uses).
+ureq = { version = "3", default-features = false, features = ["rustls"] }
+# Paste images from the clipboard into the composer.
+arboard = "3"
+# Voice notes: microphone capture + playback (cpal under the hood) and
+# mp3/aac/m4a/vorbis/wav decoding for received audio.
+rodio = { version = "0.23", default-features = false, features = ["playback", "recording", "mp3", "mp4", "vorbis", "wav"] }
+# Voice notes are Ogg/Opus (what WhatsApp expects for push-to-talk).
+opus = "0.4"
+ogg = "0.9"
+# Camera photo capture (AVFoundation / Media Foundation / V4L2).
+nokhwa = { version = "0.10", features = ["input-native"] }
 # Local-time formatting for chat stamps.
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 
