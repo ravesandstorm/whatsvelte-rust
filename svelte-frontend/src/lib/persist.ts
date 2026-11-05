@@ -414,6 +414,15 @@ async function flushChats() {
   }
 }
 
+/** Write queued message ops now instead of waiting for the debounce. */
+export async function flushPendingWrites(): Promise<void> {
+  if (msgTimer) {
+    clearTimeout(msgTimer);
+    msgTimer = null;
+  }
+  await flushMessages();
+}
+
 async function flushMessages() {
   const ops = [...pending.values()];
   pending.clear();
