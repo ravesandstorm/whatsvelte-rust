@@ -2,7 +2,7 @@
 
 A lightweight, low-RAM alternative to WhatsApp Desktop. A native [Slint](https://slint.dev) UI on top of a Rust WhatsApp backend, shipped as a single executable — no WebView, no JavaScript runtime.
 
-> **v2 (in progress):** the Tauri + Svelte frontend is being replaced by a native Slint client in [`slint-client/`](slint-client). See [`docs/slint-migration.md`](docs/slint-migration.md) for the plan, the mapping from Tauri concepts and the remaining gaps.
+> **v2:** the Tauri + Svelte frontend has been replaced by a native Slint client in [`slint-client/`](slint-client). See [`docs/slint-migration.md`](docs/slint-migration.md) for how Tauri concepts map over and the feature-parity checklist.
 
 ## Features
 
@@ -37,7 +37,7 @@ A lightweight, low-RAM alternative to WhatsApp Desktop. A native [Slint](https:/
 - Add voice recording via `MediaRecorder`.
 - Enable document, video, and audio sending via the backend.
 
-### Phase 5: Native Slint client 🚧 (In progress)
+### Phase 5: Native Slint client ✅ (Completed)
 - Replaced the WebView (Tauri + Svelte) with a native Slint UI: one Rust process, no JS heap, no IPC serialization.
 - The Tauri glue (session manager, event bridge, commands) is ported to plain Rust in `slint-client/src/core`; `rust-backend/` is unchanged.
 - Packaging moved from tauri-bundler to `cargo-packager` (same dmg/nsis/deb/AppImage outputs).
@@ -69,9 +69,8 @@ On first launch, the app boots the default WhatsApp session and shows a QR code 
 - **Chat type resolution is unreliable** — distinguishing chat types (individual
   vs. group vs. newsletter/broadcast) is not fully reliable yet, so a chat may
   occasionally be classified or rendered as the wrong type.
-- **Slint client gaps** — inline video/audio playback (opened externally),
-  voice-note recording, the GIF picker and album grids from the Svelte UI are
-  not ported yet; see `docs/slint-migration.md`.
+- **Videos open in the system player** — there is no in-app video decoder
+  (keeps memory low); audio and voice notes play inline.
 - **Stickers sending is not implemented** — the whatsapp web api makes it quite
   complicated to parse sticker information, to be added later.
 - **Some messages are rendered as [other]** — not every type is fully implemented
