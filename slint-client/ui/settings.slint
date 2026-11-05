@@ -1,4 +1,4 @@
-import { Switch } from "std-widgets.slint";
+import { CheckBox } from "std-widgets.slint";
 import { AppState, Theme } from "state.slint";
 import { Avatar, IconButton, PrimaryButton } from "widgets.slint";
 
@@ -38,19 +38,17 @@ component Swatch inherits Rectangle {
     in property <string> label;
     in property <brush> fill;
     callback clicked();
-    width: 64px;
-    height: 64px;
+    width: 44px;
+    height: 44px;
     border-radius: 8px;
     background: fill;
     border-width: AppState.wallpaper-choice == key ? 3px : 1px;
     border-color: AppState.wallpaper-choice == key ? Theme.accent : Theme.divider;
     Text {
-        y: parent.height - 18px;
-        width: parent.width;
         text: label;
-        color: #ffffff;
-        font-size: 10px;
+        font-size: 22px;
         horizontal-alignment: center;
+        vertical-alignment: center;
     }
     TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
 }
@@ -87,66 +85,64 @@ export component SettingsPanel inherits Rectangle {
                     padding: 20px;
                     spacing: 14px;
 
-                    Section { text: "Account"; }
-                    HorizontalLayout {
-                        spacing: 12px;
-                        Avatar { initials: "👤"; size: 48px; }
-                        VerticalLayout {
-                            alignment: center;
-                            Text { text: AppState.self-name; color: Theme.text; font-size: Theme.fs-large; }
-                            Text { text: AppState.self-jid != "" ? AppState.self-jid : "Not linked"; color: Theme.text-muted; font-size: Theme.fs-small; }
-                        }
-                    }
+                    Section { text: "ACCOUNT"; }
+                    Text { text: AppState.self-jid != "" ? AppState.self-jid : "Not linked"; color: Theme.text; font-size: Theme.fs; }
                     HorizontalLayout {
                         alignment: start;
-                        PrimaryButton { label: "Log out"; danger: true; clicked => { AppState.settings-open = false; AppState.logout(); } }
+                        Rectangle {
+                            height: 32px;
+                            width: lo.preferred-width + 24px;
+                            border-radius: 4px;
+                            border-width: 1px;
+                            border-color: Theme.danger;
+                            background: lta.has-hover ? Theme.danger.transparentize(0.85) : transparent;
+                            lo := Text { text: "Log out"; color: Theme.danger; font-size: Theme.fs; horizontal-alignment: center; vertical-alignment: center; }
+                            lta := TouchArea { mouse-cursor: pointer; clicked => { AppState.settings-open = false; AppState.logout(); } }
+                        }
                     }
 
                     Rectangle { height: 1px; background: Theme.divider; }
-                    Section { text: "Appearance"; }
+                    Section { text: "APPEARANCE"; }
                     SettingRow {
                         label: "Theme";
                         Segment { label: "Light"; selected: AppState.theme-choice == "light"; clicked => { AppState.theme-changed("light"); } }
                         Segment { label: "Dark"; selected: AppState.theme-choice == "dark"; clicked => { AppState.theme-changed("dark"); } }
-                        Segment { label: "System"; selected: AppState.theme-choice == "system"; clicked => { AppState.theme-changed("system"); } }
                     }
                     SettingRow {
                         label: "Zoom";
-                        hint: round(AppState.zoom * 100) + "%  ·  Ctrl/⌘ +, −, 0";
                         Segment { label: "−"; clicked => { AppState.zoom-changed(AppState.zoom - 0.1); } }
                         Segment { label: "Reset"; clicked => { AppState.zoom-changed(1.0); } }
                         Segment { label: "+"; clicked => { AppState.zoom-changed(AppState.zoom + 0.1); } }
                     }
-                    Text { text: "Chat wallpaper"; color: Theme.text; font-size: Theme.fs; }
+                    Text { text: "Wallpaper"; color: Theme.text; font-size: Theme.fs; }
                     HorizontalLayout {
                         spacing: 8px;
                         alignment: start;
-                        Swatch { key: "default"; label: "Default"; fill: Theme.chat-bg; clicked => { AppState.wallpaper-changed("default"); } }
-                        Swatch { key: "teal"; label: "Teal"; fill: #0b141a; clicked => { AppState.wallpaper-changed("teal"); } }
-                        Swatch { key: "slate"; label: "Slate"; fill: #1f2c33; clicked => { AppState.wallpaper-changed("slate"); } }
-                        Swatch { key: "dusk"; label: "Dusk"; fill: @linear-gradient(160deg, #0b141a 0%, #14323a 100%); clicked => { AppState.wallpaper-changed("dusk"); } }
-                        Swatch { key: "custom"; label: "Image…"; fill: #3b4a54; clicked => { AppState.wallpaper-changed("custom"); } }
+                        Swatch { key: "default"; label: ""; fill: Theme.chat-bg; clicked => { AppState.wallpaper-changed("default"); } }
+                        Swatch { key: "teal"; label: ""; fill: #0b141a; clicked => { AppState.wallpaper-changed("teal"); } }
+                        Swatch { key: "slate"; label: ""; fill: #1f2c33; clicked => { AppState.wallpaper-changed("slate"); } }
+                        Swatch { key: "dusk"; label: ""; fill: @linear-gradient(160deg, #0b141a 0%, #14323a 100%); clicked => { AppState.wallpaper-changed("dusk"); } }
+                        Swatch { key: "custom"; label: "🖼️"; fill: Theme.panel-alt; clicked => { AppState.wallpaper-changed("custom"); } }
                     }
 
                     Rectangle { height: 1px; background: Theme.divider; }
-                    Section { text: "Chats"; }
+                    Section { text: "CHATS"; }
                     SettingRow {
                         label: "Enter sends message";
-                        hint: "Shift+Enter adds a new line. Ctrl/⌘+Enter always sends.";
-                        Switch { checked: AppState.enter-to-send; toggled => { AppState.enter-to-send-changed(self.checked); } }
+                        CheckBox { checked: AppState.enter-to-send; toggled => { AppState.enter-to-send-changed(self.checked); } }
                     }
                     SettingRow {
                         label: "Load images automatically";
                         hint: "Videos, audio and documents load on demand.";
-                        Switch { checked: AppState.auto-load-images; toggled => { AppState.auto-load-changed(self.checked); } }
+                        CheckBox { checked: AppState.auto-load-images; toggled => { AppState.auto-load-changed(self.checked); } }
                     }
 
                     Rectangle { height: 1px; background: Theme.divider; }
-                    Section { text: "Privacy"; }
+                    Section { text: "PRIVACY"; }
                     SettingRow {
                         label: "Send read receipts";
                         hint: "When off, your blue ticks aren't sent. (Whole-chat read state may still sync from your phone.)";
-                        Switch { checked: AppState.read-receipts; toggled => { AppState.read-receipts-changed(self.checked); } }
+                        CheckBox { checked: AppState.read-receipts; toggled => { AppState.read-receipts-changed(self.checked); } }
                     }
                 }
             }
