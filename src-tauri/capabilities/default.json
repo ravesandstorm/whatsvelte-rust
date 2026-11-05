@@ -11,7 +11,7 @@
     "fs:allow-remove",
     {
       "identifier": "fs:scope",
-      "allow": [{ "path": "$HOME/**" }, { "path": "$TEMP/**" }, { "path": "$APPCACHE/**" }]
+      "allow": [{ "path": "$TEMP/**" }, { "path": "$APPCACHE/**" }]
     },
     "opener:default",
     {
