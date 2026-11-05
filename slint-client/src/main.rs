@@ -8,6 +8,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod core;
+mod media;
 mod store;
 mod ui;
 mod util;
@@ -42,6 +43,7 @@ fn main() -> anyhow::Result<()> {
     let ctrl = Controller::new(api, rt.handle().clone(), window.as_weak());
     let _ = CTRL.set(ctrl.clone());
     ui::install_callbacks(&window, &ctrl);
+    install_window_hooks(&window, &ctrl);
 
     #[cfg(debug_assertions)]
     let demo = std::env::var("WA_DEMO").is_ok();
@@ -49,7 +51,10 @@ fn main() -> anyhow::Result<()> {
     let demo = false;
     if demo {
         #[cfg(debug_assertions)]
-        rt.spawn(ctrl.clone().run_demo());
+        {
+            rt.spawn(ctrl.clone().run_demo());
+            rt.spawn(ctrl.clone().run_render_only());
+        }
     } else {
         rt.spawn(ctrl.clone().run(ui_rx));
     }
@@ -63,6 +68,40 @@ fn main() -> anyhow::Result<()> {
     // Don't wait for in-flight network calls on exit.
     rt.shutdown_timeout(std::time::Duration::from_millis(500));
     Ok(())
+}
+
+/// Window-level input the Slint tree doesn't see: global zoom shortcuts
+/// (Ctrl/Cmd + `+`/`=`, `-`/`_`, `0`) and files dropped onto the window.
+fn install_window_hooks(window: &AppWindow, ctrl: &Arc<Controller>) {
+    use slint::winit_030::winit::event::{ElementState, WindowEvent};
+    use slint::winit_030::winit::keyboard::{Key, ModifiersState};
+    use slint::winit_030::{EventResult, WinitWindowAccessor};
+
+    let ctrl = ctrl.clone();
+    let mut mods = ModifiersState::empty();
+    window.window().on_winit_window_event(move |_, event| {
+        match event {
+            WindowEvent::ModifiersChanged(m) => mods = m.state(),
+            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed => {
+                let cmd = if cfg!(target_os = "macos") { mods.super_key() } else { mods.control_key() };
+                if cmd && let Key::Character(c) = &event.logical_key {
+                    let dir = match c.as_str() {
+                        "+" | "=" => Some(1),
+                        "-" | "_" => Some(-1),
+                        "0" => Some(0),
+                        _ => None,
+                    };
+                    if let Some(d) = dir {
+                        ctrl.zoom_step(d);
+                        return EventResult::PreventDefault;
+                    }
+                }
+            }
+            WindowEvent::DroppedFile(path) => ctrl.dropped_file(path.clone()),
+            _ => {}
+        }
+        EventResult::Propagate
+    });
 }
 
 /// Debug aid: `WA_SNAPSHOT=out.png` saves a render of the window after
