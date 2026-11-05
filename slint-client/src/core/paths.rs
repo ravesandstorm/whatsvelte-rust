@@ -22,9 +22,12 @@ pub fn data_dir() -> PathBuf {
 }
 
 /// OS app-data dir for this app (`~/Library/Application Support/<id>` etc.).
+/// `WA_APP_DATA_DIR` overrides it (tests, portable installs).
 pub fn app_data_dir() -> PathBuf {
-    let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-    let dir = base.join(APP_IDENTIFIER);
+    let dir = match std::env::var_os("WA_APP_DATA_DIR") {
+        Some(d) => PathBuf::from(d),
+        None => dirs::data_dir().unwrap_or_else(|| PathBuf::from(".")).join(APP_IDENTIFIER),
+    };
     let _ = std::fs::create_dir_all(&dir);
     dir
 }
