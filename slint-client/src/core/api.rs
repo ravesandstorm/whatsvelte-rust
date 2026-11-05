@@ -20,10 +20,14 @@ pub(crate) fn parse_jid(s: &str) -> ApiResult<Jid> {
 }
 
 #[derive(Clone)]
+// connect/disconnect/get_contact/get_profile_picture_url are kept for parity
+// with the Tauri command surface; the UI doesn't call them yet.
+#[allow(dead_code)]
 pub struct Api {
     pub(crate) mgr: Arc<SessionManager>,
 }
 
+#[allow(dead_code)]
 impl Api {
     pub fn new(mgr: Arc<SessionManager>) -> Self {
         Self { mgr }

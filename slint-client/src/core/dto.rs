@@ -183,6 +183,7 @@ pub struct ResolveJidDto {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct ContactDto {
     pub jid: String,
     /// Best display name we can resolve server-side (verified business name).

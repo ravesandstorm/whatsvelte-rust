@@ -1,0 +1,483 @@
+import { ListView } from "std-widgets.slint";
+import { AppState, Theme, MsgRow } from "state.slint";
+import { Avatar, IconButton, MenuRow, TextField } from "widgets.slint";
+
+component Ticks inherits Text {
+    in property <int> status;
+    text: status == 1 ? "⚠" : status == 2 ? "🕓" : status == 3 ? "✓" : status >= 4 ? "✓✓" : "";
+    color: status == 1 ? Theme.danger : status >= 5 ? Theme.tick-read : Theme.text-muted;
+    font-size: Theme.fs-tiny;
+}
+
+component Bubble inherits Rectangle {
+    in property <MsgRow> msg;
+    in property <length> max-bubble: 520px;
+    callback copy-text(string);
+
+    property <length> img-w: msg.has-image ? min(280px, msg.image-w * 1px) : 0;
+    property <length> img-h: msg.has-image && msg.image-w > 0 ? min(360px, img-w * msg.image-h / msg.image-w) : 0;
+
+    VerticalLayout {
+        padding-left: 56px * Theme.zoom;
+        padding-right: 56px * Theme.zoom;
+        padding-top: 2px;
+        padding-bottom: msg.reactions != "" ? 14px : 2px;
+
+        // day separator
+        if msg.day != "": HorizontalLayout {
+            alignment: center;
+            padding-top: 8px;
+            padding-bottom: 8px;
+            Rectangle {
+                background: Theme.panel;
+                border-radius: 7px;
+                drop-shadow-blur: 1px;
+                drop-shadow-color: #0000001a;
+                HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    padding-top: 5px;
+                    padding-bottom: 5px;
+                    Text { text: msg.day; color: Theme.text-muted; font-size: Theme.fs-small; }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: msg.from-me ? end : start;
+            bubble := Rectangle {
+                max-width: root.max-bubble;
+                background: msg.from-me ? Theme.bubble-out : Theme.bubble-in;
+                border-radius: 8px;
+                drop-shadow-blur: 1px;
+                drop-shadow-color: #00000020;
+
+                hover := TouchArea {
+                    double-clicked => { if !msg.deleted && !msg.pending { AppState.reply-to(msg.id); } }
+                    pointer-event(ev) => {
+                        if ev.button == PointerEventButton.right && ev.kind == PointerEventKind.down {
+                            menu.show();
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    padding: 6px;
+                    padding-left: 9px;
+                    padding-right: 9px;
+                    spacing: 3px;
+
+                    if msg.show-sender: Text {
+                        text: msg.sender;
+                        color: msg.tint;
+                        font-size: Theme.fs-small;
+                        font-weight: 600;
+                        overflow: elide;
+                    }
+
+                    if msg.has-quote: Rectangle {
+                        background: Theme.quote-bg;
+                        border-radius: 6px;
+                        HorizontalLayout {
+                            Rectangle { width: 4px; background: Theme.accent; border-radius: 2px; }
+                            VerticalLayout {
+                                padding: 6px;
+                                padding-left: 8px;
+                                spacing: 2px;
+                                Text { text: msg.quote-sender; color: Theme.accent; font-size: Theme.fs-small; font-weight: 600; overflow: elide; }
+                                Text { text: msg.quote-text; color: Theme.text-muted; font-size: Theme.fs-small; overflow: elide; max-height: 40px; wrap: word-wrap; }
+                            }
+                        }
+                    }
+
+                    if msg.has-image: Rectangle {
+                        width: root.img-w;
+                        height: root.img-h;
+                        border-radius: 6px;
+                        clip: true;
+                        Image {
+                            width: parent.width;
+                            height: parent.height;
+                            source: msg.image;
+                            image-fit: cover;
+                        }
+                        if msg.loading-media: Rectangle {
+                            background: #00000044;
+                            Text { text: "⏳"; font-size: 22px; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { AppState.view-image(msg.id); }
+                            pointer-event(ev) => {
+                                if ev.button == PointerEventButton.right && ev.kind == PointerEventKind.down {
+                                    menu.show();
+                                }
+                            }
+                        }
+                    }
+
+                    if msg.has-media && !msg.has-image: Rectangle {
+                        background: Theme.quote-bg;
+                        border-radius: 6px;
+                        min-width: 220px;
+                        height: 48px * Theme.zoom;
+                        HorizontalLayout {
+                            padding-left: 10px;
+                            padding-right: 6px;
+                            spacing: 8px;
+                            Text {
+                                text: msg.media-label;
+                                color: Theme.text;
+                                font-size: Theme.fs;
+                                vertical-alignment: center;
+                                overflow: elide;
+                                horizontal-stretch: 1;
+                            }
+                            VerticalLayout {
+                                alignment: center;
+                                IconButton {
+                                    icon: msg.loading-media ? "⏳" : "▶";
+                                    size: 32px;
+                                    fg: Theme.accent;
+                                    clicked => { AppState.open-media(msg.id); }
+                                }
+                            }
+                            VerticalLayout {
+                                alignment: center;
+                                IconButton {
+                                    icon: "⬇";
+                                    size: 32px;
+                                    clicked => { AppState.save-media(msg.id); }
+                                }
+                            }
+                        }
+                    }
+
+                    if msg.deleted: Text {
+                        text: msg.from-me ? "🚫 You deleted this message" : "🚫 This message was deleted";
+                        color: Theme.text-muted;
+                        font-size: Theme.fs;
+                        font-italic: true;
+                    }
+
+                    if !msg.deleted && msg.text != "": TextInput {
+                        text: msg.text;
+                        read-only: true;
+                        color: Theme.text;
+                        font-size: Theme.fs;
+                        wrap: word-wrap;
+                        single-line: false;
+                        selection-background-color: Theme.accent.transparentize(0.6);
+                    }
+
+                    HorizontalLayout {
+                        alignment: end;
+                        spacing: 4px;
+                        if msg.edited: Text { text: "Edited"; color: Theme.text-muted; font-size: Theme.fs-tiny; }
+                        Text { text: msg.time; color: Theme.text-muted; font-size: Theme.fs-tiny; }
+                        if msg.from-me: Ticks { status: msg.status; }
+                        if msg.status == 1: Text {
+                            text: "Retry";
+                            color: Theme.danger;
+                            font-size: Theme.fs-tiny;
+                            TouchArea { mouse-cursor: pointer; clicked => { AppState.retry(msg.id); } }
+                        }
+                    }
+                }
+
+                if msg.reactions != "": Rectangle {
+                    x: msg.from-me ? parent.width - self.width - 8px : 8px;
+                    y: parent.height - 6px;
+                    height: 22px;
+                    width: rt.preferred-width + 12px;
+                    border-radius: 11px;
+                    background: Theme.panel;
+                    border-width: 1px;
+                    border-color: Theme.divider;
+                    rt := Text { text: msg.reactions; font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
+                }
+
+                if hover.has-hover && !msg.deleted && !msg.pending: Rectangle {
+                    x: parent.width - 26px;
+                    y: 2px;
+                    width: 24px;
+                    height: 20px;
+                    border-radius: 10px;
+                    background: msg.from-me ? Theme.bubble-out : Theme.bubble-in;
+                    Text { text: "⌄"; color: Theme.text-muted; font-size: 14px; horizontal-alignment: center; vertical-alignment: center; }
+                    TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { menu.show(); }
+                    }
+                }
+
+                menu := PopupWindow {
+                    x: msg.from-me ? parent.width - 220px : 0;
+                    y: min(parent.height, 24px);
+                    width: 220px;
+                    close-policy: close-on-click-outside;
+                    Rectangle {
+                        background: Theme.panel;
+                        border-radius: 6px;
+                        drop-shadow-blur: 10px;
+                        drop-shadow-color: #00000040;
+                        VerticalLayout {
+                            padding-top: 6px;
+                            padding-bottom: 6px;
+                            HorizontalLayout {
+                                padding-left: 10px;
+                                padding-right: 10px;
+                                padding-bottom: 4px;
+                                spacing: 2px;
+                                for e in ["👍", "❤️", "😂", "😮", "😢", "🙏"]: Rectangle {
+                                    width: 30px;
+                                    height: 30px;
+                                    border-radius: 15px;
+                                    background: eta.has-hover ? Theme.hover : transparent;
+                                    Text { text: e; font-size: 18px; horizontal-alignment: center; vertical-alignment: center; }
+                                    eta := TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => { AppState.react(msg.id, e); menu.close(); }
+                                    }
+                                }
+                            }
+                            MenuRow { label: "Reply"; clicked => { AppState.reply-to(msg.id); menu.close(); } }
+                            if msg.text != "": MenuRow { label: "Copy"; clicked => { root.copy-text(msg.text); menu.close(); } }
+                            if msg.can-edit: MenuRow { label: "Edit"; clicked => { AppState.edit(msg.id); menu.close(); } }
+                            if msg.has-media: MenuRow { label: "Open"; clicked => { AppState.open-media(msg.id); menu.close(); } }
+                            if msg.has-media: MenuRow { label: "Save to Downloads"; clicked => { AppState.save-media(msg.id); menu.close(); } }
+                            MenuRow { label: "Remove reaction"; clicked => { AppState.react(msg.id, ""); menu.close(); } }
+                            MenuRow { label: "Delete for me"; danger: true; clicked => { AppState.delete-for-me(msg.id); menu.close(); } }
+                            if msg.can-revoke: MenuRow { label: "Delete for everyone"; danger: true; clicked => { AppState.delete-for-everyone(msg.id); menu.close(); } }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+component EmojiPicker inherits Rectangle {
+    callback picked(string);
+    property <[string]> emojis: [
+        "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "😊", "😇",
+        "🙂", "😉", "😍", "🥰", "😘", "😋", "😜", "🤪", "😎", "🤩",
+        "🥳", "😏", "😒", "😞", "😔", "😟", "😕", "🙁", "😣", "😖",
+        "😫", "😩", "🥺", "😢", "😭", "😤", "😠", "😡", "🤯", "😳",
+        "🤔", "🤭", "🤫", "😶", "😐", "😬", "🙄", "😴", "🤤", "😷",
+        "👍", "👎", "👌", "✌️", "🤞", "👏", "🙌", "🙏", "💪", "👋",
+        "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "💔", "🔥", "✨",
+        "🎉", "🎂", "🎁", "⭐", "✅", "❌", "💯", "👀", "☕", "🍕",
+    ];
+    width: 10 * 34px + 16px;
+    height: 8 * 34px + 16px;
+    background: Theme.panel;
+    border-radius: 8px;
+    drop-shadow-blur: 10px;
+    drop-shadow-color: #00000040;
+    for e[i] in root.emojis: Rectangle {
+        x: 8px + mod(i, 10) * 34px;
+        y: 8px + floor(i / 10) * 34px;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        background: ta.has-hover ? Theme.hover : transparent;
+        Text { text: e; font-size: 20px; horizontal-alignment: center; vertical-alignment: center; }
+        ta := TouchArea { mouse-cursor: pointer; clicked => { root.picked(e); } }
+    }
+}
+
+export component ConversationPane inherits Rectangle {
+    callback copy-text(string);
+    background: Theme.chat-bg;
+    property <int> settle;
+
+    // Scroll to the newest message once the (virtualized) list has laid out.
+    function scroll-bottom() {
+        list.content-y = min(0px, list.visible-height - list.content-height);
+    }
+    property <int> scroll-token: AppState.scroll-token;
+    changed scroll-token => { root.settle = 4; root.scroll-bottom(); }
+    // A message arrived: follow it only if the user is already near the bottom.
+    property <int> append-token: AppState.append-token;
+    changed append-token => {
+        if list.content-y + list.content-height - list.visible-height < 260px { root.settle = 3; }
+    }
+    // ListView measures rows lazily; re-apply for a few frames so the estimate settles.
+    Timer {
+        interval: 40ms;
+        running: root.settle > 0;
+        triggered => { root.scroll-bottom(); root.settle -= 1; }
+    }
+
+    if AppState.active-jid == "": VerticalLayout {
+        alignment: center;
+        spacing: 12px;
+        Text { text: "Wha.rs.app"; color: Theme.text; font-size: 32px * Theme.zoom; font-weight: 300; horizontal-alignment: center; }
+        Text {
+            text: "Send and receive messages without keeping your phone online.\nNative, WebView-free and light on memory.";
+            color: Theme.text-muted;
+            font-size: Theme.fs;
+            horizontal-alignment: center;
+        }
+    }
+
+    VerticalLayout {
+        visible: AppState.active-jid != "";
+
+        // header
+        Rectangle {
+            height: 60px * Theme.zoom;
+            background: Theme.panel-alt;
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 10px;
+                spacing: 12px;
+                VerticalLayout {
+                    alignment: center;
+                    Avatar { initials: AppState.active-initials; tint: AppState.active-tint; size: 40px * Theme.zoom; }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    horizontal-stretch: 1;
+                    Text { text: AppState.active-title; color: Theme.text; font-size: Theme.fs-large; overflow: elide; }
+                    if AppState.active-subtitle != "": Text { text: AppState.active-subtitle; color: Theme.text-muted; font-size: Theme.fs-small; overflow: elide; }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    IconButton { icon: AppState.active-muted ? "🔕" : "🔔"; active: AppState.active-muted; clicked => { AppState.toggle-mute(); } }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    IconButton { icon: "📌"; active: AppState.active-pinned; clicked => { AppState.toggle-pin(); } }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    IconButton { icon: "🗄"; active: AppState.active-archived; clicked => { AppState.toggle-archive(); } }
+                }
+            }
+        }
+
+        // messages
+        Rectangle {
+            vertical-stretch: 1;
+            list := ListView {
+                width: parent.width;
+                height: parent.height;
+                changed content-height => {
+                    // keep pinned to the bottom while rows settle, if we were there
+                    if root.settle > 0 { root.scroll-bottom(); }
+                }
+                for msg in AppState.messages: Bubble {
+                    msg: msg;
+                    max-bubble: min(560px, root.width * 0.7);
+                    copy-text(t) => { root.copy-text(t); }
+                }
+            }
+            // Older history pages in on demand (shown once scrolled to the top).
+            if AppState.has-older && list.content-y > -24px: Rectangle {
+                y: 8px;
+                x: (parent.width - self.width) / 2;
+                background: Theme.panel;
+                border-radius: 14px;
+                height: 28px;
+                width: older.preferred-width + 28px;
+                drop-shadow-blur: 2px;
+                drop-shadow-color: #00000030;
+                older := Text { text: "Load older messages"; color: Theme.accent; font-size: Theme.fs-small; horizontal-alignment: center; vertical-alignment: center; }
+                TouchArea { mouse-cursor: pointer; clicked => { AppState.load-older(); } }
+            }
+        }
+
+        // reply / edit banner
+        if AppState.replying || AppState.editing: Rectangle {
+            background: Theme.panel-alt;
+            height: 58px * Theme.zoom;
+            HorizontalLayout {
+                padding: 8px;
+                padding-left: 16px;
+                spacing: 8px;
+                Rectangle {
+                    background: Theme.quote-bg;
+                    border-radius: 6px;
+                    horizontal-stretch: 1;
+                    HorizontalLayout {
+                        Rectangle { width: 4px; background: Theme.accent; border-radius: 2px; }
+                        VerticalLayout {
+                            padding-left: 8px;
+                            alignment: center;
+                            Text { text: AppState.editing ? "Edit message" : AppState.reply-sender; color: Theme.accent; font-size: Theme.fs-small; font-weight: 600; }
+                            Text { text: AppState.reply-text; color: Theme.text-muted; font-size: Theme.fs-small; overflow: elide; }
+                        }
+                    }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    IconButton { icon: "✕"; clicked => { AppState.cancel-compose(); } }
+                }
+            }
+        }
+
+        // composer
+        Rectangle {
+            height: 62px * Theme.zoom;
+            background: Theme.panel-alt;
+            HorizontalLayout {
+                padding-left: 10px;
+                padding-right: 10px;
+                padding-top: 10px;
+                padding-bottom: 10px;
+                spacing: 6px;
+                VerticalLayout {
+                    alignment: center;
+                    IconButton { icon: "☺"; clicked => { emoji.show(); } }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    IconButton { icon: "📎"; clicked => { AppState.attach(); } }
+                }
+                input := TextField {
+                    fill: Theme.field-alt;
+                    placeholder: "Type a message";
+                    text <=> AppState.composer-text;
+                    edited(t) => { AppState.composer-edited(t); }
+                    accepted(t) => {
+                        if t != "" { AppState.send(t); }
+                    }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    IconButton {
+                        icon: "➤";
+                        fg: Theme.accent;
+                        clicked => {
+                            if AppState.composer-text != "" { AppState.send(AppState.composer-text); }
+                            input.focus-input();
+                        }
+                    }
+                }
+            }
+            emoji := PopupWindow {
+                x: 10px;
+                y: -(10 * 0px + 8 * 34px + 16px) - 4px;
+                close-policy: close-on-click-outside;
+                EmojiPicker {
+                    picked(e) => {
+                        AppState.composer-text += e;
+                        AppState.composer-edited(AppState.composer-text);
+                    }
+                }
+            }
+        }
+    }
+
+    if AppState.toast != "": Rectangle {
+        y: parent.height - 120px;
+        x: (parent.width - self.width) / 2;
+        width: tt.preferred-width + 32px;
+        height: 36px;
+        border-radius: 18px;
+        background: #323739ee;
+        tt := Text { text: AppState.toast; color: #ffffff; font-size: Theme.fs-small; horizontal-alignment: center; vertical-alignment: center; }
+    }
+}

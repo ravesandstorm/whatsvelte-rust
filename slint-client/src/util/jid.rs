@@ -18,10 +18,6 @@ pub fn is_status(jid: &str) -> bool {
     jid.starts_with("status@")
 }
 
-pub fn is_status_broadcast(jid: &str) -> bool {
-    jid == "status@broadcast"
-}
-
 pub fn is_newsletter(jid: &str) -> bool {
     jid.ends_with("@newsletter")
 }

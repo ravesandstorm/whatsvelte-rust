@@ -1,0 +1,153 @@
+import { Theme } from "state.slint";
+
+export component Avatar inherits Rectangle {
+    in property <string> initials;
+    in property <color> tint: Theme.accent;
+    in property <length> size: 44px;
+    width: size;
+    height: size;
+    border-radius: size / 2;
+    background: tint;
+    Text {
+        text: initials;
+        color: #ffffff;
+        font-size: size * 0.38;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+// Flat, icon-ish text button used across headers and menus.
+export component IconButton inherits Rectangle {
+    in property <string> icon;
+    in property <string> tooltip;
+    in property <bool> active;
+    in property <length> size: 36px;
+    in property <color> fg: Theme.text-muted;
+    callback clicked();
+    width: size;
+    height: size;
+    border-radius: size / 2;
+    background: ta.pressed ? Theme.selected : (ta.has-hover || active) ? Theme.hover : transparent;
+    Text {
+        text: icon;
+        color: active ? Theme.accent : fg;
+        font-size: size * 0.5;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+// Full-width row in a popup menu.
+export component MenuRow inherits Rectangle {
+    in property <string> label;
+    in property <bool> danger;
+    callback clicked();
+    height: 36px * Theme.zoom;
+    background: ta.has-hover ? Theme.hover : transparent;
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        Text {
+            text: label;
+            color: danger ? Theme.danger : Theme.text;
+            font-size: Theme.fs;
+            vertical-alignment: center;
+        }
+    }
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component Pill inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked();
+    height: 30px * Theme.zoom;
+    min-width: t.preferred-width + 24px;
+    border-radius: self.height / 2;
+    background: selected ? (Theme.dark ? #0a332c : #d9fdd3) : (ta.has-hover ? Theme.hover : Theme.panel-alt);
+    t := Text {
+        text: label;
+        color: selected ? (Theme.dark ? #00a884 : #008069) : Theme.text-muted;
+        font-size: Theme.fs-small;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component PrimaryButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> enabled: true;
+    in property <bool> danger;
+    callback clicked();
+    height: 38px * Theme.zoom;
+    min-width: t.preferred-width + 32px;
+    border-radius: 19px * Theme.zoom;
+    background: !enabled ? Theme.panel-alt : danger ? (ta.has-hover ? #c4002f : Theme.danger) : (ta.has-hover ? #008f6f : Theme.accent);
+    t := Text {
+        text: label;
+        color: enabled ? #ffffff : Theme.text-muted;
+        font-size: Theme.fs;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    ta := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+// Single-line text field with explicit theme colors (the std LineEdit renders
+// near-invisibly on our panels in the fluent style).
+export component TextField inherits Rectangle {
+    in property <string> placeholder;
+    in property <color> fill: Theme.field;
+    in-out property <string> text;
+    callback edited(string);
+    callback accepted(string);
+    public function focus-input() { input.focus(); }
+    forward-focus: input;
+    height: 38px * Theme.zoom;
+    border-radius: 8px;
+    background: root.fill;
+    border-width: 1px;
+    border-color: input.has-focus ? Theme.accent : transparent;
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        input := TextInput {
+            text <=> root.text;
+            color: Theme.text;
+            font-size: Theme.fs;
+            vertical-alignment: center;
+            single-line: true;
+            selection-background-color: Theme.accent.transparentize(0.6);
+            edited => { root.edited(self.text); }
+            accepted => { root.accepted(self.text); }
+        }
+    }
+    if root.text == "": Text {
+        x: 12px;
+        width: parent.width - 24px;
+        height: parent.height;
+        text: root.placeholder;
+        color: Theme.text-muted;
+        font-size: Theme.fs;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+}

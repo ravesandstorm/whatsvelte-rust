@@ -1,0 +1,225 @@
+import { ListView } from "std-widgets.slint";
+import { AppState, Theme, ChatRow } from "state.slint";
+import { Avatar, IconButton, Pill, PrimaryButton, TextField } from "widgets.slint";
+
+component ChatListItem inherits Rectangle {
+    in property <ChatRow> item;
+    callback clicked();
+    height: 72px * Theme.zoom;
+    background: item.active ? Theme.selected : ta.has-hover ? Theme.hover : Theme.panel;
+
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 14px;
+        spacing: 12px;
+        VerticalLayout {
+            alignment: center;
+            Avatar { initials: item.initials; tint: item.tint; size: 48px * Theme.zoom; }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 3px;
+            HorizontalLayout {
+                spacing: 6px;
+                Text {
+                    text: item.title;
+                    color: Theme.text;
+                    font-size: Theme.fs-large;
+                    overflow: elide;
+                    horizontal-stretch: 1;
+                }
+                Text {
+                    text: item.stamp;
+                    color: item.unread > 0 && !item.muted ? Theme.accent : Theme.text-muted;
+                    font-size: Theme.fs-tiny;
+                    vertical-alignment: center;
+                }
+            }
+            HorizontalLayout {
+                spacing: 6px;
+                Text {
+                    text: item.draft ? "Draft: " + item.preview : item.preview;
+                    color: item.draft ? Theme.accent : Theme.text-muted;
+                    font-size: Theme.fs;
+                    overflow: elide;
+                    horizontal-stretch: 1;
+                }
+                if item.muted: Text { text: "🔕"; font-size: Theme.fs-small; vertical-alignment: center; }
+                if item.pinned: Text { text: "📌"; font-size: Theme.fs-small; vertical-alignment: center; }
+                if item.unread > 0: Rectangle {
+                    min-width: 20px * Theme.zoom;
+                    height: 20px * Theme.zoom;
+                    border-radius: self.height / 2;
+                    background: item.muted ? Theme.text-muted : Theme.accent;
+                    HorizontalLayout {
+                        padding-left: 6px;
+                        padding-right: 6px;
+                        Text {
+                            text: item.unread > 999 ? "999+" : item.unread;
+                            color: Theme.dark ? #111b21 : #ffffff;
+                            font-size: Theme.fs-tiny;
+                            font-weight: 600;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Rectangle {
+        y: parent.height - 1px;
+        x: 72px * Theme.zoom;
+        width: parent.width - self.x;
+        height: 1px;
+        background: Theme.divider;
+    }
+}
+
+export component ChatListPane inherits Rectangle {
+    background: Theme.panel;
+    property <bool> new-chat-open;
+    property <string> new-chat-number;
+
+    VerticalLayout {
+        // header
+        Rectangle {
+            height: 60px * Theme.zoom;
+            background: Theme.panel-alt;
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 10px;
+                spacing: 4px;
+                VerticalLayout {
+                    alignment: center;
+                    horizontal-stretch: 1;
+                    Text {
+                        text: "Chats";
+                        color: Theme.text;
+                        font-size: Theme.fs-title;
+                        font-weight: 700;
+                    }
+                    Text {
+                        text: !AppState.connected ? "Connecting…" : AppState.syncing ? "Syncing history…" : AppState.self-name;
+                        color: Theme.text-muted;
+                        font-size: Theme.fs-tiny;
+                        overflow: elide;
+                    }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    IconButton {
+                        icon: "+";
+                        active: root.new-chat-open;
+                        clicked => { root.new-chat-open = !root.new-chat-open; }
+                    }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    IconButton {
+                        icon: "⚙";
+                        clicked => { AppState.settings-open = true; }
+                    }
+                }
+            }
+        }
+
+        if root.new-chat-open: Rectangle {
+            height: 52px * Theme.zoom;
+            background: Theme.panel;
+            HorizontalLayout {
+                padding: 8px;
+                spacing: 8px;
+                TextField {
+                    placeholder: "Start a chat: phone number with country code";
+                    text <=> root.new-chat-number;
+                    accepted => {
+                        AppState.new-chat(root.new-chat-number);
+                        root.new-chat-number = "";
+                        root.new-chat-open = false;
+                    }
+                }
+                PrimaryButton {
+                    label: "Open";
+                    enabled: root.new-chat-number != "";
+                    clicked => {
+                        AppState.new-chat(root.new-chat-number);
+                        root.new-chat-number = "";
+                        root.new-chat-open = false;
+                    }
+                }
+            }
+        }
+
+        // search
+        Rectangle {
+            height: 50px * Theme.zoom;
+            HorizontalLayout {
+                padding-left: 12px;
+                padding-right: 12px;
+                padding-top: 7px;
+                padding-bottom: 7px;
+                TextField {
+                    placeholder: "Search chats";
+                    text <=> AppState.search;
+                    edited(t) => { AppState.search-changed(t); }
+                }
+            }
+        }
+
+        // sections
+        HorizontalLayout {
+            padding-left: 12px;
+            padding-right: 12px;
+            padding-bottom: 8px;
+            spacing: 6px;
+            alignment: start;
+            Pill {
+                label: "All";
+                selected: AppState.section == 0;
+                clicked => { AppState.section-changed(0); }
+            }
+            if AppState.archived-count > 0: Pill {
+                label: "Archived (" + AppState.archived-count + ")";
+                selected: AppState.section == 1;
+                clicked => { AppState.section-changed(1); }
+            }
+            if AppState.channels-count > 0: Pill {
+                label: "Channels (" + AppState.channels-count + ")";
+                selected: AppState.section == 2;
+                clicked => { AppState.section-changed(2); }
+            }
+            if AppState.status-count > 0: Pill {
+                label: "Status";
+                selected: AppState.section == 3;
+                clicked => { AppState.section-changed(3); }
+            }
+        }
+
+        Rectangle { height: 1px; background: Theme.divider; }
+
+        if AppState.chats.length == 0: VerticalLayout {
+            alignment: center;
+            vertical-stretch: 1;
+            Text {
+                text: AppState.search != "" ? "No chats match your search" : AppState.syncing ? "Loading your chats…" : "No chats yet";
+                color: Theme.text-muted;
+                font-size: Theme.fs;
+                horizontal-alignment: center;
+            }
+        }
+
+        if AppState.chats.length > 0: ListView {
+            vertical-stretch: 1;
+            for row in AppState.chats: ChatListItem {
+                item: row;
+                clicked => { AppState.select-chat(row.jid); }
+            }
+        }
+    }
+}

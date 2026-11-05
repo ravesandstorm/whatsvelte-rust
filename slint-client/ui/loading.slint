@@ -1,0 +1,47 @@
+import { Spinner, ProgressIndicator } from "std-widgets.slint";
+import { AppState, Theme } from "state.slint";
+
+export component LoadingScreen inherits Rectangle {
+    background: Theme.panel-alt;
+    VerticalLayout {
+        alignment: center;
+        spacing: 18px;
+        HorizontalLayout {
+            alignment: center;
+            Spinner {
+                width: 48px;
+                height: 48px;
+                indeterminate: AppState.loading-progress < 0;
+                progress: max(0, AppState.loading-progress);
+            }
+        }
+        Text {
+            text: "Wha.rs.app";
+            color: Theme.text;
+            font-size: Theme.fs-title;
+            font-weight: 600;
+            horizontal-alignment: center;
+        }
+        Text {
+            text: AppState.loading-label;
+            color: Theme.text-muted;
+            font-size: Theme.fs;
+            horizontal-alignment: center;
+        }
+        HorizontalLayout {
+            alignment: center;
+            visible: AppState.loading-progress >= 0;
+            ProgressIndicator {
+                width: 280px;
+                height: 6px;
+                progress: max(0, AppState.loading-progress);
+            }
+        }
+        Text {
+            text: "🔒 End-to-end encrypted";
+            color: Theme.text-muted;
+            font-size: Theme.fs-small;
+            horizontal-alignment: center;
+        }
+    }
+}

@@ -1,0 +1,123 @@
+import { Spinner } from "std-widgets.slint";
+import { AppState, Theme } from "state.slint";
+import { PrimaryButton, TextField } from "widgets.slint";
+
+export component PairingScreen inherits Rectangle {
+    background: Theme.bg;
+    property <string> phone;
+
+    Rectangle {
+        width: min(parent.width - 48px, 920px);
+        height: min(parent.height - 48px, 560px);
+        background: Theme.panel;
+        border-radius: 8px;
+        drop-shadow-blur: 12px;
+        drop-shadow-color: #00000022;
+
+        HorizontalLayout {
+            padding: 48px;
+            spacing: 48px;
+
+            VerticalLayout {
+                spacing: 18px;
+                alignment: start;
+                Text {
+                    text: "Use Wha.rs.app on your computer";
+                    color: Theme.text;
+                    font-size: Theme.fs-title;
+                    wrap: word-wrap;
+                }
+                Text {
+                    text: "1. Open WhatsApp on your phone\n2. Tap Menu or Settings and select Linked devices\n3. Tap Link a device\n4. Point your phone at this screen to capture the QR code";
+                    color: Theme.text-muted;
+                    font-size: Theme.fs-large;
+                    wrap: word-wrap;
+                }
+                Rectangle { height: 12px; }
+                Text {
+                    text: "Or link with your phone number";
+                    color: Theme.text;
+                    font-size: Theme.fs;
+                    font-weight: 600;
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    TextField {
+                        horizontal-stretch: 1;
+                        min-width: 220px;
+                        placeholder: "Phone number with country code, e.g. 15551234567";
+                        text <=> root.phone;
+                        accepted => { AppState.request-pair-code(root.phone); }
+                    }
+                    PrimaryButton {
+                        label: AppState.pair-busy ? "Requesting…" : "Get code";
+                        enabled: !AppState.pair-busy && root.phone != "";
+                        clicked => { AppState.request-pair-code(root.phone); }
+                    }
+                }
+                if AppState.pair-code != "": Rectangle {
+                    background: Theme.panel-alt;
+                    border-radius: 6px;
+                    height: 64px;
+                    Text {
+                        text: AppState.pair-code;
+                        color: Theme.text;
+                        font-size: 30px * Theme.zoom;
+                        font-weight: 700;
+                        letter-spacing: 6px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+                if AppState.pair-error != "": Text {
+                    text: AppState.pair-error;
+                    color: Theme.danger;
+                    font-size: Theme.fs-small;
+                    wrap: word-wrap;
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+                spacing: 16px;
+                width: 280px;
+                Rectangle {
+                    width: 264px;
+                    height: 264px;
+                    background: #ffffff;
+                    border-radius: 6px;
+                    if AppState.has-qr && !AppState.client-dead: Image {
+                        width: 248px;
+                        height: 248px;
+                        source: AppState.qr;
+                        image-rendering: pixelated;
+                    }
+                    if !AppState.has-qr && !AppState.client-dead: Spinner {
+                        width: 48px;
+                        height: 48px;
+                        indeterminate: true;
+                    }
+                    if AppState.client-dead: Text {
+                        text: "QR code expired";
+                        color: #111b21;
+                        font-size: Theme.fs;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+                if AppState.client-dead: PrimaryButton {
+                    label: "Generate a new QR code";
+                    clicked => { AppState.reset-session(); }
+                }
+                Text {
+                    text: AppState.client-dead ? "The QR code timed out. Generate a new one to continue."
+                        : AppState.has-qr ? "The code refreshes automatically" : "Generating QR code…";
+                    wrap: word-wrap;
+                    color: Theme.text-muted;
+                    font-size: Theme.fs-small;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+    }
+}

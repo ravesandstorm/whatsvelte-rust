@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::core::dto::{ChatDto, ChatFlagsDto, MessageDto, QuotedDto};
 use crate::util::jid::{
-    is_broadcast_list, is_lid, is_newsletter, is_regular_chat, is_status, normalize_jid,
+    is_lid, is_newsletter, is_regular_chat, is_status, normalize_jid,
 };
 use crate::util::time::now_secs;
 use persist::Persist;
@@ -231,10 +231,6 @@ impl Store {
         if let Some(p) = &self.persist {
             p.clear_all();
         }
-    }
-
-    pub fn has_cached_data(&self) -> bool {
-        !self.chats.is_empty()
     }
 
     /// Write every dirty piece back to disk, then trim non-open chats.
@@ -769,10 +765,6 @@ impl Store {
         if let Some(m) = self.msgs.get_mut(jid).and_then(|c| c.msgs.iter_mut().find(|m| m.dto.id == tmp)) {
             m.status = MessageStatus::Failed;
         }
-    }
-
-    pub fn is_broadcast_list(jid: &str) -> bool {
-        is_broadcast_list(jid)
     }
 }
 

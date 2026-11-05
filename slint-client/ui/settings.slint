@@ -1,0 +1,122 @@
+import { ComboBox, Slider, Switch } from "std-widgets.slint";
+import { AppState, Theme } from "state.slint";
+import { Avatar, IconButton, PrimaryButton } from "widgets.slint";
+
+component SettingRow inherits HorizontalLayout {
+    in property <string> label;
+    in property <string> hint;
+    spacing: 12px;
+    VerticalLayout {
+        alignment: center;
+        horizontal-stretch: 1;
+        Text { text: root.label; color: Theme.text; font-size: Theme.fs; }
+        if root.hint != "": Text { text: root.hint; color: Theme.text-muted; font-size: Theme.fs-tiny; wrap: word-wrap; }
+    }
+    @children
+}
+
+export component SettingsPanel inherits Rectangle {
+    background: Theme.scrim;
+    TouchArea { clicked => { AppState.settings-open = false; } }
+
+    Rectangle {
+        width: min(parent.width - 32px, 460px);
+        height: min(parent.height - 32px, 560px);
+        background: Theme.panel;
+        border-radius: 10px;
+        drop-shadow-blur: 20px;
+        drop-shadow-color: #00000055;
+        TouchArea { }  // swallow clicks so they don't close the panel
+
+        VerticalLayout {
+            padding: 20px;
+            spacing: 16px;
+            HorizontalLayout {
+                Text { text: "Settings"; color: Theme.text; font-size: Theme.fs-title; font-weight: 600; horizontal-stretch: 1; vertical-alignment: center; }
+                IconButton { icon: "✕"; clicked => { AppState.settings-open = false; } }
+            }
+
+            HorizontalLayout {
+                spacing: 12px;
+                Avatar { initials: AppState.self-name != "" ? AppState.self-name : "Me"; size: 52px; }
+                VerticalLayout {
+                    alignment: center;
+                    Text { text: AppState.self-name != "" ? AppState.self-name : "Your account"; color: Theme.text; font-size: Theme.fs-large; }
+                    Text { text: AppState.self-jid; color: Theme.text-muted; font-size: Theme.fs-small; }
+                }
+            }
+
+            Rectangle { height: 1px; background: Theme.divider; }
+
+            SettingRow {
+                label: "Theme";
+                ComboBox {
+                    width: 140px;
+                    model: ["System", "Light", "Dark"];
+                    current-index: AppState.theme-choice == "light" ? 1 : AppState.theme-choice == "dark" ? 2 : 0;
+                    selected(v) => {
+                        AppState.theme-changed(v == "Light" ? "light" : v == "Dark" ? "dark" : "system");
+                    }
+                }
+            }
+            SettingRow {
+                label: "Zoom";
+                hint: round(AppState.zoom * 100) + "%";
+                Slider {
+                    width: 180px;
+                    minimum: 0.8;
+                    maximum: 1.5;
+                    value: AppState.zoom;
+                    released(v) => { AppState.zoom-changed(round(v * 20) / 20); }
+                }
+            }
+            SettingRow {
+                label: "Read receipts";
+                hint: "Let others know when you've read their messages.";
+                Switch {
+                    checked: AppState.read-receipts;
+                    toggled => { AppState.read-receipts-changed(self.checked); }
+                }
+            }
+            SettingRow {
+                label: "Load images automatically";
+                hint: "Videos, audio and documents always load on demand.";
+                Switch {
+                    checked: AppState.auto-load-images;
+                    toggled => { AppState.auto-load-changed(self.checked); }
+                }
+            }
+
+            Rectangle { vertical-stretch: 1; }
+
+            HorizontalLayout {
+                spacing: 10px;
+                alignment: end;
+                PrimaryButton { label: "Log out"; danger: true; clicked => { AppState.logout(); } }
+            }
+        }
+    }
+}
+
+export component ImageViewer inherits Rectangle {
+    background: #000000e6;
+    TouchArea { clicked => { AppState.viewer-open = false; } }
+    Image {
+        x: 24px;
+        y: 64px;
+        width: parent.width - 48px;
+        height: parent.height - 88px;
+        source: AppState.viewer-image;
+        image-fit: contain;
+    }
+    HorizontalLayout {
+        y: 12px;
+        height: 40px;
+        padding-right: 12px;
+        spacing: 6px;
+        alignment: end;
+        IconButton { icon: "⬇"; fg: #ffffff; clicked => { AppState.save-media(AppState.viewer-id); } }
+        IconButton { icon: "↗"; fg: #ffffff; clicked => { AppState.open-media(AppState.viewer-id); } }
+        IconButton { icon: "✕"; fg: #ffffff; clicked => { AppState.viewer-open = false; } }
+    }
+}

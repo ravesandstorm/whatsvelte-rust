@@ -1,0 +1,180 @@
+// Shared data shapes + the AppState global that Rust drives.
+import { Palette } from "std-widgets.slint";
+
+export struct ChatRow {
+    jid: string,
+    title: string,
+    preview: string,
+    stamp: string,
+    unread: int,
+    muted: bool,
+    pinned: bool,
+    archived: bool,
+    draft: bool,
+    initials: string,
+    tint: color,
+    active: bool,
+}
+
+export struct MsgRow {
+    id: string,
+    from-me: bool,
+    show-sender: bool,
+    sender: string,
+    tint: color,
+    text: string,
+    kind: string,
+    time: string,
+    // 0 none, 1 failed, 2 sending, 3 sent, 4 delivered, 5 read, 6 played
+    status: int,
+    edited: bool,
+    deleted: bool,
+    reactions: string,
+    has-quote: bool,
+    quote-sender: string,
+    quote-text: string,
+    has-image: bool,
+    image: image,
+    image-w: int,
+    image-h: int,
+    has-media: bool,
+    media-label: string,
+    loading-media: bool,
+    day: string,
+    pending: bool,
+    can-edit: bool,
+    can-revoke: bool,
+}
+
+export global AppState {
+    // "loading" | "pairing" | "main"
+    in-out property <string> screen: "loading";
+
+    // loading screen
+    in-out property <string> loading-label: "Starting…";
+    in-out property <float> loading-progress: -1;
+
+    // pairing
+    in-out property <image> qr;
+    in-out property <bool> has-qr;
+    in-out property <string> pair-code;
+    in-out property <string> pair-error;
+    in-out property <bool> pair-busy;
+    in-out property <bool> client-dead;
+
+    // session
+    in-out property <bool> connected;
+    in-out property <bool> syncing;
+    in-out property <string> self-name;
+    in-out property <string> self-jid;
+
+    // chat list
+    in-out property <[ChatRow]> chats;
+    // 0 chats, 1 archived, 2 channels, 3 status
+    in-out property <int> section: 0;
+    in-out property <int> archived-count;
+    in-out property <int> channels-count;
+    in-out property <int> status-count;
+    in-out property <string> search;
+
+    // conversation
+    in-out property <string> active-jid;
+    in-out property <string> active-title;
+    in-out property <string> active-subtitle;
+    in-out property <string> active-initials;
+    in-out property <color> active-tint;
+    in-out property <bool> active-muted;
+    in-out property <bool> active-pinned;
+    in-out property <bool> active-archived;
+    in-out property <[MsgRow]> messages;
+    in-out property <bool> has-older;
+    // bumped by Rust: scroll to the newest message
+    in-out property <int> scroll-token;
+    // bumped by Rust: a message arrived (scroll only if already near bottom)
+    in-out property <int> append-token;
+
+    // composer
+    in-out property <string> composer-text;
+    in-out property <bool> replying;
+    in-out property <bool> editing;
+    in-out property <string> reply-sender;
+    in-out property <string> reply-text;
+    in-out property <string> toast;
+
+    // overlays
+    in-out property <bool> settings-open;
+    in-out property <bool> viewer-open;
+    in-out property <image> viewer-image;
+    in-out property <string> viewer-id;
+
+    // settings
+    // "system" | "light" | "dark"
+    in-out property <string> theme-choice: "system";
+    in-out property <float> zoom: 1.0;
+    in-out property <bool> read-receipts: true;
+    in-out property <bool> auto-load-images: true;
+
+    // pairing
+    callback request-pair-code(string);
+    callback reset-session();
+    // chat list
+    callback select-chat(string);
+    callback section-changed(int);
+    callback search-changed(string);
+    callback new-chat(string);
+    // conversation header
+    callback toggle-mute();
+    callback toggle-pin();
+    callback toggle-archive();
+    callback load-older();
+    // composer
+    callback send(string);
+    callback composer-edited(string);
+    callback cancel-compose();
+    callback attach();
+    // message actions
+    callback reply-to(string);
+    callback edit(string);
+    callback react(string, string);
+    callback delete-for-me(string);
+    callback delete-for-everyone(string);
+    callback open-media(string);
+    callback save-media(string);
+    callback view-image(string);
+    callback retry(string);
+    // settings
+    callback theme-changed(string);
+    callback zoom-changed(float);
+    callback read-receipts-changed(bool);
+    callback auto-load-changed(bool);
+    callback logout();
+}
+
+export global Theme {
+    out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
+    out property <float> zoom: AppState.zoom;
+    out property <color> bg: dark ? #0c1317 : #eae6df;
+    out property <color> panel: dark ? #111b21 : #ffffff;
+    out property <color> panel-alt: dark ? #202c33 : #f0f2f5;
+    out property <color> chat-bg: dark ? #0b141a : #efeae2;
+    out property <color> bubble-in: dark ? #202c33 : #ffffff;
+    out property <color> bubble-out: dark ? #005c4b : #d9fdd3;
+    out property <color> quote-bg: dark ? #1d282f : #f0f0f0;
+    out property <color> text: dark ? #e9edef : #111b21;
+    out property <color> text-muted: dark ? #8696a0 : #667781;
+    out property <color> accent: #00a884;
+    out property <color> on-accent: #ffffff;
+    out property <color> field: dark ? #2a3942 : #f0f2f5;
+    out property <color> field-alt: dark ? #2a3942 : #ffffff;
+    out property <color> divider: dark ? #222d34 : #e9edef;
+    out property <color> hover: dark ? #202c33 : #f5f6f6;
+    out property <color> selected: dark ? #2a3942 : #f0f2f5;
+    out property <color> tick-read: #53bdeb;
+    out property <color> danger: #ea0038;
+    out property <color> scrim: #00000099;
+    out property <length> fs: 14px * zoom;
+    out property <length> fs-small: 12px * zoom;
+    out property <length> fs-tiny: 11px * zoom;
+    out property <length> fs-large: 16px * zoom;
+    out property <length> fs-title: 22px * zoom;
+}

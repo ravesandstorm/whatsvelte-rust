@@ -23,8 +23,11 @@ use crate::core::dto::{
 };
 
 /// Everything the UI reacts to, already normalized. Replaces the Tauri
-/// `wa://…` topics one-to-one.
+/// `wa://…` topics one-to-one. Every variant carries its `session_id` (and
+/// `ConnState` its flag) for the multi-session plumbing, even though the
+/// single-account UI doesn't read them yet.
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum UiEvent {
     /// `wa://auth/qr`
     Qr { session_id: String, code: String },

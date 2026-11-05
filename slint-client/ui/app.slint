@@ -1,5 +1,60 @@
+// Root window. All state lives in the AppState global (state.slint), driven
+// from Rust; the components below are pure views over it.
+import { Palette } from "std-widgets.slint";
+import { AppState, Theme, ChatRow, MsgRow } from "state.slint";
+import { LoadingScreen } from "loading.slint";
+import { PairingScreen } from "pairing.slint";
+import { ChatListPane } from "chat_list.slint";
+import { ConversationPane } from "conversation.slint";
+import { SettingsPanel, ImageViewer } from "settings.slint";
+
+export { AppState, Theme, ChatRow, MsgRow }
+
 export component AppWindow inherits Window {
-    title: "Wha.rs.app";
+    title: AppState.screen == "main" && AppState.active-title != "" ? AppState.active-title + " · Wha.rs.app" : "Wha.rs.app";
+    icon: @image-url("../../src-tauri/icons/128x128.png");
     preferred-width: 1100px;
     preferred-height: 760px;
+    min-width: 720px;
+    min-height: 480px;
+    background: Theme.bg;
+    default-font-size: Theme.fs;
+
+    property <string> theme-choice: AppState.theme-choice;
+    function apply-theme() {
+        Palette.color-scheme = root.theme-choice == "dark" ? ColorScheme.dark
+            : root.theme-choice == "light" ? ColorScheme.light : ColorScheme.unknown;
+    }
+    changed theme-choice => { root.apply-theme(); }
+    init => { root.apply-theme(); }
+
+    // Off-screen text field used as a clipboard bridge (Slint has no public
+    // clipboard-write API; TextInput.copy() uses the platform clipboard).
+    clip := TextInput {
+        x: -1000px;
+        width: 10px;
+        height: 10px;
+        opacity: 0;
+        read-only: true;
+    }
+
+    if AppState.screen == "loading": LoadingScreen { }
+    if AppState.screen == "pairing": PairingScreen { }
+    if AppState.screen == "main": HorizontalLayout {
+        ChatListPane {
+            width: clamp(root.width * 0.32, 300px, 460px);
+        }
+        Rectangle { width: 1px; background: Theme.divider; }
+        ConversationPane {
+            horizontal-stretch: 1;
+            copy-text(t) => {
+                clip.text = t;
+                clip.select-all();
+                clip.copy();
+                AppState.toast = "Copied";
+            }
+        }
+    }
+    if AppState.settings-open: SettingsPanel { }
+    if AppState.viewer-open: ImageViewer { }
 }
