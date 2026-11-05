@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { UiMessage } from "../../lib/stores/messages.svelte";
+  import { messagesFor, type UiMessage } from "../../lib/stores/messages.svelte";
   import { formatTime } from "../../lib/util/time";
   import { formatPhone, isGroup, normalizeJid } from "../../lib/util/jid";
   import { contactFor, ensureContact } from "../../lib/stores/contacts.svelte";
@@ -10,6 +10,8 @@
   import { session } from "../../lib/stores/session.svelte";
   import { api } from "../../lib/ipc";
   import { trackRead } from "../../lib/receipts";
+  import { formatQuotedText } from "../../lib/util/preview";
+  import { mediaSrc } from "../../lib/media";
   import ReactionPicker from "./ReactionPicker.svelte";
   import MessageMedia from "./MessageMedia.svelte";
   import MessageContextMenu from "./MessageContextMenu.svelte";
@@ -96,6 +98,48 @@
     return contactFor(qs)?.name ?? formatPhone(qs);
   });
 
+  const quotedText = $derived.by(() => {
+    const q = message.quoted;
+    if (!q) return "";
+    return formatQuotedText(q);
+  });
+
+  const quotedTargetMsg = $derived.by(() => {
+    const q = message.quoted;
+    if (!q) return null;
+    return messagesFor(message.chatJid).find((m) => m.id === q.id) ?? null;
+  });
+
+  let quotedMediaSrc = $state<string | null>(null);
+
+  $effect(() => {
+    const target = quotedTargetMsg;
+    if (
+      target &&
+      target.media &&
+      !message.quoted?.thumbnail &&
+      (target.kind === "image" || target.kind === "sticker" || target.kind === "video")
+    ) {
+      mediaSrc(target.media)
+        .then((url) => {
+          quotedMediaSrc = url;
+        })
+        .catch(() => {
+          quotedMediaSrc = null;
+        });
+    } else {
+      quotedMediaSrc = null;
+    }
+  });
+
+  const quotedThumb = $derived.by(() => {
+    const q = message.quoted;
+    if (q?.thumbnail) return `data:image/jpeg;base64,${q.thumbnail}`;
+    if (quotedTargetMsg?.thumbnail) return `data:image/jpeg;base64,${quotedTargetMsg.thumbnail}`;
+    if (quotedMediaSrc) return quotedMediaSrc;
+    return null;
+  });
+
   // Interactive / business message kinds get a small "type" label so the user
   // knows the bubble is more than plain text (rendered read-only).
   const STRUCTURED_LABELS: Record<string, string> = {
@@ -149,9 +193,9 @@
         onkeydown={(e) => (e.key === "Enter" || e.key === " ") && scrollToMessage(message.quoted!.id)}>
         {#if quotedSender}<div class="q-sender">{quotedSender}</div>{/if}
         <div class="q-row">
-          <div class="q-text">{message.quoted.text ?? `[${message.quoted.kind}]`}</div>
-          {#if message.quoted.thumbnail}
-            <img class="q-thumb" src={`data:image/jpeg;base64,${message.quoted.thumbnail}`} alt="" />
+          <div class="q-text">{quotedText}</div>
+          {#if quotedThumb}
+            <img class="q-thumb" src={quotedThumb} alt="" />
           {/if}
         </div>
       </div>

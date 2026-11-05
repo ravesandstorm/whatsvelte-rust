@@ -43,6 +43,8 @@ export function upsertChatFromDto(d: ChatDto) {
   schedulePersistChats();
 }
 
+import { api } from "../ipc";
+
 /** Bump a chat on a new message (creating it if unseen). */
 export function touchChat(
   jid: string,
@@ -51,14 +53,13 @@ export function touchChat(
   incoming: boolean,
 ) {
   const prev = chats.get(jid);
-  const isActive = chatUi.activeJid === jid;
   const isNewer = !prev || timestamp >= prev.timestamp;
   chats.set(jid, {
     jid,
     name: prev?.name ?? null,
     lastMessage: isNewer ? (lastMessage ?? prev?.lastMessage ?? null) : prev?.lastMessage ?? null,
     timestamp: Math.max(timestamp, prev?.timestamp ?? 0),
-    unread: incoming && !isActive ? (prev?.unread ?? 0) + 1 : (prev?.unread ?? 0),
+    unread: incoming ? (prev?.unread ?? 0) + 1 : (prev?.unread ?? 0),
     // A new message must not unpin/unmute/unarchive the chat.
     muted: prev?.muted,
     pinned: prev?.pinned,
@@ -66,6 +67,30 @@ export function touchChat(
     draft: prev?.draft,
   });
   schedulePersistChats();
+}
+
+/** Decrement unread count for a chat as incoming messages are viewed/scrolled. */
+export function decrementUnread(jid: string, amount: number = 1) {
+  const c = chats.get(jid);
+  if (!c || c.unread <= 0) return;
+  const newUnread = Math.max(0, c.unread - amount);
+  if (newUnread !== c.unread) {
+    chats.set(jid, { ...c, unread: newUnread });
+    schedulePersistChats();
+    if (newUnread === 0) {
+      api.markRead(jid).catch((e) => console.error("markRead failed", e));
+    }
+  }
+}
+
+/** Mark entire chat read explicitly. */
+export function markChatAsRead(jid: string) {
+  const c = chats.get(jid);
+  if (c && c.unread > 0) {
+    chats.set(jid, { ...c, unread: 0 });
+    schedulePersistChats();
+    api.markRead(jid).catch((e) => console.error("markRead failed", e));
+  }
 }
 
 /**
@@ -166,11 +191,6 @@ export function mergeChats(fromJid: string, toJid: string) {
 
 export function selectChat(jid: string) {
   chatUi.activeJid = jid;
-  const c = chats.get(jid);
-  if (c && c.unread) {
-    chats.set(jid, { ...c, unread: 0 });
-    schedulePersistChats();
-  }
 }
 
 /** Stash (or clear, when blank) the unsent composer text for a chat. */

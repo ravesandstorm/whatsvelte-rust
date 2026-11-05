@@ -14,7 +14,11 @@ export interface UiMessage extends MessageDto {
   deleted?: boolean;
   /** Emoji reactions keyed by reactor JID ("" = none). */
   reactions?: Record<string, string>;
+  /** True if this incoming message hasn't been scrolled into view / read yet. */
+  unread?: boolean;
 }
+
+import { chats, decrementUnread } from "./chats.svelte";
 
 // Monotonic ordering so a later out-of-order receipt can't downgrade status.
 const STATUS_RANK: Record<MessageStatus, number> = {
@@ -43,37 +47,60 @@ function commit(jid: string, arr: UiMessage[]) {
   schedulePersistMessages(jid);
 }
 
+/** Ensure the last `unreadCount` incoming messages in `jid` are flagged unread. */
+export function syncUnreadFlagForChat(jid: string) {
+  const arr = messagesByChat.get(jid);
+  if (!arr || arr.length === 0) return;
+  const count = chats.get(jid)?.unread ?? 0;
+
+  const incomingIndices: number[] = [];
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (!arr[i].fromMe) incomingIndices.push(i);
+  }
+
+  const unreadIndices = new Set(incomingIndices.slice(0, count));
+  let changed = false;
+  for (let i = 0; i < arr.length; i++) {
+    const shouldBeUnread = unreadIndices.has(i);
+    if (!!arr[i].unread !== shouldBeUnread) {
+      arr[i] = { ...arr[i], unread: shouldBeUnread };
+      changed = true;
+    }
+  }
+  if (changed) commit(jid, arr);
+}
+
 export function addMessage(m: UiMessage) {
   const arr = ensure(m.chatJid);
 
-  // Dedupe by id — but if the incoming copy carries downloadable media we don't
-  // have yet, adopt it. This is how our own sent media gets a real `MediaDto`:
-  // the optimistic bubble only has a thumbnail, and the server echo (which has
-  // the media) would otherwise be dropped here, leaving sent media unclickable.
-  if (m.id) {
-    const dupIdx = arr.findIndex((x) => x.id === m.id);
+  // Incoming messages start unread by default unless explicitly marked read
+  const msgToAdd: UiMessage =
+    !m.fromMe && m.unread === undefined ? { ...m, unread: true } : m;
+
+  if (msgToAdd.id) {
+    const dupIdx = arr.findIndex((x) => x.id === msgToAdd.id);
     if (dupIdx >= 0) {
       const existing = arr[dupIdx];
-      if (m.media && !existing.media) {
-        arr[dupIdx] = { ...existing, media: m.media, thumbnail: m.thumbnail ?? existing.thumbnail };
-        commit(m.chatJid, arr);
+      if (msgToAdd.media && !existing.media) {
+        arr[dupIdx] = { ...existing, media: msgToAdd.media, thumbnail: msgToAdd.thumbnail ?? existing.thumbnail };
+        commit(msgToAdd.chatJid, arr);
       }
       return;
     }
   }
 
   // Reconcile the server echo of our own send with the optimistic bubble.
-  if (m.fromMe) {
-    const tmp = arr.findIndex((x) => x.status === "sending" && x.text === m.text);
+  if (msgToAdd.fromMe) {
+    const tmp = arr.findIndex((x) => x.status === "sending" && x.text === msgToAdd.text);
     if (tmp >= 0) {
-      arr[tmp] = { ...m, status: "sent" };
-      commit(m.chatJid, arr);
+      arr[tmp] = { ...msgToAdd, status: "sent" };
+      commit(msgToAdd.chatJid, arr);
       return;
     }
   }
 
-  arr.push(m);
-  commit(m.chatJid, arr);
+  arr.push(msgToAdd);
+  commit(msgToAdd.chatJid, arr);
 }
 
 export function addHistoryMessages(list: MessageDto[]) {
@@ -84,7 +111,42 @@ export function addHistoryMessages(list: MessageDto[]) {
     arr.push(m);
     touched.add(m.chatJid);
   }
-  for (const jid of touched) commit(jid, messagesByChat.get(jid)!);
+  for (const jid of touched) {
+    commit(jid, messagesByChat.get(jid)!);
+    syncUnreadFlagForChat(jid);
+  }
+}
+
+/** Mark a single message read and decrement the chat's unread counter. */
+export function markMessageRead(jid: string, messageId: string) {
+  const arr = messagesByChat.get(jid);
+  if (!arr) return;
+  const idx = arr.findIndex((m) => m.id === messageId);
+  if (idx >= 0 && arr[idx].unread) {
+    arr[idx] = { ...arr[idx], unread: false };
+    commit(jid, arr);
+    decrementUnread(jid, 1);
+  }
+}
+
+/** Mark multiple messages read and decrement the chat's unread counter. */
+export function markMessagesRead(jid: string, messageIds: string[]) {
+  const arr = messagesByChat.get(jid);
+  if (!arr) return;
+  const idSet = new Set(messageIds);
+  let readCount = 0;
+  let changed = false;
+  for (let i = 0; i < arr.length; i++) {
+    if (idSet.has(arr[i].id) && arr[i].unread) {
+      arr[i] = { ...arr[i], unread: false };
+      readCount++;
+      changed = true;
+    }
+  }
+  if (changed) {
+    commit(jid, arr);
+    decrementUnread(jid, readCount);
+  }
 }
 
 export function addOptimistic(jid: string, text: string, quoted: QuotedDto | null = null): string {

@@ -78,10 +78,17 @@
   <button class="image" onclick={openLightbox} aria-label="Open image">
     {#if src}
       <img src={src} alt="" />
-    {:else if thumbUrl}
-      <img class="placeholder" src={thumbUrl} alt="" />
     {:else}
-      <div class="ph">🖼</div>
+      <div class="image-loading">
+        {#if thumbUrl}
+          <img class="placeholder" src={thumbUrl} alt="" />
+        {/if}
+        {#if loading}
+          <div class="spinner-overlay"><div class="media-spinner"></div></div>
+        {:else if !thumbUrl}
+          <div class="ph">🖼</div>
+        {/if}
+      </div>
     {/if}
   </button>
 {:else if media.kind === "sticker"}
@@ -89,26 +96,42 @@
     {#if src}
       <img src={src} alt="sticker" />
     {:else}
-      <div class="ph">🟦</div>
+      <div class="sticker-loading">
+        <div class="media-spinner"></div>
+      </div>
     {/if}
   </div>
 {:else if media.kind === "video"}
   <button class="poster" onclick={openLightbox} aria-label="Play video">
     {#if thumbUrl}<img src={thumbUrl} alt="" />{/if}
-    <span class="play">▶</span>
+    {#if loading}
+      <div class="spinner-overlay"><div class="media-spinner"></div></div>
+    {:else}
+      <span class="play">▶</span>
+    {/if}
   </button>
 {:else if media.kind === "audio"}
   {#if src}
     <audio src={src} controls autoplay></audio>
   {:else}
     <button class="audio" onclick={load}>
-      {loading ? "…" : "▶"} Voice / audio {formatDuration(media.durationSecs)}
+      {#if loading}
+        <div class="media-spinner sm"></div>
+      {:else}
+        ▶
+      {/if}
+      Voice / audio {formatDuration(media.durationSecs)}
     </button>
   {/if}
 {:else if media.kind === "document"}
   <div class="doc">
     <button class="doc-open" onclick={openDoc} disabled={loading}>
-      📄 <span class="doc-name">{media.fileName ?? "Document"}</span>
+      {#if loading}
+        <div class="media-spinner sm"></div>
+      {:else}
+        📄
+      {/if}
+      <span class="doc-name">{media.fileName ?? "Document"}</span>
     </button>
     <button class="doc-dl" onclick={downloadDoc} disabled={saving} title="Download" aria-label="Download">
       {saving ? "…" : "⬇"}
@@ -141,6 +164,50 @@
   .sticker img {
     max-width: 140px;
     background: transparent;
+  }
+  .image-loading {
+    position: relative;
+    display: inline-block;
+    min-width: 140px;
+    min-height: 100px;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .sticker-loading {
+    width: 120px;
+    height: 120px;
+    display: grid;
+    place-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+  }
+  .spinner-overlay {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    display: grid;
+    place-content: center;
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: 6px;
+    z-index: 2;
+  }
+  .media-spinner {
+    width: 26px;
+    height: 26px;
+    border: 3px solid rgba(255, 255, 255, 0.25);
+    border-top-color: var(--wa-unread, #00a884);
+    border-radius: 50%;
+    animation: media-spin 0.8s linear infinite;
+  }
+  .media-spinner.sm {
+    width: 16px;
+    height: 16px;
+    border-width: 2px;
+  }
+  @keyframes media-spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
   .placeholder {
     filter: blur(6px);
