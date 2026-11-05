@@ -146,6 +146,11 @@ impl SessionManager {
     }
 
     async fn boot(&self, session_id: &str) -> ApiResult<Arc<Session>> {
+        // The debug demo (WA_DEMO) must never touch the network or a real
+        // session database.
+        if cfg!(debug_assertions) && std::env::var_os("WA_DEMO").is_some() {
+            return Err(ApiError::NotConnected);
+        }
         let db_path = self.base_dir.join(format!("whatsapp-{session_id}.db"));
         let db_str = db_path.to_string_lossy().to_string();
         log::info!("[{session_id}] booting session, db = {db_str}");
