@@ -5,14 +5,15 @@
 
 help:
 	@echo "Targets:"
-	@echo "make setup	 - Install the Tauri CLI + JS deps (run once)"
-	@echo "make run    		- Run the app in dev mode (tauri dev) — the continuous dev loop"
-	@echo "make dev       	- Alias for 'server'"
-	@echo "make build     	- Build the single-executable bundle (tauri build, Phase 4)"
-	@echo "make frontend  	- Phase 1: static placeholder (no dev server). Phase 2: vite dev"
-	@echo "make fmt       	- cargo fmt for the Tauri backend"
-	@echo "make clippy    	- cargo clippy for the Tauri backend"
-	@echo "make clean     	- Remove the Tauri target dir"
+	@echo "make setup	 			- Install the Tauri CLI + JS deps (run once)"
+	@echo "make run    	 			- Run the app in dev mode (tauri dev) — the continuous dev loop"
+	@echo "make dev       	 			- Alias for 'server'"
+	@echo "make build     	 			- Build the single-executable bundle (tauri build, Phase 4)"
+	@echo "make frontend  	 			- Phase 1: static placeholder (no dev server). Phase 2: vite dev"
+	@echo "make fmt       	 			- cargo fmt for the Tauri backend"
+	@echo "make clippy    	 			- cargo clippy for the Tauri backend"
+	@echo "make clean     	 			- Remove the Tauri target dir"
+	@echo "make release-<major|minor|patch> 	- [RELEASE] PUSHES tag with release <major|minor|patch> bump"
 
 setup:
 	npm install
@@ -39,3 +40,13 @@ clippy:
 
 clean:
 	cd src-tauri && cargo clean
+
+# Release commands
+release-major:
+	./release major
+
+release-minor:
+	./release minor
+
+release-patch:
+	./release patch
