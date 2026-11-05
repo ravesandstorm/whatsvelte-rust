@@ -15,7 +15,7 @@
 import { api } from "../ipc";
 import { chats, mergeChats } from "./chats.svelte";
 import { messagesByChat, mergeMessages } from "./messages.svelte";
-import { deletePersisted, schedulePersistChats, schedulePersistMessages } from "../persist";
+import { movePersistedChat, schedulePersistChats } from "../persist";
 
 /** Learned canonical mapping: `<user>@lid` → `<user>@s.whatsapp.net`. */
 const lidToPn = new Map<string, string>();
@@ -76,9 +76,9 @@ function applyMerge(lid: string, pn: string) {
   if (!chats.has(lid) && !messagesByChat.has(lid)) return;
   mergeMessages(lid, pn);
   mergeChats(lid, pn);
-  void deletePersisted(lid);
+  // Re-key the persisted history (most of it isn't resident in memory).
+  void movePersistedChat(lid, pn);
   schedulePersistChats();
-  schedulePersistMessages(pn);
 }
 
 /** Ensure `jid` (if a LID) is unified with its PN form. Learns the mapping on

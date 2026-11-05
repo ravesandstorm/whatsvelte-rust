@@ -12,15 +12,14 @@ import {
   applyReaction,
   applyReceipt,
   applyRevoke,
+  clearMessages,
   removeMessage,
-  messagesByChat,
   type MessageStatus,
 } from "./messages.svelte";
 import {
   applyChatFlags,
   chatUi,
   chats,
-  ensureChat,
   hydrateChat,
   setChatName,
   touchChat,
@@ -30,11 +29,11 @@ import { canonicalJid, clearLidMap, loadLidMap, unifyLid } from "./lid";
 import { clearNameCache, learnName, loadNameCache } from "./contacts.svelte";
 import {
   clearAll,
-  deletePersisted,
+  discardPending,
   enablePersistence,
   loadSnapshot,
-  schedulePersistChats,
-  schedulePersistMessages,
+  loadTails,
+  movePersistedChat,
   setAccount,
 } from "../persist";
 import type {
@@ -227,8 +226,7 @@ export async function startEventBridge() {
       // or a dead on-disk key that blocks QR generation). Wipe it and reset the
       // device key so a clean QR can be generated.
       const snap = await loadSnapshot();
-      const hasData =
-        snap.chats.length > 0 || Object.keys(snap.messages).length > 0 || !!snap.accountJid;
+      const hasData = snap.chats.length > 0 || snap.hasMessages || !!snap.accountJid;
       if (hasData) {
         clearLidMap();
         clearNameCache();
@@ -270,36 +268,27 @@ export async function startEventBridge() {
         // mapping rehydrates straight into its PN conversation. Use hydrateChat
         // (not upsertChatFromDto) so the persisted mute/pin/archive flags are
         // preserved — otherwise the Archived/etc. sections vanish on restart.
+        const moves: Promise<void>[] = [];
         for (const c of snap.chats) {
           const jid = canonicalJid(c.jid);
-          if (jid !== c.jid) void deletePersisted(c.jid); // drop the stale LID row
+          if (jid !== c.jid) moves.push(movePersistedChat(c.jid, jid)); // re-key the stale LID chat
           hydrateChat(jid === c.jid ? c : { ...c, jid });
         }
-        const all = Object.values(snap.messages)
-          .flat()
-          .map((m) => {
-            const jid = canonicalJid(m.chatJid);
-            return jid === m.chatJid ? m : { ...m, chatJid: jid };
-          });
-        // Insert messages in chunks, yielding a frame between each so the
-        // progress bar actually advances on screen (a single addHistoryMessages
-        // call would block the main thread and finish before any repaint).
-        session.hydrateLabel = "Restoring messages…";
-        session.hydrateTotal = all.length;
-        session.hydrateDone = 0;
-        const CHUNK = 400;
-        for (let i = 0; i < all.length; i += CHUNK) {
-          addHistoryMessages(all.slice(i, i + CHUNK));
-          session.hydrateDone = Math.min(all.length, i + CHUNK);
-          await nextFrame();
-        }
+        await Promise.all(moves);
 
-        // Safety net: reconstruct any chat that has messages but no chat row.
-        for (const [rawJid, items] of Object.entries(snap.messages)) {
-          const jid = canonicalJid(rawJid);
-          if (!items.length || chats.has(jid)) continue;
-          const last = items[items.length - 1];
-          ensureChat(jid, last.text ?? null, last.timestamp, last.pushName ?? null);
+        // Only the newest message per chat is restored up front (chat-list
+        // preview + ticks). Full history stays in IndexedDB and is paged in
+        // when a chat is opened, so boot memory no longer scales with history.
+        session.hydrateLabel = "Restoring chats…";
+        const jids = [...chats.keys()];
+        session.hydrateTotal = jids.length;
+        session.hydrateDone = 0;
+        const CHUNK = 200;
+        for (let i = 0; i < jids.length; i += CHUNK) {
+          const tails = await loadTails(jids.slice(i, i + CHUNK), 1);
+          addHistoryMessages([...tails.values()].flat(), { persist: false });
+          session.hydrateDone = Math.min(jids.length, i + CHUNK);
+          await nextFrame();
         }
 
         // Try to unify any cached LID conversations into their phone-number form.
@@ -312,12 +301,11 @@ export async function startEventBridge() {
     console.error("hydrate from cache failed", e);
   }
 
-  // 4. From now on, mirror every store change to IndexedDB, and flush the
-  //    current state once so a fresh pairing's history gets written immediately.
+  // 4. From now on, mirror store changes to IndexedDB. Enabling flushes the
+  //    chat rows plus any message writes queued during hydration (live events
+  //    that arrived meanwhile) — never a full rewrite of history.
   if (session.jid) await setAccount(session.jid);
   enablePersistence();
-  schedulePersistChats();
-  for (const jid of messagesByChat.keys()) schedulePersistMessages(jid);
 
   // If we're already connected at boot, seed the Channels section now (a later
   // wa://conn/state would also trigger this, but at startup it may not fire).
@@ -357,7 +345,8 @@ export async function resetAll() {
   }
   newslettersLoaded = false;
   chats.clear();
-  messagesByChat.clear();
+  clearMessages();
+  discardPending();
   chatUi.activeJid = null;
   clearLidMap();
   clearNameCache();
