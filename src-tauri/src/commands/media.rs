@@ -3,11 +3,14 @@
 //! Tauri's asset protocol (`convertFileSrc`), bypassing the IPC bridge so large
 //! media never crosses JS memory.
 
-use std::sync::Arc;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, OnceLock};
 
 use base64::Engine;
 use serde::Deserialize;
 use tauri::{AppHandle, Manager, State};
+use tokio::sync::Semaphore;
 use whatsapp_rust::download::DownloadParams;
 use whatsapp_rust::media::{self, AudioOptions, DocumentOptions, ImageOptions, VideoOptions};
 use whatsapp_rust::wacore::download::MediaType;
@@ -15,7 +18,7 @@ use whatsapp_rust::{Jid, UploadOptions};
 
 use crate::dto::SendResultDto;
 use crate::error::{ApiError, ApiResult};
-use crate::session::SessionManager;
+use crate::session::{Session, SessionManager};
 
 type Mgr<'a> = State<'a, Arc<SessionManager>>;
 
@@ -73,6 +76,100 @@ fn ext_for(mimetype: Option<&str>, media_type: &str) -> &'static str {
     }
 }
 
+/// Max media downloads in flight at once. Scrolling a media-heavy chat mounts
+/// many auto-loading bubbles; unbounded, each one holds a connection, a decrypt
+/// buffer and a blocking thread at the same time.
+const MAX_CONCURRENT_DOWNLOADS: usize = 3;
+
+fn download_permits() -> &'static Semaphore {
+    static PERMITS: OnceLock<Semaphore> = OnceLock::new();
+    PERMITS.get_or_init(|| Semaphore::new(MAX_CONCURRENT_DOWNLOADS))
+}
+
+/// Ensure a media payload is in the content-addressed cache and return its path.
+///
+/// Streams download → decrypt → file with constant memory (the library's
+/// `download_from_params_to_writer`), instead of buffering the whole payload —
+/// a large video used to sit in RAM in full (plus its encrypted copy). Each call
+/// writes its own `.part` file and renames it into place, so concurrent
+/// requests for the same item can't corrupt each other, and a crash mid-write
+/// never leaves a truncated file that a later cache hit would serve.
+async fn ensure_cached(
+    app: &AppHandle,
+    session: &Session,
+    descriptor: MediaDescriptorIn,
+    mimetype: Option<&str>,
+) -> ApiResult<PathBuf> {
+    let media_key = b64_decode(&descriptor.media_key)?;
+    let file_sha256 = b64_decode(&descriptor.file_sha256)?;
+    let file_enc_sha256 = b64_decode(&descriptor.file_enc_sha256)?;
+
+    // Content-addressed filename (url-safe so it's filesystem-legal).
+    let stem = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&file_sha256);
+    let ext = ext_for(mimetype, &descriptor.media_type);
+
+    let mut dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| ApiError::library(format!("no app data dir: {e}")))?;
+    dir.push("media");
+    std::fs::create_dir_all(&dir).map_err(ApiError::library)?;
+    let path = dir.join(format!("{stem}.{ext}"));
+    if path.exists() {
+        return Ok(path);
+    }
+
+    let _permit = download_permits()
+        .acquire()
+        .await
+        .map_err(ApiError::library)?;
+    // Another request may have finished this item while we waited.
+    if path.exists() {
+        return Ok(path);
+    }
+
+    static PART_SEQ: AtomicU64 = AtomicU64::new(0);
+    let seq = PART_SEQ.fetch_add(1, Ordering::Relaxed);
+    let tmp = dir.join(format!("{stem}.{ext}.{seq}.part"));
+    let file = std::fs::File::create(&tmp).map_err(ApiError::library)?;
+
+    let params = DownloadParams::encrypted(
+        descriptor.direct_path,
+        &media_key,
+        &file_sha256,
+        &file_enc_sha256,
+        descriptor.file_length,
+        media_type_of(&descriptor.media_type),
+    );
+    let result = session
+        .client
+        .download_from_params_to_writer(&params, file)
+        .await;
+    match result {
+        Ok(file) => {
+            // Flush and close the handle before renaming (required on Windows).
+            let synced = file.sync_all();
+            drop(file);
+            if let Err(e) = synced {
+                let _ = std::fs::remove_file(&tmp);
+                return Err(ApiError::library(e));
+            }
+        }
+        Err(e) => {
+            let _ = std::fs::remove_file(&tmp);
+            return Err(ApiError::library(e));
+        }
+    }
+    if let Err(e) = std::fs::rename(&tmp, &path) {
+        let _ = std::fs::remove_file(&tmp);
+        // A concurrent download of the same item won the rename; use its file.
+        if !path.exists() {
+            return Err(ApiError::library(e));
+        }
+    }
+    Ok(path)
+}
+
 /// Download+decrypt a media payload into the cache and return its absolute path.
 /// Idempotent: a content-addressed cache hit returns immediately.
 #[tauri::command]
@@ -84,48 +181,7 @@ pub async fn download_media(
     mgr: Mgr<'_>,
 ) -> ApiResult<String> {
     let (_, session) = mgr.session(session_id).await?;
-
-    let media_key = b64_decode(&descriptor.media_key)?;
-    let file_sha256 = b64_decode(&descriptor.file_sha256)?;
-    let file_enc_sha256 = b64_decode(&descriptor.file_enc_sha256)?;
-
-    // Content-addressed filename (url-safe so it's filesystem-legal).
-    let stem = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&file_sha256);
-    let ext = ext_for(mimetype.as_deref(), &descriptor.media_type);
-
-    let mut dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| ApiError::library(format!("no app data dir: {e}")))?;
-    dir.push("media");
-    std::fs::create_dir_all(&dir).map_err(ApiError::library)?;
-    let path = dir.join(format!("{stem}.{ext}"));
-
-    if path.exists() {
-        return Ok(path.to_string_lossy().into_owned());
-    }
-
-    let params = DownloadParams::encrypted(
-        descriptor.direct_path,
-        &media_key,
-        &file_sha256,
-        &file_enc_sha256,
-        descriptor.file_length,
-        media_type_of(&descriptor.media_type),
-    );
-
-    let bytes = session
-        .client
-        .download_from_params(&params)
-        .await
-        .map_err(ApiError::library)?;
-
-    // Write to a temp sibling then rename, so a crash mid-write can't leave a
-    // truncated file that a future cache-hit would serve.
-    let tmp = path.with_extension(format!("{ext}.part"));
-    std::fs::write(&tmp, &bytes).map_err(ApiError::library)?;
-    std::fs::rename(&tmp, &path).map_err(ApiError::library)?;
-
+    let path = ensure_cached(&app, &session, descriptor, mimetype.as_deref()).await?;
     Ok(path.to_string_lossy().into_owned())
 }
 
@@ -155,40 +211,13 @@ pub async fn save_media_to_downloads(
 ) -> ApiResult<String> {
     let (_, session) = mgr.session(session_id).await?;
 
-    let media_key = b64_decode(&descriptor.media_key)?;
-    let file_sha256 = b64_decode(&descriptor.file_sha256)?;
-    let file_enc_sha256 = b64_decode(&descriptor.file_enc_sha256)?;
-
-    let stem = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&file_sha256);
+    // Display-name fallback: the cache file's own name (content hash + ext).
     let ext = ext_for(mimetype.as_deref(), &descriptor.media_type);
+    let file_sha256 = b64_decode(&descriptor.file_sha256)?;
+    let stem = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&file_sha256);
 
-    // Ensure the file exists in the shared cache (mirrors download_media).
-    let mut cache_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| ApiError::library(format!("no app data dir: {e}")))?;
-    cache_dir.push("media");
-    std::fs::create_dir_all(&cache_dir).map_err(ApiError::library)?;
-    let cached = cache_dir.join(format!("{stem}.{ext}"));
-
-    if !cached.exists() {
-        let params = DownloadParams::encrypted(
-            descriptor.direct_path,
-            &media_key,
-            &file_sha256,
-            &file_enc_sha256,
-            descriptor.file_length,
-            media_type_of(&descriptor.media_type),
-        );
-        let bytes = session
-            .client
-            .download_from_params(&params)
-            .await
-            .map_err(ApiError::library)?;
-        let tmp = cached.with_extension(format!("{ext}.part"));
-        std::fs::write(&tmp, &bytes).map_err(ApiError::library)?;
-        std::fs::rename(&tmp, &cached).map_err(ApiError::library)?;
-    }
+    // Shares download_media's cache, so an already-viewed item copies instantly.
+    let cached = ensure_cached(&app, &session, descriptor, mimetype.as_deref()).await?;
 
     let downloads = app
         .path()

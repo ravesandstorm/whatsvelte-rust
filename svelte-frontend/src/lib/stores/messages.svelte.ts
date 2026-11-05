@@ -9,10 +9,12 @@
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import type { MessageDto, QuotedDto } from "../types";
 import {
+  getPersistedMessage,
   loadLatestMessages,
   patchPersistedMessage,
   persistMessage,
   persistMessageDelete,
+  persistMessageInsert,
 } from "../persist";
 
 export type MessageStatus = "sending" | "sent" | "delivered" | "read" | "played";
@@ -137,8 +139,30 @@ export function addMessage(m: UiMessage) {
   }
 
   arr.push(msgToAdd);
-  persistMessage(msgToAdd);
+  persistMessageInsert(msgToAdd);
   commit(msgToAdd.chatJid, arr);
+  if (msgToAdd.id && !exhausted.has(msgToAdd.chatJid)) void adoptStored(msgToAdd);
+}
+
+/**
+ * Only the resident tail is checked for duplicates, so a server redelivery of
+ * an older message looks new. Its write is insert-only (the stored copy wins);
+ * here the in-memory bubble also adopts the stored copy, so status, reactions,
+ * edits and read state aren't reset on screen.
+ */
+async function adoptStored(fresh: UiMessage) {
+  const stored = await getPersistedMessage(fresh.chatJid, fresh.id);
+  if (!stored) return;
+  const arr = messagesByChat.get(fresh.chatJid);
+  const idx = arr ? arr.findIndex((m) => m.id === fresh.id) : -1;
+  if (!arr || idx < 0 || arr[idx] !== fresh) return; // changed meanwhile
+  arr[idx] = {
+    ...stored,
+    media: stored.media ?? fresh.media,
+    thumbnail: stored.thumbnail ?? fresh.thumbnail,
+  };
+  if (arr[idx].media !== stored.media) persistMessage(arr[idx]);
+  commit(fresh.chatJid, arr);
 }
 
 /**
@@ -332,6 +356,16 @@ export function closeChat(jid: string) {
     messagesByChat.set(jid, arr.slice(arr.length - RESIDENT_TAIL));
     exhausted.delete(jid);
   }
+}
+
+/** Drop the open chat's paged-in history down to its newest `keep` messages
+ * (used when the user scrolls back to the bottom). Older pages reload from
+ * IndexedDB if they scroll up again. */
+export function trimChat(jid: string, keep: number) {
+  const arr = messagesByChat.get(jid);
+  if (!arr || arr.length <= keep) return;
+  messagesByChat.set(jid, arr.slice(arr.length - keep));
+  exhausted.delete(jid);
 }
 
 /** Forget everything in memory (logout / reset). */

@@ -1,20 +1,28 @@
 //! Bridges the whatsapp-rust `Event` bus to Tauri events.
 //!
-//! Each library `Event` is re-emitted on a per-kind topic (`wa://message`,
-//! `wa://auth/qr`, …) and on the catch-all `wa://event`. Every payload is
-//! wrapped with `sessionId` so a multi-session frontend knows the account.
+//! Each library `Event` is re-emitted once, on its per-kind topic
+//! (`wa://message`, `wa://auth/qr`, …). Every payload is wrapped with
+//! `sessionId` so a multi-session frontend knows the account.
+//!
+//! The bridge subscribes only to the event kinds the UI consumes
+//! ([`BridgeHandler`]), so the library never builds — and the unbounded
+//! channel never queues — events that would just be dropped here (typing
+//! indicators, presence, raw notifications, …). Debug builds subscribe to
+//! everything and additionally mirror events onto the catch-all `wa://event`
+//! for inspection; release builds skip that second serialization entirely.
 //!
 //! Messages are normalized to `MessageDto` here so the frontend never parses
 //! prost. History sync is decoded into per-conversation `wa://history` chunks.
 
 use std::sync::Arc;
 
-use async_channel::Receiver;
+use async_channel::{Receiver, Sender};
 use base64::Engine;
 use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter};
 use whatsapp_rust::prelude::{Event, EventKind, MessageInfo};
 use whatsapp_rust::wacore::proto_helpers::MessageExt;
+use whatsapp_rust::wacore::types::events::{EventHandler, EventInterest};
 use whatsapp_rust::waproto::whatsapp as wa;
 
 use crate::dto::{
@@ -22,8 +30,77 @@ use crate::dto::{
     QuotedDto, ReceiptDto,
 };
 
-/// Catch-all topic every event (except the noisy/streamed ones) is also emitted on.
+/// Catch-all topic: debug builds mirror every event here; in release only kinds
+/// without a dedicated topic would land here, and those aren't subscribed to.
 const GLOBAL_TOPIC: &str = "wa://event";
+
+/// Mirror events onto [`GLOBAL_TOPIC`] (debug builds only — nothing in the UI
+/// listens to it, and it doubles the per-event serialization cost).
+const MIRROR_GLOBAL: bool = cfg!(debug_assertions);
+
+/// Event kinds the bridge forwards in release builds: everything with a
+/// dedicated topic except high-volume presence/typing, which the UI ignores.
+const FORWARDED: &[EventKind] = &[
+    EventKind::PairingQrCode,
+    EventKind::PairingCode,
+    EventKind::PairSuccess,
+    EventKind::PairError,
+    EventKind::LoggedOut,
+    EventKind::Connected,
+    EventKind::Disconnected,
+    EventKind::Message,
+    EventKind::Receipt,
+    EventKind::HistorySync,
+    EventKind::MuteUpdate,
+    EventKind::PinUpdate,
+    EventKind::ArchiveUpdate,
+    EventKind::DeleteMessageForMeUpdate,
+    EventKind::GroupUpdate,
+    EventKind::ContactUpdated,
+    EventKind::PushNameUpdate,
+    EventKind::IncomingCall,
+    EventKind::StreamError,
+    EventKind::ConnectFailure,
+    EventKind::TemporaryBan,
+];
+
+/// Library event handler feeding [`pump`]. Unlike the stock
+/// `ChannelEventHandler` (which subscribes to every kind), it declares a narrow
+/// interest so unwanted events are never materialized or queued.
+pub struct BridgeHandler {
+    tx: Sender<Arc<Event>>,
+}
+
+impl BridgeHandler {
+    pub fn new() -> (Arc<Self>, Receiver<Arc<Event>>) {
+        let (tx, rx) = async_channel::unbounded();
+        (Arc::new(Self { tx }), rx)
+    }
+}
+
+impl EventHandler for BridgeHandler {
+    fn handle_event(&self, event: Arc<Event>) {
+        let _ = self.tx.try_send(event);
+    }
+
+    fn interest(&self) -> EventInterest {
+        if MIRROR_GLOBAL {
+            EventInterest::ALL
+        } else {
+            EventInterest::of(FORWARDED)
+        }
+    }
+}
+
+/// Emit `envelope` on `topic`, plus the debug-only catch-all mirror.
+fn emit(app: &AppHandle, topic: &str, envelope: Value) {
+    if MIRROR_GLOBAL && topic != GLOBAL_TOPIC {
+        let _ = app.emit(GLOBAL_TOPIC, &envelope);
+    }
+    if topic != GLOBAL_TOPIC || MIRROR_GLOBAL {
+        let _ = app.emit(topic, envelope);
+    }
+}
 
 pub async fn pump(app: AppHandle, session_id: String, rx: Receiver<Arc<Event>>) {
     log::info!("[{session_id}] event bridge started");
@@ -40,8 +117,7 @@ pub async fn pump(app: AppHandle, session_id: String, rx: Receiver<Arc<Event>>) 
                         "kind": "MessageUpdate",
                         "payload": serde_json::to_value(update).unwrap_or(Value::Null),
                     });
-                    let _ = app.emit("wa://message/update", envelope.clone());
-                    let _ = app.emit(GLOBAL_TOPIC, envelope);
+                    emit(&app, "wa://message/update", envelope);
                     continue;
                 }
                 // An undecryptable encrypted edit/reaction (parent messageSecret
@@ -72,8 +148,7 @@ pub async fn pump(app: AppHandle, session_id: String, rx: Receiver<Arc<Event>>) 
                     "kind": "ChatFlags",
                     "payload": serde_json::to_value(dto).unwrap_or(Value::Null),
                 });
-                let _ = app.emit("wa://chat/flags", envelope.clone());
-                let _ = app.emit(GLOBAL_TOPIC, envelope);
+                emit(&app, "wa://chat/flags", envelope);
                 continue;
             }
             // Delete-for-me synced from another linked device (or our own re-sync
@@ -87,8 +162,7 @@ pub async fn pump(app: AppHandle, session_id: String, rx: Receiver<Arc<Event>>) 
                         "messageId": u.message_id,
                     },
                 });
-                let _ = app.emit("wa://message/delete-for-me", envelope.clone());
-                let _ = app.emit(GLOBAL_TOPIC, envelope);
+                emit(&app, "wa://message/delete-for-me", envelope);
                 continue;
             }
             // Flatten pairing events to the documented {code, timeoutSecs} shape
@@ -113,11 +187,7 @@ pub async fn pump(app: AppHandle, session_id: String, rx: Receiver<Arc<Event>>) 
             "payload": payload,
         });
 
-        let topic = topic_for(kind);
-        if topic != GLOBAL_TOPIC {
-            let _ = app.emit(topic, envelope.clone());
-        }
-        let _ = app.emit(GLOBAL_TOPIC, envelope);
+        emit(&app, topic_for(kind), envelope);
     }
     log::info!("[{session_id}] event bridge stopped");
 }
