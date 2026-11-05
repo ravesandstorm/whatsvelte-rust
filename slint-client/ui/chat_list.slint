@@ -1,6 +1,6 @@
 import { ListView } from "std-widgets.slint";
 import { AppState, Theme, ChatRow } from "state.slint";
-import { Avatar, IconButton, Pill, PrimaryButton, TextField } from "widgets.slint";
+import { Avatar, IconButton, MenuRow, Pill, PrimaryButton, TextField, Ticks } from "widgets.slint";
 
 component ChatListItem inherits Rectangle {
     in property <ChatRow> item;
@@ -8,9 +8,19 @@ component ChatListItem inherits Rectangle {
     height: 72px * Theme.zoom;
     background: item.active ? Theme.selected : ta.has-hover ? Theme.hover : Theme.panel;
 
+    // Avatars are fetched lazily, only for rows the list actually instantiates.
+    init => { AppState.need-avatar(item.jid); }
+    property <string> avatar-key: item.jid;
+    changed avatar-key => { AppState.need-avatar(item.jid); }
+
     ta := TouchArea {
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
+        pointer-event(ev) => {
+            if ev.button == PointerEventButton.right && ev.kind == PointerEventKind.down {
+                menu.show();
+            }
+        }
     }
 
     HorizontalLayout {
@@ -19,7 +29,13 @@ component ChatListItem inherits Rectangle {
         spacing: 12px;
         VerticalLayout {
             alignment: center;
-            Avatar { initials: item.initials; tint: item.tint; size: 48px * Theme.zoom; }
+            Avatar {
+                initials: item.initials;
+                tint: item.tint;
+                picture: item.avatar;
+                has-picture: item.has-avatar;
+                size: 44px * Theme.zoom;
+            }
         }
         VerticalLayout {
             alignment: center;
@@ -33,29 +49,41 @@ component ChatListItem inherits Rectangle {
                     overflow: elide;
                     horizontal-stretch: 1;
                 }
+                if item.pinned: Text { text: "📌"; font-size: Theme.fs-tiny; vertical-alignment: center; }
+                if item.muted: Text { text: "🔇"; font-size: Theme.fs-tiny; vertical-alignment: center; }
                 Text {
                     text: item.stamp;
-                    color: item.unread > 0 && !item.muted ? Theme.accent : Theme.text-muted;
+                    color: item.unread > 0 && !item.muted ? Theme.unread : Theme.text-muted;
                     font-size: Theme.fs-tiny;
                     vertical-alignment: center;
                 }
             }
             HorizontalLayout {
-                spacing: 6px;
+                spacing: 4px;
+                if item.draft: Text {
+                    text: "Draft:";
+                    color: Theme.draft;
+                    font-size: Theme.fs;
+                    font-weight: 600;
+                }
+                if !item.draft && item.tick > 0: Ticks { status: item.tick; vertical-alignment: center; }
+                if !item.draft && item.prefix != "": Text {
+                    text: item.prefix;
+                    color: Theme.text-muted;
+                    font-size: Theme.fs;
+                }
                 Text {
-                    text: item.draft ? "Draft: " + item.preview : item.preview;
-                    color: item.draft ? Theme.accent : Theme.text-muted;
+                    text: item.preview;
+                    color: Theme.text-muted;
                     font-size: Theme.fs;
                     overflow: elide;
                     horizontal-stretch: 1;
                 }
-                if item.muted: Text { text: "🔕"; font-size: Theme.fs-small; vertical-alignment: center; }
-                if item.pinned: Text { text: "📌"; font-size: Theme.fs-small; vertical-alignment: center; }
                 if item.unread > 0: Rectangle {
                     min-width: 20px * Theme.zoom;
                     height: 20px * Theme.zoom;
                     border-radius: self.height / 2;
-                    background: item.muted ? Theme.text-muted : Theme.accent;
+                    background: Theme.unread;
                     HorizontalLayout {
                         padding-left: 6px;
                         padding-right: 6px;
@@ -74,11 +102,37 @@ component ChatListItem inherits Rectangle {
     }
     Rectangle {
         y: parent.height - 1px;
-        x: 72px * Theme.zoom;
+        x: 68px * Theme.zoom;
         width: parent.width - self.x;
         height: 1px;
         background: Theme.divider;
     }
+
+    menu := PopupWindow {
+        x: ta.mouse-x;
+        y: ta.mouse-y;
+        width: 200px;
+        close-policy: close-on-click-outside;
+        Rectangle {
+            background: Theme.panel;
+            border-radius: 6px;
+            drop-shadow-blur: 10px;
+            drop-shadow-color: #00000040;
+            VerticalLayout {
+                padding-top: 6px;
+                padding-bottom: 6px;
+                MenuRow { label: item.pinned ? "Unpin chat" : "Pin chat"; clicked => { AppState.chat-action(item.jid, "pinned"); menu.close(); } }
+                MenuRow { label: item.muted ? "Unmute chat" : "Mute chat"; clicked => { AppState.chat-action(item.jid, "muted"); menu.close(); } }
+                MenuRow { label: item.archived ? "Unarchive chat" : "Archive chat"; clicked => { AppState.chat-action(item.jid, "archived"); menu.close(); } }
+            }
+        }
+    }
+}
+
+component CountPill inherits Pill {
+    in property <int> count;
+    in property <string> base;
+    label: count > 0 ? base + "  " + count : base;
 }
 
 export component ChatListPane inherits Rectangle {
@@ -99,16 +153,17 @@ export component ChatListPane inherits Rectangle {
                     alignment: center;
                     horizontal-stretch: 1;
                     Text {
-                        text: "Chats";
+                        text: AppState.self-name;
                         color: Theme.text;
-                        font-size: Theme.fs-title;
-                        font-weight: 700;
-                    }
-                    Text {
-                        text: !AppState.connected ? "Connecting…" : AppState.syncing ? "Syncing history…" : AppState.self-name;
-                        color: Theme.text-muted;
-                        font-size: Theme.fs-tiny;
+                        font-size: Theme.fs-large;
+                        font-weight: 600;
                         overflow: elide;
+                    }
+                    if AppState.syncing: HorizontalLayout {
+                        spacing: 6px;
+                        alignment: start;
+                        Rectangle { width: 7px; height: 7px; y: (parent.height - 7px) / 2; border-radius: 3.5px; background: Theme.unread; }
+                        Text { text: "Syncing…"; color: Theme.text-muted; font-size: Theme.fs-tiny; }
                     }
                 }
                 VerticalLayout {
@@ -165,39 +220,55 @@ export component ChatListPane inherits Rectangle {
                 padding-top: 7px;
                 padding-bottom: 7px;
                 TextField {
-                    placeholder: "Search chats";
+                    placeholder: AppState.section == 1 ? "Search archived" : AppState.section == 2 ? "Search channels"
+                        : AppState.section == 3 ? "Search status" : "Search chats";
                     text <=> AppState.search;
                     edited(t) => { AppState.search-changed(t); }
                 }
             }
         }
 
-        // sections
-        HorizontalLayout {
-            padding-left: 12px;
-            padding-right: 12px;
-            padding-bottom: 8px;
-            spacing: 6px;
-            alignment: start;
-            Pill {
-                label: "All";
-                selected: AppState.section == 0;
-                clicked => { AppState.section-changed(0); }
+        // filter pills (vertical wheel scrolls the row horizontally)
+        pills := Flickable {
+            height: 38px * Theme.zoom;
+            content-width: max(self.width, pill-row.preferred-width);
+            // Below the pills: receives the wheel events they don't handle.
+            TouchArea {
+                width: pills.content-width;
+                scroll-event(ev) => {
+                    pills.content-x = clamp(pills.content-x - ev.delta-y - ev.delta-x, pills.width - pills.content-width, 0px);
+                    accept
+                }
             }
-            if AppState.archived-count > 0: Pill {
-                label: "Archived (" + AppState.archived-count + ")";
-                selected: AppState.section == 1;
-                clicked => { AppState.section-changed(1); }
-            }
-            if AppState.channels-count > 0: Pill {
-                label: "Channels (" + AppState.channels-count + ")";
-                selected: AppState.section == 2;
-                clicked => { AppState.section-changed(2); }
-            }
-            if AppState.status-count > 0: Pill {
-                label: "Status";
-                selected: AppState.section == 3;
-                clicked => { AppState.section-changed(3); }
+            pill-row := HorizontalLayout {
+                padding-left: 12px;
+                padding-right: 12px;
+                padding-bottom: 8px;
+                spacing: 6px;
+                alignment: start;
+                Pill {
+                    label: "All";
+                    selected: AppState.section == 0;
+                    clicked => { AppState.section-changed(0); }
+                }
+                CountPill {
+                    base: "📢 Channels";
+                    count: AppState.channels-count;
+                    selected: AppState.section == 2;
+                    clicked => { AppState.section-changed(2); }
+                }
+                CountPill {
+                    base: "⭕ Status";
+                    count: AppState.status-count;
+                    selected: AppState.section == 3;
+                    clicked => { AppState.section-changed(3); }
+                }
+                if AppState.archived-count > 0: CountPill {
+                    base: "🗄 Archived";
+                    count: AppState.archived-count;
+                    selected: AppState.section == 1;
+                    clicked => { AppState.section-changed(1); }
+                }
             }
         }
 
@@ -206,11 +277,17 @@ export component ChatListPane inherits Rectangle {
         if AppState.chats.length == 0: VerticalLayout {
             alignment: center;
             vertical-stretch: 1;
+            padding: 24px;
             Text {
-                text: AppState.search != "" ? "No chats match your search" : AppState.syncing ? "Loading your chats…" : "No chats yet";
+                text: AppState.search != "" ? "No chats match your search."
+                    : AppState.section == 1 ? "No archived yet."
+                    : AppState.section == 2 ? "No channels yet."
+                    : AppState.section == 3 ? "No status yet."
+                    : "No chats yet. History loads after pairing; new messages appear live.";
                 color: Theme.text-muted;
                 font-size: Theme.fs;
                 horizontal-alignment: center;
+                wrap: word-wrap;
             }
         }
 
