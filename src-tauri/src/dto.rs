@@ -102,6 +102,9 @@ pub struct MessageDto {
     pub media: Option<MediaDto>,
     /// The quoted message, when this is a reply.
     pub quoted: Option<QuotedDto>,
+    /// For an item of a media album: the id of the album's parent message.
+    /// Items sharing it render as one grid.
+    pub album_parent_id: Option<String>,
 }
 
 /// One chat row for the sidebar.
