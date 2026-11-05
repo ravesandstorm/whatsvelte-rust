@@ -60,8 +60,8 @@ slint-client/                 new crate, replaces src-tauri/ + svelte-frontend/
    (mute/pin/archive), media open/save, attach + send media, settings panel.
 8. **Tooling** — Makefile, release scripts, CI workflow switched to the Slint
    build; README/ARCHITECTURE updated.
-9. **Retire** — remove `src-tauri/`, `svelte-frontend/`, root npm files once the
-   Slint client is at parity (separate, explicit step).
+9. **Retire** — `src-tauri/`, `svelte-frontend/` and the root npm files were
+   removed once the parity checklist below was verified (done).
 
 ## Feature parity checklist
 
