@@ -36,15 +36,6 @@ pub fn decode_file(path: &Path, max_edge: u32) -> Option<Pixels> {
     Some(to_pixels(img, max_edge))
 }
 
-/// Build a small base64 JPEG thumbnail for an outgoing image.
-pub fn jpeg_thumbnail(path: &Path) -> Option<String> {
-    let img = image::ImageReader::open(path).ok()?.with_guessed_format().ok()?.decode().ok()?;
-    let thumb = img.thumbnail(96, 96).into_rgb8();
-    let mut out = std::io::Cursor::new(Vec::new());
-    thumb.write_to(&mut out, image::ImageFormat::Jpeg).ok()?;
-    Some(base64::engine::general_purpose::STANDARD.encode(out.into_inner()))
-}
-
 /// Bounded FIFO cache of decoded images keyed by message id (+ variant).
 pub struct ImageCache {
     map: HashMap<String, Pixels>,
