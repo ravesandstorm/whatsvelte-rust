@@ -1,6 +1,8 @@
 # whatsvelte-rust
 
-A lightweight, low-RAM alternative to WhatsApp Desktop. Built with a Svelte frontend and a Rust backend, packaged together as a native desktop app using Tauri.
+A lightweight, low-RAM alternative to WhatsApp Desktop. A native [Slint](https://slint.dev) UI on top of a Rust WhatsApp backend, shipped as a single executable — no WebView, no JavaScript runtime.
+
+> **v2 (in progress):** the Tauri + Svelte frontend is being replaced by a native Slint client in [`slint-client/`](slint-client). See [`docs/slint-migration.md`](docs/slint-migration.md) for the plan, the mapping from Tauri concepts and the remaining gaps.
 
 ## Features
 
@@ -8,9 +10,9 @@ A lightweight, low-RAM alternative to WhatsApp Desktop. Built with a Svelte fron
 - **Cross-Platform**: Available for Windows, macOS, and Linux.
 - **Offline-First Pairing**: Link your device via QR code or pair code.
 - **Optimized UI**: Responsive two-pane chat interface with a built-in zoom feature.
-- **Local History**: Chat history is persisted securely via IndexedDB.
+- **Local History**: Chat history is cached on disk per chat and paged in on demand, so memory doesn't grow with history.
 - **Comprehensive Interactions**: Supports message replies, deleted message tombstones, edited messages, and read receipts.
-- **Media Support**: Click-to-load videos, audios, documents, and stickers. Eager-loading for images.
+- **Media Support**: Inline images and stickers (auto-loaded), with videos, audio and documents opened in your OS default apps.
 - **Native OS Integration**: Received documents open directly in your OS's default applications.
 - **Privacy Controls**: Read receipt toggles and chat settings (mute, pin, archive).
 
@@ -35,6 +37,12 @@ A lightweight, low-RAM alternative to WhatsApp Desktop. Built with a Svelte fron
 - Add voice recording via `MediaRecorder`.
 - Enable document, video, and audio sending via the backend.
 
+### Phase 5: Native Slint client 🚧 (In progress)
+- Replaced the WebView (Tauri + Svelte) with a native Slint UI: one Rust process, no JS heap, no IPC serialization.
+- The Tauri glue (session manager, event bridge, commands) is ported to plain Rust in `slint-client/src/core`; `rust-backend/` is unchanged.
+- Packaging moved from tauri-bundler to `cargo-packager` (same dmg/nsis/deb/AppImage outputs).
+- *See [`docs/slint-migration.md`](docs/slint-migration.md).*
+
 ### Phase 4: Packaging & CI/CD ✅ (Completed)
 - Cross-platform automated builds configured via GitHub Actions.
 - Pushing a version tag (e.g., `v1.0.0`) automatically generates and publishes release binaries for Windows (`.msi`/`.exe`), macOS (`.dmg`/`.app`), and Linux (`.deb`/`.AppImage`).
@@ -42,9 +50,14 @@ A lightweight, low-RAM alternative to WhatsApp Desktop. Built with a Svelte fron
 ## Quick start
 
 ```bash
-make setup     # install the Tauri CLI + JS deps (once)
-make server    # tauri dev — compiles the backend and opens the app
+make run       # build and launch the native client (debug)
+make demo      # launch with sample chats — no account, no network
+make build     # optimized release binary
+make setup     # once: install cargo-packager, then...
+make package   # ...build installers for this OS
 ```
+
+Requires the Rust toolchain pinned in `rust-toolchain.toml` (rustup picks it up automatically). On Linux, install the windowing/font headers listed in `.github/workflows/release.yml`.
 
 On first launch, the app boots the default WhatsApp session and shows a QR code to link a device (WhatsApp → Linked Devices), or use the pair-code field.
 
@@ -56,6 +69,9 @@ On first launch, the app boots the default WhatsApp session and shows a QR code 
 - **Chat type resolution is unreliable** — distinguishing chat types (individual
   vs. group vs. newsletter/broadcast) is not fully reliable yet, so a chat may
   occasionally be classified or rendered as the wrong type.
+- **Slint client gaps** — inline video/audio playback (opened externally),
+  voice-note recording, the GIF picker and album grids from the Svelte UI are
+  not ported yet; see `docs/slint-migration.md`.
 - **Stickers sending is not implemented** — the whatsapp web api makes it quite
   complicated to parse sticker information, to be added later.
 - **Some messages are rendered as [other]** — not every type is fully implemented

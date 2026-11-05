@@ -17,7 +17,7 @@ exit /b %errorlevel%
 :bump_version
 set "part=%~1"
 
-:: Locate the tauri.conf.json file relative to the git repository root
+:: Locate the git repository root
 for /f "tokens=*" %%i in ('git rev-parse --show-toplevel 2^>nul') do set "GIT_ROOT=%%i"
 if "%GIT_ROOT%"=="" (
     echo X Error: Not a git repository!
@@ -53,7 +53,7 @@ if not "%LOCAL_HEAD%"=="%REMOTE_HEAD%" (
     exit /b 1
 )
 
-set "conf=%GIT_ROOT%\src-tauri\tauri.conf.json"
+set "conf=%GIT_ROOT%\slint-client\Cargo.toml"
 
 :: Check if the file actually exists
 if not exist "%conf%" (
@@ -61,8 +61,13 @@ if not exist "%conf%" (
     exit /b 1
 )
 
-:: Get current version using jq
-for /f "tokens=*" %%i in ('jq -r ".version" "%conf%"') do set "cur=%%i"
+:: Current version: the first `version = "x.y.z"` line is the [package] version
+set "cur="
+for /f "tokens=2 delims==" %%i in ('findstr /b /c:"version = " "%conf%"') do (
+    if not defined cur set "cur=%%~i"
+)
+set "cur=%cur: =%"
+set "cur=%cur:"=%"
 
 :: Parse major, minor, and patch values
 for /f "tokens=1,2,3 delims=." %%a in ("%cur%") do (
@@ -88,39 +93,26 @@ if "%part%"=="major" (
 
 set "new=%major%.%minor%.%patch%"
 
-:: Safely update the JSON file using jq arguments
-jq --arg v "%new%" ".version = $v" "%conf%" > "%conf%.tmp"
+:: Rewrite only the first (package) version line
+powershell -NoProfile -Command "$p='%conf%'; $done=$false; $out=Get-Content $p | ForEach-Object { if (-not $done -and $_ -match '^version = \"') { $done=$true; 'version = \"%new%\"' } else { $_ } }; Set-Content -Path $p -Value $out"
 if %errorlevel% neq 0 (
-    echo X Error: Failed to update JSON using jq.
-    if exist "%conf%.tmp" del "%conf%.tmp"
+    echo X Error: Failed to update %conf%.
     exit /b 1
 )
 
-move /y "%conf%.tmp" "%conf%" >nul
-
-:: Sync workspace package versions (root + svelte-frontend):
-::   1. package.json       .version
-::   2. package-lock.json  .version
-::   3. package-lock.json  .packages[""].version
-set "PKG_FILES="
-for %%f in (package.json package-lock.json svelte-frontend\package.json svelte-frontend\package-lock.json) do (
-    if not exist "%GIT_ROOT%\%%f" (
-        echo X Error: %GIT_ROOT%\%%f not found!
-        exit /b 1
-    )
-    jq --arg v "%new%" --arg k "" "if (.packages? // {} | has($k)) then .packages[$k].version = $v else . end | .version = $v" "%GIT_ROOT%\%%f" > "%GIT_ROOT%\%%f.tmp"
-    if !errorlevel! neq 0 (
-        echo X Error: Failed to update %%f using jq.
-        if exist "%GIT_ROOT%\%%f.tmp" del "%GIT_ROOT%\%%f.tmp"
-        exit /b 1
-    )
-    move /y "%GIT_ROOT%\%%f.tmp" "%GIT_ROOT%\%%f" >nul
-    set PKG_FILES=!PKG_FILES! "%GIT_ROOT%\%%f"
+:: Refresh Cargo.lock's entry for the app itself (no dependency changes)
+pushd "%GIT_ROOT%\slint-client"
+cargo update --workspace --offline -q
+set "CARGO_ERR=%errorlevel%"
+popd
+if not "%CARGO_ERR%"=="0" (
+    echo X Error: cargo update failed.
+    exit /b 1
 )
 
 :: Git Operations
 :: Because we verified the tree is clean, `git add` will ONLY stage the version updates
-git add "%conf%" !PKG_FILES! && ^
+git add "%conf%" "%GIT_ROOT%\slint-client\Cargo.lock" && ^
 git commit -m "chore: bump version to v%new%" && ^
 git tag "v%new%" && ^
 git push origin main && ^

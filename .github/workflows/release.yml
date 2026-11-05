@@ -1,4 +1,4 @@
-name: Release Tauri App
+name: Release
 
 on:
   push:
@@ -16,84 +16,89 @@ jobs:
         include:
           - os: ubuntu-latest
             target: ""
+            formats: "deb,appimage"
           - os: macos-latest
             target: ""
+            formats: "app,dmg"
           - os: windows-latest
             target: "x86_64-pc-windows-msvc" # Standard 64-bit Windows
+            formats: "nsis"
           - os: windows-latest
             target: "aarch64-pc-windows-msvc" # ARM64 Windows
+            formats: "nsis"
           - os: windows-latest
             target: "i686-pc-windows-msvc" # 32-bit Windows (x86)
+            formats: "nsis"
 
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Install Linux-specific system dependencies required by Tauri/WebKit
+      # Slint (winit + femtovg) needs only windowing/font/GL headers — no
+      # WebKitGTK. The file picker uses the XDG portal, so no GTK either.
       - name: Install Linux dependencies (Ubuntu only)
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
-          # Note: If you are using Tauri v1, change 'libwebkit2gtk-4.1-dev' to 'libwebkit2gtk-4.0-dev' above.
+          sudo apt-get install -y build-essential pkg-config libfontconfig1-dev libxkbcommon-dev \
+            libwayland-dev libxcursor-dev libxrandr-dev libxi-dev libgl1-mesa-dev libdbus-1-dev libssl-dev
 
-      # Install Node.js for Svelte compilation
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-          cache: 'npm' # Automates npm caching
-
-      # Clean install frontend dependencies
-      - name: Install npm dependencies
-        run: |
-          npm ci
-          cd svelte-frontend
-          npm ci
-
-      # Install Rust toolchain for the backend
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      # rust-toolchain.toml pins a nightly that overrides the toolchain installed
-      # above, so cross targets must be added to THAT toolchain. Running rustup
-      # from the repo root makes it resolve the pinned channel.
-      - name: Install pinned toolchain and cross target
-        if: matrix.target != ''
-        shell: bash
+      # rust-toolchain.toml pins a nightly; running rustup from the repo root
+      # installs that toolchain, and cross targets must be added to it.
+      - name: Install pinned toolchain
         run: |
           rustup toolchain install
-          rustup target add ${{ matrix.target }}
           rustup show active-toolchain
-          rustup target list --installed
 
-      # Speeds up subsequent Rust builds significantly
+      - name: Add cross target
+        if: matrix.target != ''
+        run: rustup target add ${{ matrix.target }}
+
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: './src-tauri -> target'
+          workspaces: './slint-client -> target'
           key: ${{ matrix.target }}
 
-      # Build Svelte + Rust and automatically attach binaries to the GitHub Release
-      - name: Build and Publish Tauri App
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS code-signing + notarization. The .dmg is shipped ad-hoc signed
-          # (see tauri.conf.json bundle.macOS.signingIdentity) until these repo
-          # secrets are populated; once set, tauri-action signs with the Developer
-          # ID and notarizes so Gatekeeper stops flagging the app as "damaged".
-          # All are no-ops when empty, so Linux/Windows jobs are unaffected.
-          # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }} 
-          # Use these credentials when you have a paid Apple certificate
+      - name: Install cargo-packager
+        run: cargo install cargo-packager --locked
+
+      - name: Build and package
+        working-directory: slint-client
+        run: |
+          if [ -n "${{ matrix.target }}" ]; then
+            cargo build --release --target ${{ matrix.target }}
+            cargo packager --release --target ${{ matrix.target }} --formats ${{ matrix.formats }}
+          else
+            cargo build --release
+            cargo packager --release --formats ${{ matrix.formats }}
+          fi
+
+      # Give each Windows arch a distinct installer name so uploads don't clash.
+      - name: Collect artifacts
+        working-directory: slint-client
+        run: |
+          mkdir -p ../dist
+          for f in target/packager/*; do
+            [ -f "$f" ] || continue
+            name=$(basename "$f")
+            if [ -n "${{ matrix.target }}" ]; then name="${{ matrix.target }}-$name"; fi
+            cp "$f" "../dist/$name"
+          done
+          ls -la ../dist
+
+      # macOS: the .dmg is ad-hoc signed (Cargo.toml packager signing-identity
+      # "-") until Apple Developer ID secrets are configured.
+      - name: Publish release assets
+        uses: softprops/action-gh-release@v2
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Release ${{ github.ref_name }}'
-          releaseBody: 'Automated release generated by GitHub Actions.'
-          releaseDraft: false
+          tag_name: ${{ github.ref_name }}
+          name: 'Release ${{ github.ref_name }}'
+          body: 'Automated release generated by GitHub Actions.'
+          draft: false
           prerelease: false
-          # ARM64 and 32-bit x86 Windows build ONLY the NSIS installer.
-          # Otherwise, build standard native targets (which uses "all").
-          args: ${{ (matrix.target == 'aarch64-pc-windows-msvc' || matrix.target == 'i686-pc-windows-msvc') && format('--target {0} --bundles nsis', matrix.target) || (matrix.target && format('--target {0}', matrix.target) || '') }}
+          files: dist/*

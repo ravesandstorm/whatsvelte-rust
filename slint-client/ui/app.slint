@@ -12,7 +12,7 @@ export { AppState, Theme, ChatRow, MsgRow }
 
 export component AppWindow inherits Window {
     title: AppState.screen == "main" && AppState.active-title != "" ? AppState.active-title + " · Wha.rs.app" : "Wha.rs.app";
-    icon: @image-url("../../src-tauri/icons/128x128.png");
+    icon: @image-url("../icons/128x128.png");
     preferred-width: 1100px;
     preferred-height: 760px;
     min-width: 720px;

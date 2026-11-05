@@ -1,45 +1,52 @@
-# Common dev commands for whatsvelte-rust (Tauri monolith).
-# Note: `make server` runs the whole app (Rust backend + WebView) via tauri dev. 
+# Common dev commands for whatsvelte-rust (native Slint client, no WebView).
+# The app lives in slint-client/; rust-backend/ is the vendored protocol library.
 
-.PHONY: help setup server dev build frontend fmt clippy clean
+APP := slint-client
+
+.PHONY: help setup run dev build package demo test fmt clippy clean release-major release-minor release-patch
 
 help:
 	@echo "Targets:"
-	@echo "make setup	 			- Install the Tauri CLI + JS deps (run once)"
-	@echo "make run    	 			- Run the app in dev mode (tauri dev) — the continuous dev loop"
-	@echo "make dev       	 			- Alias for 'server'"
-	@echo "make build     	 			- Build the single-executable bundle (tauri build, Phase 4)"
-	@echo "make frontend  	 			- Phase 1: static placeholder (no dev server). Phase 2: vite dev"
-	@echo "make fmt       	 			- cargo fmt for the Tauri backend"
-	@echo "make clippy    	 			- cargo clippy for the Tauri backend"
-	@echo "make clean     	 			- Remove the Tauri target dir"
-	@echo "make release-<major|minor|patch> 	- [RELEASE] PUSHES tag with release <major|minor|patch> bump"
+	@echo "make setup                           - Install cargo-packager (run once, for 'make package')"
+	@echo "make run                             - Build and run the app (debug)"
+	@echo "make dev                             - Alias for 'run'"
+	@echo "make demo                            - Run with sample chats, no account/network (debug only)"
+	@echo "make build                           - Optimized release binary"
+	@echo "make package                         - Release installers (dmg/app, nsis, deb, AppImage)"
+	@echo "make test                            - Unit tests for the client"
+	@echo "make fmt                             - cargo fmt for the client"
+	@echo "make clippy                          - cargo clippy for the client"
+	@echo "make clean                           - Remove the client target dir"
+	@echo "make release-<major|minor|patch>     - [RELEASE] PUSHES tag with release <major|minor|patch> bump"
 
 setup:
-	npm install
-	npm --prefix svelte-frontend install
+	cargo install cargo-packager --locked
 
-# The "continuously running for development" loop: compiles the Rust backend,
-# loads the frontend, and hot-reconnects on change.
 run:
-	npm run tauri dev
+	cd $(APP) && cargo run
 
-dev: server
+dev: run
+
+demo:
+	cd $(APP) && WA_DEMO=1 cargo run
 
 build:
-	npm run tauri build
+	cd $(APP) && cargo build --release
 
-frontend:
-	npm --prefix svelte-frontend run dev
+package:
+	cd $(APP) && cargo build --release && cargo packager --release
+
+test:
+	cd $(APP) && cargo test
 
 fmt:
-	cd src-tauri && cargo fmt
+	cd $(APP) && cargo fmt
 
 clippy:
-	cd src-tauri && cargo clippy
+	cd $(APP) && cargo clippy
 
 clean:
-	cd src-tauri && cargo clean
+	cd $(APP) && cargo clean
 
 # Release commands
 release-major:

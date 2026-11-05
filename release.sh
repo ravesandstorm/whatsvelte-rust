@@ -7,8 +7,10 @@ _bump_version() {
     local part="$1"
     local conf
     
-    # Locate the tauri.conf.json file relative to the git repository root
-    conf="$(git rev-parse --show-toplevel)/src-tauri/tauri.conf.json" || return 1
+    # The app version lives in the Slint client's Cargo.toml
+    local root
+    root="$(git rev-parse --show-toplevel)" || return 1
+    conf="$root/slint-client/Cargo.toml"
 
     # Check for uncommitted local changes (including untracked files)
     if [ -n "$(git status --porcelain)" ]; then
@@ -46,7 +48,8 @@ _bump_version() {
     fi
 
     local cur major minor patch new
-    cur=$(jq -r '.version' "$conf")
+    # First `version = "x.y.z"` line is the [package] version
+    cur=$(sed -n 's/^version = "\(.*\)"$/\1/p' "$conf" | head -n 1)
     IFS='.' read -r major minor patch <<< "$cur"
 
     # Increment the version based on input choice
@@ -58,29 +61,14 @@ _bump_version() {
     esac
     new="$major.$minor.$patch"
 
-    # Safely update the JSON file using jq arguments
-    jq --arg v "$new" '.version = $v' "$conf" > "$conf.tmp" && mv "$conf.tmp" "$conf" || return 1
-
-    # Sync workspace package versions (root + svelte-frontend):
-    #   1. package.json            .version
-    #   2. package-lock.json       .version
-    #   3. package-lock.json       .packages[""].version
-    local root pkg_files=() f
-    root="$(git rev-parse --show-toplevel)"
-    for f in package.json package-lock.json svelte-frontend/package.json svelte-frontend/package-lock.json; do
-        if [ ! -f "$root/$f" ]; then
-            echo "X Error: $root/$f not found!"
-            return 1
-        fi
-        jq --arg v "$new" --arg k "" '
-            .version = $v
-            | if (.packages? // {} | has($k)) then .packages[$k].version = $v else . end
-        ' "$root/$f" > "$root/$f.tmp" && mv "$root/$f.tmp" "$root/$f" || return 1
-        pkg_files+=("$root/$f")
-    done
+    # Rewrite only the first (package) version line, then refresh Cargo.lock's
+    # entry for the app itself without touching any dependency.
+    awk -v v="$new" '!done && /^version = "/ { print "version = \"" v "\""; done=1; next } { print }' \
+        "$conf" > "$conf.tmp" && mv "$conf.tmp" "$conf" || return 1
+    (cd "$root/slint-client" && cargo update --workspace --offline -q) || return 1
 
     # Git Operations
-    git add "$conf" "${pkg_files[@]}" && \
+    git add "$conf" "$root/slint-client/Cargo.lock" && \
     git commit -m "chore: bump version to v$new" && \
     git tag "v$new" && \
     git push origin main && \

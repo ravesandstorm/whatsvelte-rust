@@ -1,5 +1,12 @@
 # Whatsvelte-Rust — Architecture & Process
 
+> **Superseded for the frontend:** the WebView frontend (Tauri shell +
+> `svelte-frontend/`) is being replaced by a native Slint client in
+> `slint-client/`. The protocol core is unchanged; the "backend glue" layer now
+> lives in `slint-client/src/core` and talks to the UI over in-process channels
+> instead of Tauri IPC. See [`slint-migration.md`](slint-migration.md). The
+> sections below describe the Tauri design the port was derived from.
+
 > Status: **Phase 2 complete** (2A — MVP texting client; 2B — rich object model:
 > media, stickers, reactions, edits/deletes, receipts, settings, LID↔PN). This
 > document is the source of truth for *how* the project is structured and *why*.

@@ -31,8 +31,9 @@ base64 = "0.22"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif"] }
 # Render the pairing QR code natively (replaces the <canvas> QR).
 qrcode = { version = "0.14", default-features = false }
-# Native file picker (replaces tauri-plugin-dialog).
-rfd = "0.16"
+# Native file picker (replaces tauri-plugin-dialog). On Linux it talks to the
+# XDG desktop portal over D-Bus instead of linking GTK.
+rfd = { version = "0.16", default-features = false, features = ["xdg-portal", "tokio"] }
 # Open documents / videos / audio in the OS default app (replaces tauri-plugin-opener).
 open = "5"
 # OS data / download directories (replaces tauri's app.path()).
@@ -42,6 +43,27 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 
 # The vendored protocol library, pulled in by path — unchanged by the migration.
 whatsapp-rust = { path = "../rust-backend" }
+
+# Installers (dmg/app, nsis, deb, AppImage) — replaces tauri-bundler.
+# Run `cargo packager --release` from this directory.
+[package.metadata.packager]
+product-name = "whatsvelte-rust"
+identifier = "com.ravesandstorm.whatsvelte-rust"
+category = "SocialNetworking"
+description = "Lightweight native WhatsApp desktop client (Slint + whatsapp-rust)"
+out-dir = "target/packager"
+icons = [
+    "icons/32x32.png",
+    "icons/64x64.png",
+    "icons/128x128.png",
+    "icons/128x128@2x.png",
+    "icons/icon.icns",
+    "icons/icon.ico",
+]
+
+[package.metadata.packager.macos]
+minimum-system-version = "10.15"
+signing-identity = "-"
 
 [profile.release]
 opt-level = "s"
