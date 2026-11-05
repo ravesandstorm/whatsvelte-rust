@@ -1,37 +1,54 @@
 <script lang="ts">
-  import type { UiMessage } from "../../lib/stores/messages.svelte";
-  import { applyRevoke, removeMessage } from "../../lib/stores/messages.svelte";
+  import {
+    applyRevoke,
+    isPending,
+    protoChatJid,
+    protoSenderJid,
+    removeMessage,
+    restoreMessage,
+    type UiMessage,
+  } from "../../lib/stores/messages.svelte";
+  import { showToast } from "../../lib/stores/toast.svelte";
   import { isGroup } from "../../lib/util/jid";
   import { api } from "../../lib/ipc";
 
   let { message, onclose }: { message: UiMessage; onclose: () => void } = $props();
 
+  // A bubble the server never accepted exists only here: dismiss it locally.
+  const localOnly = $derived(isPending(message));
   // Revoke-for-everyone only makes sense for our own, not-yet-deleted messages.
-  const canDeleteEveryone = $derived(message.fromMe && !message.deleted);
+  const canDeleteEveryone = $derived(message.fromMe && !message.deleted && !localOnly);
 
   async function deleteForMe() {
     onclose();
-    removeMessage(message.chatJid, message.id); // optimistic — no tombstone
+    const before = message;
+    removeMessage(before.chatJid, before.id); // optimistic — no tombstone
+    if (localOnly) return;
     try {
       await api.deleteForMe(
-        message.chatJid,
-        message.id,
-        message.fromMe,
-        isGroup(message.chatJid) && !message.fromMe ? message.senderJid : null,
-        message.timestamp,
+        protoChatJid(before),
+        before.id,
+        before.fromMe,
+        isGroup(before.chatJid) && !before.fromMe ? protoSenderJid(before) : null,
+        before.timestamp,
       );
     } catch (e) {
       console.error("delete for me failed", e);
+      restoreMessage(before);
+      showToast("Couldn't delete the message");
     }
   }
 
   async function deleteForEveryone() {
     onclose();
-    applyRevoke(message.chatJid, message.id); // optimistic tombstone
+    const before = message;
+    applyRevoke(before.chatJid, before.id); // optimistic tombstone
     try {
-      await api.revokeMessage(message.chatJid, message.id, null);
+      await api.revokeMessage(protoChatJid(before), before.id, null);
     } catch (e) {
       console.error("revoke failed", e);
+      restoreMessage(before);
+      showToast("Couldn't delete the message for everyone");
     }
   }
 </script>

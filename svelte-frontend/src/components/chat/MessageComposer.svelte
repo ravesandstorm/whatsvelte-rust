@@ -1,7 +1,16 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { api } from "../../lib/ipc";
-  import { addOptimistic, applyEdit, confirmOptimistic } from "../../lib/stores/messages.svelte";
+  import {
+    addOptimistic,
+    applyEdit,
+    confirmOptimistic,
+    failOptimistic,
+    protoChatJid,
+    protoSenderJid,
+    restoreMessage,
+  } from "../../lib/stores/messages.svelte";
+  import { showToast } from "../../lib/stores/toast.svelte";
   import { touchChat, getDraft, setDraft } from "../../lib/stores/chats.svelte";
   import { settings } from "../../lib/stores/settings.svelte";
   import { compose, cancelReply, cancelEdit } from "../../lib/stores/compose.svelte";
@@ -168,9 +177,11 @@
       cancelEdit();
       applyEdit(edit.chatJid, edit.id, body, now); // optimistic
       try {
-        await api.editMessage(jid, edit.id, body);
+        await api.editMessage(protoChatJid(edit), edit.id, body);
       } catch (e) {
         console.error("edit failed", e);
+        restoreMessage(edit);
+        showToast("Couldn't edit the message");
       }
       return;
     }
@@ -179,11 +190,15 @@
     const target = compose.replyTarget;
 
     if (target) {
-      const quotedSender = target.fromMe ? (session.jid ?? "") : target.senderJid;
+      // The quote's participant is protocol data: our own bare JID (no device
+      // suffix) or the sender exactly as the server addressed them.
+      const quotedSender = target.fromMe
+        ? normalizeJid(session.jid ?? "")
+        : protoSenderJid(target) || protoChatJid(target);
       const quotedText = formatQuotedText(target);
       const quoted: QuotedDto = {
         id: target.id,
-        senderJid: quotedSender,
+        senderJid: target.fromMe ? quotedSender : target.senderJid || target.chatJid,
         text: quotedText,
         kind: target.kind,
         thumbnail: target.thumbnail,
@@ -196,6 +211,8 @@
         confirmOptimistic(jid, tempId, r.messageId);
       } catch (e) {
         console.error("reply failed", e);
+        failOptimistic(jid, tempId);
+        showToast("Message not sent");
       }
       return;
     }
@@ -207,6 +224,8 @@
       confirmOptimistic(jid, tempId, r.messageId);
     } catch (e) {
       console.error("send failed", e);
+      failOptimistic(jid, tempId);
+      showToast("Message not sent");
     }
   }
 
@@ -266,22 +285,35 @@
         const file = it.getAsFile();
         if (file) {
           e.preventDefault();
-          pending = {
+          setPending({
             kind: "image",
             blob: file,
             fileName: file.name || "pasted-image.png",
+            mimetype: file.type || undefined,
             previewUrl: URL.createObjectURL(file),
-          };
+          });
           return;
         }
       }
     }
   }
 
-  function closePreview() {
-    if (pending?.previewUrl) URL.revokeObjectURL(pending.previewUrl);
-    pending = null;
+  // Every attachment carries an object URL for its preview; release the old one
+  // whenever it is replaced or dismissed, and on unmount (chat switch).
+  function setPending(a: PendingAttachment | null) {
+    if (pending?.previewUrl && pending.previewUrl !== a?.previewUrl) {
+      URL.revokeObjectURL(pending.previewUrl);
+    }
+    pending = a;
   }
+
+  function closePreview() {
+    setPending(null);
+  }
+
+  onMount(() => () => {
+    if (pending?.previewUrl) URL.revokeObjectURL(pending.previewUrl);
+  });
 
   function insertEmoji(emoji: string) {
     const el = ta;
@@ -303,7 +335,7 @@
   // Tapping a GIF in the picker sends it straight away (WhatsApp behaviour).
   function onGif(gif: Gif) {
     showPicker = false;
-    void sendGif(jid, gif.gifUrl);
+    void sendGif(jid, gif);
   }
 </script>
 
@@ -348,7 +380,7 @@
       onclick={() => (showPicker = !showPicker)}>😊</button
     >
   </div>
-  <AttachMenu onpick={(a) => (pending = a)} onrecord={(m) => (recordMode = m)} />
+  <AttachMenu onpick={setPending} onrecord={(m) => (recordMode = m)} />
   <div class="ta-wrap">
     {#if suggest.length}
       <div class="suggest" bind:this={suggestEl}>
@@ -384,7 +416,7 @@
     onclose={() => (recordMode = null)}
     oncapture={(a) => {
       recordMode = null;
-      pending = a;
+      setPending(a);
     }}
   />
 {/if}

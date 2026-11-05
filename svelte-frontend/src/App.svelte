@@ -7,6 +7,7 @@
   import PairingScreen from "./components/pairing/PairingScreen.svelte";
   import LoadingScreen from "./components/pairing/LoadingScreen.svelte";
   import MainLayout from "./components/chat/MainLayout.svelte";
+  import Toasts from "./components/common/Toasts.svelte";
 
   // Apply the saved theme before first paint so the UI doesn't flash.
   initTheme();
@@ -31,3 +32,5 @@
 {:else}
   <LoadingScreen />
 {/if}
+
+<Toasts />
