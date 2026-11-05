@@ -181,6 +181,7 @@ pub struct OverlayFrame {
     pub open_delete: Option<(String, bool)>,
     pub open_reaction: Option<(String, String)>,
     pub open_album: Option<(String, Vec<TileData>)>,
+    pub open_settings: bool,
     /// Rust-owned overlays: None = closed.
     pub preview: Option<PreviewData>,
     pub rec: Option<(String, String, Option<Pixels>, String)>,
@@ -246,7 +247,8 @@ impl Models {
 }
 
 /// Patch `model` to equal `rows`: update changed rows in place, append/trim
-/// the tail; fall back to a full reset when the leading ids diverge.
+/// the tail; fall back to a full reset only when `same` says the leading rows
+/// diverge. In-place updates keep the ListView's scroll position.
 fn sync_model<T: Clone + PartialEq + 'static>(model: &VecModel<T>, rows: Vec<T>, same: impl Fn(&T, &T) -> bool) {
     let old_len = model.row_count();
     let common = old_len.min(rows.len());
@@ -344,7 +346,9 @@ impl Frame {
                     }
                 })
                 .collect();
-            sync_model(&m.chats, rows, |a, b| a.jid == b.jid);
+            // Reorders (a new message bumps a chat) patch rows in place rather
+            // than resetting the model, so the list keeps its scroll position.
+            sync_model(&m.chats, rows, |_, _| true);
             app.set_section(c.section);
             app.set_archived_count(c.archived_count);
             app.set_channels_count(c.channels_count);
@@ -417,7 +421,9 @@ impl Frame {
             if switched {
                 m.messages.set_vec(rows);
             } else {
-                sync_model(&m.messages, rows, |a, b| a.id == b.id);
+                // Same chat: patch in place (older pages prepend rows; the view
+                // restores its position from the height delta).
+                sync_model(&m.messages, rows, |_, _| true);
             }
             app.set_active_jid(ss(c.active_jid));
             app.set_active_title(ss(c.title));
@@ -502,6 +508,9 @@ impl Frame {
                 app.set_reaction_id(ss(id));
                 app.set_reaction_current(ss(current));
                 app.set_reaction_open(true);
+            }
+            if o.open_settings {
+                app.set_settings_open(true);
             }
             if let Some((title, t)) = o.open_album {
                 app.set_album_title(ss(title));
