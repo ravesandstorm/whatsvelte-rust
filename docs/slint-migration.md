@@ -77,7 +77,7 @@ now. ✅ = ported with the same behaviour, ➕ = ported and extended,
 | Chat list | search (title / number / last message), pills All · Channels · Status · Archived (counts, archive bounce), pinned first, drafts in red, group sender prefix + ticks, unread badge, "(You)" self chat, empty states | ✅ `ui/chat_list.slint`, `views.rs::chats_frame` |
 | Chat list | right-click Pin / Mute / Archive (optimistic, revert on error) | ✅ `Controller::chat_action` |
 | Avatars | lazy `get_contact` picture per visible row, initials fallback, "#" for groups | ✅ `Controller::need_avatar` |
-| Messages | 40-row window, scroll-up paging with position restore, release pages at bottom, "Showing the latest messages" hint | ✅ `ui/conversation.slint` |
+| Messages | 40-row window, scroll-up paging with position restore, release pages at bottom, "Showing the latest messages" hint | ↪ no paging: the list spans the whole chat and only a window of 120 rows around the viewport holds data (`ConvRows` in `ui/frame.rs`), so there is no page boundary to stall on or hint about |
 | Messages | unread flags, "Unread" divider, open at first unread, jump-to-bottom with badge, mark read when seen | ✅ `Store::mark_message_read`, `Controller::seen` |
 | Receipts | batched (600 ms) `mark_read_messages` grouped by chat/sender, 5000-entry dedupe, whole-chat `mark_read` at zero, setting to disable | ✅ `Controller::seen` / `flush_receipts` |
 | Bubbles | sender grouping, group sender names, quotes (with thumb, click → jump + 1.5 s flash), reactions chips, edited, ticks (sending / failed / sent / delivered / read), tombstones, structured labels, stickers without chrome | ✅ `ui/conversation.slint::Bubble`, `views.rs::conv_frame` |
@@ -113,6 +113,11 @@ tombstones), album grouping, link detection, Opus round-trip, image
 compression, Klipy parsing and settings. `WA_DEMO=1` (debug builds) renders
 sample chats offline. `WA_DEMO_OPEN=reactions|delete|album|viewer|reply|suggest`
 opens one overlay, and `WA_SNAPSHOT=out.png` saves a window render.
-Scroll-position behaviours (open at the unread divider, quote jump,
-jump-to-bottom, paging restore) and device capture (camera / microphone
-permissions) need a manual pass on a visible window.
+
+For long chats, `WA_DEMO_LONG=<n>` seeds a persisted chat of `n` messages (use a
+throwaway `WA_APP_DATA_DIR`), `WA_DEMO_LONG_UNREAD=<n>` opens it at the unread
+divider, and `WA_SCROLL_TEST=<px per tick>` sends wheel events up and back down,
+then exercises quote jump, jump-to-bottom, an incoming message and leaving the
+chat, logging the row window and the worst UI stall each second.
+`WA_SCROLL_SHOTS=<prefix>` saves renders along the way. Device capture (camera /
+microphone permissions) needs a manual pass on a visible window.
