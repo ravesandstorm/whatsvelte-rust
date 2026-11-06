@@ -12,6 +12,7 @@ pub mod persist;
 pub mod settings;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
@@ -22,6 +23,9 @@ use persist::Persist;
 
 /// Messages kept in memory for chats that aren't open.
 pub const RESIDENT_TAIL: usize = 20;
+/// The open chat's history is rewritten at most this often: reading a long chat
+/// dirties it constantly, and saving holds the store lock.
+const ACTIVE_SAVE_INTERVAL: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
@@ -196,6 +200,7 @@ pub struct Store {
     dirty_names: bool,
     dirty_lid: bool,
     tmp_seq: u64,
+    active_saved: Option<Instant>,
 }
 
 impl Store {
@@ -213,6 +218,7 @@ impl Store {
             dirty_names: false,
             dirty_lid: false,
             tmp_seq: 0,
+            active_saved: None,
         }
     }
 
@@ -310,6 +316,22 @@ impl Store {
         }
     }
 
+    /// Periodic flush: like [`Store::flush`], but the open chat's history is
+    /// left dirty until [`ACTIVE_SAVE_INTERVAL`] has passed.
+    pub fn flush_periodic(&mut self) {
+        let due = self
+            .active_saved
+            .is_none_or(|t| t.elapsed() >= ACTIVE_SAVE_INTERVAL);
+        let held = self
+            .active
+            .clone()
+            .filter(|jid| !due && self.dirty_msgs.remove(jid));
+        self.flush();
+        if let Some(jid) = held {
+            self.dirty_msgs.insert(jid);
+        }
+    }
+
     /// Write every dirty piece back to disk, then trim non-open chats.
     pub fn flush(&mut self) {
         let Some(p) = self.persist.as_ref() else {
@@ -333,6 +355,9 @@ impl Store {
             self.ensure_full(&jid);
             if let Some(cm) = self.msgs.get(&jid) {
                 self.persist.as_ref().unwrap().save_messages(&jid, &cm.msgs);
+            }
+            if self.active.as_deref() == Some(&jid) {
+                self.active_saved = Some(Instant::now());
             }
         }
         self.trim_inactive();
