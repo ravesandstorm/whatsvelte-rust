@@ -36,3 +36,8 @@ graphify-out/memory/
 graphify-out/reflections/
 graphify-out/.graphify_learning.json
 graphify-out/2026-*
+
+# don't commit stale artifacts
+node_modules
+src-tauri
+svelte-frontend/
