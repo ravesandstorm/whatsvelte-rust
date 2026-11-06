@@ -9,7 +9,7 @@ use std::sync::{Arc, Once};
 use crate::core::api::Api;
 use crate::core::session::SessionManager;
 use crate::store::MessageStatus;
-use crate::ui::controller::{Controller, DIRTY_CHATS, DIRTY_CONV, lock};
+use crate::ui::controller::{Controller, DIRTY_CHATS, DIRTY_CONV, DIRTY_SESSION, ROW_WINDOW, lock};
 
 const G: &str = "120363000000000001@g.us";
 const ADA: &str = "919876543210@s.whatsapp.net";
@@ -168,14 +168,137 @@ async fn chat_flags_roll_back_on_failure() {
     assert!(!lock(&c.store).chats[ADA].is_pinned());
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn reaching_the_bottom_releases_pages() {
+/// A chat of `n` text messages, opened.
+async fn long_chat(n: usize) -> (Arc<Controller>, String) {
     let c = demo().await;
-    lock(&c.view).window_limit = 200;
-    let token = lock(&c.view).scroll_token;
+    let jid = "447000000000@s.whatsapp.net".to_string();
+    let msgs = (0..n)
+        .map(|i| crate::store::UiMessage {
+            dto: crate::core::dto::MessageDto {
+                id: format!("l{i}"),
+                chat_jid: jid.clone(),
+                sender_jid: jid.clone(),
+                timestamp: 1000 + i as i64,
+                text: Some(format!("message {i}")),
+                kind: "text".into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .collect();
+    lock(&c.store).add_history(msgs);
+    c.clone().select_chat(jid.clone()).await;
+    (c, jid)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn row_window_follows_the_list_and_covers_the_whole_chat() {
+    let (c, _) = long_chat(5000).await;
+    let tail = c.build_frame(DIRTY_CONV).conv.unwrap();
+    assert_eq!(tail.total_rows, 5000);
+    assert_eq!(tail.rows.last().unwrap().id, "l4999");
+    assert!(tail.rows.len() <= 2 * ROW_WINDOW);
+    // Far up the history, and all the way to the top: no limit, no paging.
+    for (row, first) in [(1000, 1000 - ROW_WINDOW), (0, 0)] {
+        c.row_requested(row);
+        let f = c.build_frame(DIRTY_CONV).conv.unwrap();
+        assert_eq!(f.first_row, first);
+        assert_eq!(f.rows.len(), 2 * ROW_WINDOW);
+        assert_eq!(f.rows[row - first].id, format!("l{row}"));
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn rows_inside_the_window_do_not_rebuild_it() {
+    let (c, _) = long_chat(5000).await;
+    c.row_requested(2000);
+    c.build_frame(DIRTY_CONV);
+    c.dirty_bits();
+    c.row_requested(2001);
+    assert_eq!(c.dirty_bits() & DIRTY_CONV, 0, "same place: no rebuild");
+    c.row_requested(2000 + ROW_WINDOW - 1);
+    assert_ne!(c.dirty_bits() & DIRTY_CONV, 0, "near the edge: rebuild");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn history_inserted_above_shifts_the_window() {
+    let (c, jid) = long_chat(1000).await;
+    c.row_requested(500);
+    let before = c.build_frame(DIRTY_CONV).conv.unwrap();
+    let older = (0..25)
+        .map(|i| crate::store::UiMessage {
+            dto: crate::core::dto::MessageDto {
+                id: format!("old{i}"),
+                chat_jid: jid.clone(),
+                sender_jid: jid.clone(),
+                timestamp: 10 + i,
+                text: Some("older".into()),
+                kind: "text".into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .collect();
+    lock(&c.store).add_history(older);
+    let after = c.build_frame(DIRTY_CONV).conv.unwrap();
+    assert_eq!(after.prepended, 25);
+    assert_eq!(after.first_row, before.first_row + 25);
+    assert_eq!(after.rows[0].id, before.rows[0].id);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn reveal_centres_the_window_once() {
+    let (c, _) = long_chat(5000).await;
+    c.reveal_quote("l100".into());
+    let f = c.build_frame(DIRTY_CONV).conv.unwrap();
+    let (_, id, index, _) = f.reveal.expect("reveal");
+    assert_eq!((id.as_str(), index), ("l100", 100));
+    assert!(f.first_row <= 100 && f.first_row + f.rows.len() > 100);
+    // Later frames must not pull the list back to the target.
+    c.row_requested(3000);
+    let f = c.build_frame(DIRTY_CONV).conv.unwrap();
+    assert!(f.reveal.is_none());
+    assert!(f.first_row > 2000);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn reaching_the_bottom_marks_everything_read() {
+    let (c, jid) = long_chat(300).await;
+    lock(&c.store).chats.get_mut(&jid).unwrap().unread = 200;
+    c.clone().select_chat(jid.clone()).await;
     c.reached_bottom();
-    assert_eq!(lock(&c.view).window_limit, 40);
-    assert_eq!(lock(&c.view).scroll_token, token + 1);
+    assert_eq!(lock(&c.store).chats[&jid].unread, 0);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn unread_divider_stays_put_while_reading() {
+    let (c, jid) = long_chat(300).await;
+    lock(&c.store).chats.get_mut(&jid).unwrap().unread = 50;
+    c.clone().select_chat(jid.clone()).await;
+    let divider = |c: &Controller| {
+        let f = c.build_frame(DIRTY_CONV).conv.unwrap();
+        f.rows
+            .iter()
+            .find(|r| r.unread_divider)
+            .map(|r| r.id.clone())
+    };
+    assert_eq!(divider(&c).as_deref(), Some("l250"));
+    c.seen("l250".into());
+    c.seen("l251".into());
+    assert_eq!(divider(&c).as_deref(), Some("l250"));
+    c.jump_to_bottom();
+    assert_eq!(divider(&c), None);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pairing_pill_is_connected_once_a_qr_arrives() {
+    let c = demo().await;
+    lock(&c.view).status.connected = false;
+    assert!(!c.build_frame(DIRTY_SESSION).session.unwrap().connected);
+    lock(&c.view).qr = Some(slint::SharedPixelBuffer::new(1, 1));
+    assert!(c.build_frame(DIRTY_SESSION).session.unwrap().connected);
+    lock(&c.view).dead = true;
+    assert!(!c.build_frame(DIRTY_SESSION).session.unwrap().connected);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
