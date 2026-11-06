@@ -189,6 +189,8 @@ component Bubble inherits Rectangle {
         }
 
         HorizontalLayout {
+            // A row without an id is a placeholder until its data arrives.
+            visible: msg.id != "";
             alignment: msg.from-me ? end : start;
             bubble := Rectangle {
                 max-width: root.max-bubble;
@@ -470,8 +472,6 @@ export component ConversationPane inherits Rectangle {
     // ---- scroll state
     property <int> settle;
     property <bool> reveal-pending;
-    property <bool> loading-older;
-    property <length> prev-height;
     property <length> distance-from-bottom: list.content-height + list.content-y - list.visible-height;
     property <bool> at-bottom: distance-from-bottom < 40px;
 
@@ -486,6 +486,8 @@ export component ConversationPane inherits Rectangle {
     property <int> reveal-token: AppState.reveal-token;
     property <bool> reveal-resolved;
     property <int> reveal-tries;
+    property <length> reveal-y;
+    property <length> reveal-h;
     function reveal-estimate() {
         list.content-y = clamp(-(AppState.reveal-index / max(1, AppState.messages.length)) * list.content-height,
             min(0px, list.visible-height - list.content-height), 0px);
@@ -496,6 +498,17 @@ export component ConversationPane inherits Rectangle {
         if AppState.reveal-token > 0 && AppState.reveal-id != "" { root.start-reveal(); } else { root.settle = 5; }
     }
     changed reveal-token => { root.start-reveal(); }
+    // Row heights are estimates, so the row's y moves as rows get measured. Correct
+    // by how far it is on screen, from the timer: doing it as y changes chases the
+    // estimate within a single frame.
+    function reveal-correct() {
+        let target = AppState.reveal-center ? (list.visible-height - root.reveal-h) / 2 : 8px;
+        let off = target - (root.reveal-y + list.content-y);
+        if abs(off) > 1px {
+            list.content-y = clamp(list.content-y + off,
+                min(0px, list.visible-height - list.content-height), 0px);
+        }
+    }
     function start-reveal() {
         root.settle = 0;
         root.reveal-pending = true;
@@ -510,7 +523,7 @@ export component ConversationPane inherits Rectangle {
         running: root.reveal-pending;
         triggered => {
             root.reveal-tries += 1;
-            if !root.reveal-resolved { root.reveal-estimate(); }
+            if root.reveal-resolved { root.reveal-correct(); } else { root.reveal-estimate(); }
             if root.reveal-tries > 16 { root.reveal-pending = false; }
         }
     }
@@ -519,6 +532,11 @@ export component ConversationPane inherits Rectangle {
         interval: 40ms;
         running: root.settle > 0;
         triggered => { root.scroll-bottom(); root.settle -= 1; }
+    }
+    // Parked at the bottom: follow new messages.
+    property <int> row-total: AppState.messages.length;
+    changed row-total => {
+        if root.at-bottom && !root.reveal-pending { root.settle = 5; root.scroll-bottom(); }
     }
     // Back at the bottom for a moment: let Rust release older pages / mark read.
     changed at-bottom => { if at-bottom { bottom-timer.running = true; } }
@@ -597,20 +615,8 @@ export component ConversationPane inherits Rectangle {
                 width: parent.width;
                 height: parent.height;
                 changed content-height => {
-                    if root.loading-older {
-                        // keep the reading position when older rows are prepended
-                        self.content-y -= (self.content-height - root.prev-height);
-                        root.loading-older = false;
-                    } else if root.settle > 0 {
+                    if root.settle > 0 {
                         root.scroll-bottom();
-                    }
-                }
-                changed content-y => {
-                    if self.content-y > -60px && AppState.has-older && !root.loading-older
-                        && !root.reveal-pending && AppState.messages.length > 0 && root.settle == 0 {
-                        root.loading-older = true;
-                        root.prev-height = self.content-height;
-                        AppState.load-older();
                     }
                 }
                 for msg in AppState.messages: Bubble {
@@ -620,23 +626,10 @@ export component ConversationPane inherits Rectangle {
                     copy-text(t) => { root.copy-text(t); }
                     reveal(y, h) => {
                         root.reveal-resolved = true;
-                        list.content-y = clamp(
-                            -(y - (AppState.reveal-center ? (list.visible-height - h) / 2 : 8px)),
-                            min(0px, list.visible-height - list.content-height), 0px);
+                        root.reveal-y = y;
+                        root.reveal-h = h;
                     }
                 }
-            }
-
-            if AppState.has-older && list.content-y > -40px: Rectangle {
-                y: 8px;
-                x: (parent.width - self.width) / 2;
-                background: Theme.panel;
-                border-radius: 14px;
-                height: 28px;
-                width: older.preferred-width + 28px;
-                drop-shadow-blur: 2px;
-                drop-shadow-color: #00000030;
-                older := Text { text: "Showing the latest messages — scroll up for more"; color: Theme.text-muted; font-size: Theme.fs-small; horizontal-alignment: center; vertical-alignment: center; }
             }
 
             if AppState.messages.length == 0: Text {
