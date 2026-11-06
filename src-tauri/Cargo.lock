@@ -5541,6 +5541,7 @@ dependencies = [
  "base64 0.22.1",
  "env_logger",
  "log",
+ "objc2",
  "serde",
  "serde_json",
  "tauri",

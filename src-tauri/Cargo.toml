@@ -38,3 +38,7 @@ base64 = "0.22"
 # The vendored protocol library, pulled in by path. Default features bring the
 # SQLite store, Tokio WebSocket transport, ureq HTTP client and Tokio runtime.
 whatsapp-rust = { path = "../rust-backend" }
+
+# Mock mode only (src/mock.rs): hands real NSEvent scroll events to the WKWebView.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"

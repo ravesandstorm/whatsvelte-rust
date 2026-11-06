@@ -8,6 +8,8 @@ mod bridge;
 mod commands;
 mod dto;
 mod error;
+#[cfg(debug_assertions)]
+mod mock;
 mod session;
 
 use std::path::PathBuf;
@@ -41,9 +43,34 @@ fn data_dir(app: &tauri::AppHandle) -> PathBuf {
     }
 }
 
+/// Debug builds with `WA_MOCK=1`: the same app and webview, on fake data. See `mock.rs`.
+#[cfg(debug_assertions)]
+fn run_mock(context: tauri::Context) {
+    log::warn!("WA_MOCK is set: running on the mock backend, with no WhatsApp connection");
+    tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_opener::init())
+        .setup(|app| {
+            mock::start_control_channel(app.handle().clone());
+            Ok(())
+        })
+        .invoke_handler(mock::handler())
+        .run(context)
+        .expect("error while running tauri application");
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+
+    // Only one per binary: it embeds the Info.plist symbol on macOS.
+    let context = tauri::generate_context!();
+
+    #[cfg(debug_assertions)]
+    if std::env::var_os("WA_MOCK").is_some() {
+        return run_mock(context);
+    }
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -89,6 +116,6 @@ pub fn run() {
             commands::set_chat_archived,
             commands::list_newsletters,
         ])
-        .run(tauri::generate_context!())
+        .run(context)
         .expect("error while running tauri application");
 }
