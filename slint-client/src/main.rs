@@ -15,7 +15,7 @@ mod util;
 
 use std::sync::Arc;
 
-use slint::ComponentHandle;
+use slint::{ComponentHandle, Model as _};
 
 use crate::core::api::Api;
 use crate::core::paths;
@@ -30,6 +30,7 @@ fn main() -> anyhow::Result<()> {
     // Two workers are plenty for one account and keep idle memory down.
     let rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
+        .max_blocking_threads(16)
         .thread_name("wa-worker")
         .enable_all()
         .build()?;
@@ -61,6 +62,8 @@ fn main() -> anyhow::Result<()> {
 
     #[cfg(debug_assertions)]
     debug_snapshot(&window);
+    #[cfg(debug_assertions)]
+    debug_scroll_test(&window);
 
     window.run()?;
 
@@ -137,4 +140,98 @@ fn debug_snapshot(window: &AppWindow) {
         }
         let _ = slint::quit_event_loop();
     });
+}
+
+/// Debug aid: `WA_SCROLL_TEST=<pixels per tick>` sends real wheel events over
+/// the message list, up through the history, then back down. Logs the longest
+/// UI-thread stall per second, for profiling long chats. Also samples the
+/// model so a stuck list shows up in the log.
+#[cfg(debug_assertions)]
+fn debug_scroll_test(window: &AppWindow) {
+    use slint::LogicalPosition;
+    use slint::platform::WindowEvent;
+    use std::cell::Cell;
+    use std::rc::Rc;
+    use std::time::{Duration, Instant};
+
+    let Some(step) = std::env::var("WA_SCROLL_TEST")
+        .ok()
+        .and_then(|s| s.parse::<f32>().ok())
+    else {
+        return;
+    };
+    let weak = window.as_weak();
+    let started = Instant::now();
+    let last = Rc::new(Cell::new(Instant::now()));
+    let window_start = Rc::new(Cell::new(Instant::now()));
+    let worst = Rc::new(Cell::new(Duration::ZERO));
+    let timer = Box::leak(Box::new(slint::Timer::default()));
+    timer.start(
+        slint::TimerMode::Repeated,
+        Duration::from_millis(16),
+        move || {
+            let Some(w) = weak.upgrade() else { return };
+            let now = Instant::now();
+            worst.set(worst.get().max(now - last.get()));
+            last.set(now);
+            let t = started.elapsed().as_secs_f32();
+            // 5 s settle, 30 s up, 10 s down, quote jump, jump to bottom, leave.
+            if t > 5.0 && t < 45.0 {
+                let delta_y = if t < 35.0 { step } else { -step };
+                w.window().dispatch_event(WindowEvent::PointerScrolled {
+                    position: LogicalPosition::new(700.0, 350.0),
+                    delta_x: 0.0,
+                    delta_y,
+                });
+            }
+            if window_start.get().elapsed() >= Duration::from_secs(1) {
+                window_start.set(now);
+                let sec = t.round() as i32;
+                if let Some(c) = CTRL.get() {
+                    match sec {
+                        45 => c.reveal_quote("long100".into()),
+                        48 => c.jump_to_bottom(),
+                        49 => c.on_message(core::dto::MessageDto {
+                            id: "incoming-test".into(),
+                            chat_jid: "919000000000@s.whatsapp.net".into(),
+                            sender_jid: "919000000000@s.whatsapp.net".into(),
+                            timestamp: crate::util::time::now_secs(),
+                            text: Some("A new message while parked at the bottom".into()),
+                            kind: "text".into(),
+                            ..Default::default()
+                        }),
+                        51 => {
+                            let jid = "120363000000000001@g.us".to_string();
+                            c.rt.spawn(c.clone().select_chat(jid));
+                        }
+                        _ => {}
+                    }
+                }
+                if let Ok(prefix) = std::env::var("WA_SCROLL_SHOTS")
+                    && (sec % 10 == 0 || matches!(sec, 47 | 50 | 53))
+                    && let Ok(buf) = w.window().take_snapshot()
+                    && let Some(img) = image::RgbaImage::from_raw(
+                        buf.width(),
+                        buf.height(),
+                        buf.as_bytes().to_vec(),
+                    )
+                {
+                    let _ = img.save(format!("{prefix}-{sec}.png"));
+                }
+                let rows = w.global::<AppState>().get_messages().row_count();
+                let (first, focus) = CTRL.get().map_or((0, 0), |c| {
+                    use std::sync::atomic::Ordering::Relaxed;
+                    (c.win_first.load(Relaxed), c.focus.load(Relaxed))
+                });
+                eprintln!(
+                    "scrolltest t={t:.0}s rows={rows} window_first={first} focus={focus} worst_stall_ms={}",
+                    worst.get().as_millis()
+                );
+                worst.set(Duration::ZERO);
+            }
+            if t > 62.0 {
+                let _ = slint::quit_event_loop();
+            }
+        },
+    );
 }

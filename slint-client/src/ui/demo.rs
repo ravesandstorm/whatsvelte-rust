@@ -196,6 +196,11 @@ impl Controller {
             }
             s.add_history(msgs);
         }
+        if let Some(jid) = self.seed_long_chat(now, thumb.clone()) {
+            self.clone().select_chat(jid).await;
+            self.mark(DIRTY_ALL);
+            return;
+        }
         self.clone().select_chat(g.into()).await;
         // WA_DEMO_OPEN=<overlay> opens one overlay for layout checks.
         match std::env::var("WA_DEMO_OPEN").as_deref() {
@@ -223,5 +228,86 @@ impl Controller {
             _ => {}
         }
         self.mark(DIRTY_ALL);
+    }
+
+    /// `WA_DEMO_LONG=<n>`: a persisted chat with `n` messages, every fourth one
+    /// a photo backed by a real 2000x1500 file. For profiling long-chat
+    /// scrolling (see `WA_SCROLL_TEST` in `main.rs`) with `WA_APP_DATA_DIR` set
+    /// to a throwaway folder.
+    fn seed_long_chat(&self, now: i64, thumb: Option<String>) -> Option<String> {
+        let n: usize = std::env::var("WA_DEMO_LONG").ok()?.parse().ok()?;
+        let jid = "919000000000@s.whatsapp.net".to_string();
+        let photo = crate::core::paths::ui_cache_dir().join("long-chat-photo.jpg");
+        let _ = std::fs::create_dir_all(crate::core::paths::ui_cache_dir());
+        let img = image::RgbImage::from_fn(2000, 1500, |x, y| {
+            image::Rgb([(x % 251) as u8, (y % 241) as u8, ((x ^ y) % 239) as u8])
+        });
+        if let Err(e) = img.save(&photo) {
+            log::error!("long chat photo: {e}");
+        }
+        let mut s = lock(&self.store);
+        s.open_cache(crate::store::persist::Persist::new(
+            crate::core::paths::ui_cache_dir(),
+        ));
+        s.upsert_chat_dto(&ChatDto {
+            jid: jid.clone(),
+            name: Some("Long chat".into()),
+            last_message: Some("newest".into()),
+            timestamp: now,
+            // WA_DEMO_LONG_UNREAD=<n>: opens at the "Unread" divider.
+            unread: std::env::var("WA_DEMO_LONG_UNREAD")
+                .ok()
+                .and_then(|u| u.parse().ok())
+                .unwrap_or(0),
+        });
+        let mut paths = lock(&self.media_paths);
+        let msgs: Vec<UiMessage> = (0..n)
+            .map(|i| {
+                let id = format!("long{i}");
+                let is_photo = i % 4 == 3;
+                let text = match i % 7 {
+                    _ if is_photo => None,
+                    0 => Some(format!("Message {i}: a longer line that wraps across the bubble a couple of times, to vary row heights while scrolling through the history of this chat.")),
+                    1 => Some(format!("{i} short")),
+                    2 => Some(format!("Message {i}\nwith\nseveral\nlines")),
+                    3 => Some(format!("Message {i} with a link https://example.com/{i}")),
+                    _ => Some(format!("Message number {i}")),
+                };
+                let mut m = UiMessage {
+                    dto: MessageDto {
+                        id: id.clone(),
+                        chat_jid: jid.clone(),
+                        sender_jid: jid.clone(),
+                        from_me: i % 3 == 0,
+                        // Spaced apart so photos don't merge into inferred albums.
+                        timestamp: now - ((n - i) as i64) * 120,
+                        text,
+                        kind: if is_photo { "image" } else { "text" }.into(),
+                        ..Default::default()
+                    },
+                    status: MessageStatus::Read,
+                    ..Default::default()
+                };
+                if is_photo {
+                    paths.insert(id, photo.clone());
+                    m.dto.thumbnail = thumb.clone();
+                    m.dto.media = Some(MediaDto {
+                        kind: "image".into(),
+                        width: Some(2000),
+                        height: Some(1500),
+                        descriptor: MediaDescriptorDto {
+                            file_length: 482_133,
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    });
+                }
+                m
+            })
+            .collect();
+        drop(paths);
+        s.add_history(msgs);
+        s.flush();
+        Some(jid)
     }
 }
