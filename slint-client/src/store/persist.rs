@@ -14,6 +14,7 @@
 //! crash mid-write never leaves a truncated file behind.
 
 use std::collections::HashMap;
+use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
@@ -44,9 +45,13 @@ impl Persist {
 
     fn write<T: Serialize + ?Sized>(path: &Path, value: &T) {
         let tmp = path.with_extension("json.tmp");
-        let result = serde_json::to_vec(value)
-            .map_err(std::io::Error::other)
-            .and_then(|bytes| std::fs::write(&tmp, bytes))
+        // Streamed, so saving a long chat doesn't hold a second copy in memory.
+        let result = std::fs::File::create(&tmp)
+            .and_then(|f| {
+                let mut w = std::io::BufWriter::new(f);
+                serde_json::to_writer(&mut w, value).map_err(std::io::Error::other)?;
+                w.flush()
+            })
             .and_then(|()| std::fs::rename(&tmp, path));
         if let Err(e) = result {
             let _ = std::fs::remove_file(&tmp);
