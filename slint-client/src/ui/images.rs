@@ -2,7 +2,7 @@
 //! produces `SharedPixelBuffer`s (which are `Send`); the UI thread only wraps
 //! them in `slint::Image`, so decoding never stalls rendering.
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::path::Path;
 
 use base64::Engine;
@@ -41,34 +41,96 @@ pub fn decode_file(path: &Path, max_edge: u32) -> Option<Pixels> {
     Some(to_pixels(img, max_edge))
 }
 
-/// Bounded FIFO cache of decoded images keyed by message id (+ variant).
+/// LRU cache of decoded images keyed by message id (+ variant), bounded by the
+/// bytes of pixel data it holds rather than by entry count: a full photo is
+/// ~100x the size of a thumbnail.
 pub struct ImageCache {
-    map: HashMap<String, Pixels>,
-    order: VecDeque<String>,
-    cap: usize,
+    map: HashMap<String, (Pixels, u64)>,
+    bytes: usize,
+    budget: usize,
+    clock: u64,
 }
 
 impl ImageCache {
-    pub fn new(cap: usize) -> Self {
+    pub fn new(budget: usize) -> Self {
         Self {
             map: HashMap::new(),
-            order: VecDeque::new(),
-            cap,
+            bytes: 0,
+            budget,
+            clock: 0,
         }
     }
 
-    pub fn get(&self, key: &str) -> Option<Pixels> {
-        self.map.get(key).cloned()
+    pub fn get(&mut self, key: &str) -> Option<Pixels> {
+        self.clock += 1;
+        let clock = self.clock;
+        self.map.get_mut(key).map(|(px, used)| {
+            *used = clock;
+            px.clone()
+        })
+    }
+
+    pub fn contains(&self, key: &str) -> bool {
+        self.map.contains_key(key)
     }
 
     pub fn insert(&mut self, key: String, px: Pixels) {
-        if self.map.insert(key.clone(), px).is_none() {
-            self.order.push_back(key);
-            while self.order.len() > self.cap {
-                if let Some(old) = self.order.pop_front() {
-                    self.map.remove(&old);
-                }
+        self.clock += 1;
+        self.bytes += px.as_bytes().len();
+        if let Some((old, _)) = self.map.insert(key, (px, self.clock)) {
+            self.bytes -= old.as_bytes().len();
+        }
+        while self.bytes > self.budget && self.map.len() > 1 {
+            let Some(oldest) = self
+                .map
+                .iter()
+                .min_by_key(|(_, (_, used))| *used)
+                .map(|(k, _)| k.clone())
+            else {
+                break;
+            };
+            if let Some((old, _)) = self.map.remove(&oldest) {
+                self.bytes -= old.as_bytes().len();
             }
         }
+    }
+
+    pub fn clear(&mut self) {
+        self.map.clear();
+        self.bytes = 0;
+    }
+
+    #[cfg(test)]
+    pub fn bytes(&self) -> usize {
+        self.bytes
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn px() -> Pixels {
+        SharedPixelBuffer::new(10, 10) // 400 bytes
+    }
+
+    #[test]
+    fn evicts_least_recently_used_over_budget() {
+        let mut c = ImageCache::new(1000);
+        c.insert("a".into(), px());
+        c.insert("b".into(), px());
+        assert!(c.get("a").is_some());
+        c.insert("c".into(), px());
+        assert!(c.contains("a") && c.contains("c"));
+        assert!(!c.contains("b"));
+        assert_eq!(c.bytes(), 800);
+    }
+
+    #[test]
+    fn replacing_a_key_does_not_leak_budget() {
+        let mut c = ImageCache::new(1000);
+        c.insert("a".into(), px());
+        c.insert("a".into(), px());
+        assert_eq!(c.bytes(), 400);
     }
 }
