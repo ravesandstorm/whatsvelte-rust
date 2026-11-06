@@ -49,6 +49,13 @@ impl Controller {
         let id = m.dto.id.clone();
         self.rt.spawn(async move {
             let Some(ctrl) = ctrl() else { return };
+            // Queued behind the permit: if the row scrolled away meanwhile, skip
+            // the work. It's requested again if the row comes back.
+            let permit = ctrl.media_permits.acquire().await;
+            if permit.is_err() || !lock(&ctrl.view).near_ids.contains(&id) {
+                lock(&ctrl.media_inflight).remove(&id);
+                return;
+            }
             if let Some(path) = ctrl.media_path(&api, &m, false).await {
                 let px = tokio::task::spawn_blocking(move || {
                     images::decode_file(&path, images::BUBBLE_MAX_EDGE)
@@ -65,6 +72,7 @@ impl Controller {
             } else {
                 lock(&ctrl.media_failed).insert(id.clone());
             }
+            drop(permit);
             lock(&ctrl.media_inflight).remove(&id);
             ctrl.mark(DIRTY_CONV | DIRTY_OVERLAY);
         });
@@ -241,7 +249,7 @@ impl Controller {
         };
         let is_video = m.dto.kind == "video";
         let thumb = {
-            let cache = lock(&self.images);
+            let mut cache = lock(&self.images);
             cache
                 .get(&format!("full:{id}"))
                 .or_else(|| cache.get(&format!("thumb:{id}")))
