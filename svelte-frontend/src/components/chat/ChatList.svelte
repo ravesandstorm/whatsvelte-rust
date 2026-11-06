@@ -9,6 +9,7 @@
   import { contactFor } from "../../lib/stores/contacts.svelte";
   import { session } from "../../lib/stores/session.svelte";
   import { ui } from "../../lib/stores/ui.svelte";
+  import { smoothWheel } from "../../lib/smooth-scroll";
   import { displayName, formatPhone, jidUser } from "../../lib/util/jid";
   import ChatListItem from "./ChatListItem.svelte";
 
@@ -108,7 +109,7 @@
       {/if}
     {/each}
   </div>
-  <div class="chats">
+  <div class="chats" use:smoothWheel>
     {#each list as chat (chat.jid)}
       <ChatListItem {chat} />
     {/each}
