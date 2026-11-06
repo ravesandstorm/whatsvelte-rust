@@ -3,11 +3,14 @@
 //! row by row; decoded pixel buffers map to cached `slint::Image`s so an
 //! unchanged row compares equal and isn't re-rendered.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use slint::{Color, ComponentHandle, Image, Model, ModelRc, SharedString, StyledText, VecModel};
+use slint::{
+    Color, ComponentHandle, Image, Model, ModelNotify, ModelRc, ModelTracker, SharedString,
+    StyledText, VecModel,
+};
 
 use crate::ui::images::Pixels;
 use crate::{AlbumTile, AppState, AppWindow, ChatRow, EmojiTab, GifItem, MsgRow, Suggestion};
@@ -130,7 +133,12 @@ pub struct ConvFrame {
     pub pinned: bool,
     pub archived: bool,
     pub rows: Vec<MsgRowData>,
-    pub has_older: bool,
+    /// Row index of `rows[0]` within the whole chat.
+    pub first_row: usize,
+    /// Rows in the whole chat.
+    pub total_rows: usize,
+    /// Rows inserted above the previous window since the last frame.
+    pub prepended: usize,
     pub unread_in_view: i32,
     pub replying: bool,
     pub editing: bool,
@@ -203,12 +211,136 @@ fn ss(s: String) -> SharedString {
     SharedString::from(s)
 }
 
+/// The open chat as the list sees it: one row per message for the whole
+/// history, of which only a window around the viewport holds data. The
+/// ListView only reads rows it instantiates, so scrolling never prepends rows
+/// or depends on paging, and rows far from the viewport cost nothing.
+#[derive(Default)]
+struct ConvRows {
+    total: Cell<usize>,
+    first: Cell<usize>,
+    window: RefCell<Vec<MsgRow>>,
+    notify: ModelNotify,
+}
+
+impl Model for ConvRows {
+    type Data = MsgRow;
+
+    fn row_count(&self) -> usize {
+        self.total.get()
+    }
+
+    fn row_data(&self, row: usize) -> Option<MsgRow> {
+        if row >= self.total.get() {
+            return None;
+        }
+        if let Some(ctrl) = crate::ui::controller::CTRL.get() {
+            ctrl.row_requested(row);
+        }
+        // Outside the window (a jump, or outrunning the worker): an empty
+        // placeholder (empty id) that fills in with the next frame.
+        let i = row.checked_sub(self.first.get());
+        Some(
+            i.and_then(|i| self.window.borrow().get(i).cloned())
+                .unwrap_or_default(),
+        )
+    }
+
+    fn model_tracker(&self) -> &dyn ModelTracker {
+        &self.notify
+    }
+}
+
+impl ConvRows {
+    fn replace(&self, first: usize, rows: Vec<MsgRow>, total: usize) {
+        self.first.set(first);
+        *self.window.borrow_mut() = rows;
+        self.total.set(total);
+        self.notify.reset();
+    }
+
+    /// Same chat: move the window and notify only what changed, keeping the
+    /// ListView's position.
+    fn update(&self, first: usize, mut rows: Vec<MsgRow>, total: usize, prepended: usize) {
+        let mut known = self.total.get();
+        if total < known {
+            return self.replace(first, rows, total);
+        }
+        let shifted = prepended.min(total - known);
+        let old_first = self.first.get() + shifted;
+        let old = std::mem::take(&mut *self.window.borrow_mut());
+        let mut changed = Vec::new();
+        for (i, row) in rows.iter_mut().enumerate() {
+            let at = first + i;
+            if let Some(prior) = at.checked_sub(old_first).and_then(|o| old.get(o)) {
+                // Album models are rebuilt per frame; keep the old one if equal.
+                if prior.is_album && row.is_album && prior.album.iter().eq(row.album.iter()) {
+                    row.album = prior.album.clone();
+                }
+                if prior == row {
+                    continue;
+                }
+            }
+            changed.push(at);
+        }
+        self.first.set(first);
+        *self.window.borrow_mut() = rows;
+        if shifted > 0 {
+            known += shifted;
+            self.total.set(known);
+            self.notify.row_added(0, shifted);
+        }
+        if total > known {
+            self.total.set(total);
+            self.notify.row_added(known, total - known);
+        }
+        for at in changed {
+            self.notify.row_changed(at);
+        }
+    }
+}
+
+/// Pixel buffer identity -> `Image`, so a buffer re-sent in the next frame maps
+/// to the same `Image` and its row compares equal. Holds only what the latest
+/// frame used, so an image is released as soon as no row shows it.
+#[derive(Default)]
+struct ImageTable {
+    current: HashMap<(usize, u32, u32), Image>,
+    previous: HashMap<(usize, u32, u32), Image>,
+}
+
+impl ImageTable {
+    fn begin(&mut self) {
+        self.previous = std::mem::take(&mut self.current);
+    }
+
+    fn end(&mut self) {
+        self.previous.clear();
+    }
+
+    fn get(&mut self, px: Option<Pixels>) -> (Image, bool) {
+        let Some(px) = px else {
+            return (Image::default(), false);
+        };
+        let key = (px.as_bytes().as_ptr() as usize, px.width(), px.height());
+        let img = self
+            .previous
+            .remove(&key)
+            .or_else(|| self.current.get(&key).cloned())
+            .unwrap_or_else(|| Image::from_rgba8(px));
+        self.current.insert(key, img.clone());
+        (img, true)
+    }
+}
+
 struct Models {
     chats: Rc<VecModel<ChatRow>>,
-    messages: Rc<VecModel<MsgRow>>,
+    messages: Rc<ConvRows>,
     active_jid: RefCell<String>,
-    /// Pixel buffer identity -> Image, so re-sent buffers compare equal.
-    images: RefCell<HashMap<(usize, u32, u32), Image>>,
+    session_images: RefCell<ImageTable>,
+    chat_images: RefCell<ImageTable>,
+    conv_images: RefCell<ImageTable>,
+    overlay_images: RefCell<ImageTable>,
 }
 
 thread_local! {
@@ -221,9 +353,12 @@ fn models(app: &AppState<'_>) -> Rc<Models> {
             .get_or_insert_with(|| {
                 let models = Rc::new(Models {
                     chats: Rc::new(VecModel::default()),
-                    messages: Rc::new(VecModel::default()),
+                    messages: Rc::new(ConvRows::default()),
                     active_jid: RefCell::new(String::new()),
-                    images: RefCell::new(HashMap::new()),
+                    session_images: RefCell::default(),
+                    chat_images: RefCell::default(),
+                    conv_images: RefCell::default(),
+                    overlay_images: RefCell::default(),
                 });
                 app.set_chats(ModelRc::from(models.chats.clone()));
                 app.set_messages(ModelRc::from(models.messages.clone()));
@@ -231,24 +366,6 @@ fn models(app: &AppState<'_>) -> Rc<Models> {
             })
             .clone()
     })
-}
-
-impl Models {
-    fn image(&self, px: Option<Pixels>) -> (Image, bool) {
-        let Some(px) = px else {
-            return (Image::default(), false);
-        };
-        let key = (px.as_bytes().as_ptr() as usize, px.width(), px.height());
-        let mut cache = self.images.borrow_mut();
-        if cache.len() > 1500 {
-            cache.clear();
-        }
-        let img = cache
-            .entry(key)
-            .or_insert_with(|| Image::from_rgba8(px))
-            .clone();
-        (img, true)
-    }
 }
 
 /// Patch `model` to equal `rows`: update changed rows in place, append/trim
@@ -282,11 +399,11 @@ fn sync_model<T: Clone + PartialEq + 'static>(
     }
 }
 
-fn tiles(m: &Models, tiles: Vec<TileData>) -> ModelRc<AlbumTile> {
+fn tiles(table: &RefCell<ImageTable>, tiles: Vec<TileData>) -> ModelRc<AlbumTile> {
     let v: Vec<AlbumTile> = tiles
         .into_iter()
         .map(|t| {
-            let (image, has_image) = m.image(t.image);
+            let (image, has_image) = table.borrow_mut().get(t.image);
             AlbumTile {
                 id: ss(t.id),
                 image,
@@ -305,6 +422,7 @@ impl Frame {
         let m = models(&app);
 
         if let Some(s) = self.session {
+            m.session_images.borrow_mut().begin();
             app.set_screen(ss(s.screen));
             app.set_loading_label(ss(s.loading_label));
             app.set_loading_done(s.loading_done);
@@ -312,7 +430,7 @@ impl Frame {
             app.set_resetting(s.resetting);
             app.set_has_qr(s.qr.is_some());
             if s.qr.is_some() {
-                app.set_qr(m.image(s.qr).0);
+                app.set_qr(m.session_images.borrow_mut().get(s.qr).0);
             }
             app.set_pair_code(ss(s.pair_code));
             app.set_pair_error(ss(s.pair_error));
@@ -332,15 +450,17 @@ impl Frame {
             app.set_wallpaper_choice(ss(s.wallpaper_choice));
             app.set_wallpaper_kind(s.wallpaper_kind);
             app.set_wallpaper_color(rgb(s.wallpaper_color));
-            app.set_wallpaper_image(m.image(s.wallpaper_image).0);
+            app.set_wallpaper_image(m.session_images.borrow_mut().get(s.wallpaper_image).0);
+            m.session_images.borrow_mut().end();
         }
 
         if let Some(c) = self.chats {
+            m.chat_images.borrow_mut().begin();
             let rows: Vec<ChatRow> = c
                 .rows
                 .into_iter()
                 .map(|r| {
-                    let (avatar, has_avatar) = m.image(r.avatar);
+                    let (avatar, has_avatar) = m.chat_images.borrow_mut().get(r.avatar);
                     ChatRow {
                         jid: ss(r.jid),
                         title: ss(r.title),
@@ -364,6 +484,7 @@ impl Frame {
             // Reorders (a new message bumps a chat) patch rows in place rather
             // than resetting the model, so the list keeps its scroll position.
             sync_model(&m.chats, rows, |_, _| true);
+            m.chat_images.borrow_mut().end();
             app.set_section(c.section);
             app.set_archived_count(c.archived_count);
             app.set_channels_count(c.channels_count);
@@ -372,13 +493,15 @@ impl Frame {
 
         if let Some(c) = self.conv {
             let switched = *m.active_jid.borrow() != c.active_jid;
+            m.conv_images.borrow_mut().begin();
             *m.active_jid.borrow_mut() = c.active_jid.clone();
             let rows: Vec<MsgRow> = c
                 .rows
                 .into_iter()
                 .map(|r| {
-                    let (image, has_image) = m.image(r.image);
-                    let (quote_thumb, has_quote_thumb) = m.image(r.quote_thumb);
+                    let (image, has_image) = m.conv_images.borrow_mut().get(r.image);
+                    let (quote_thumb, has_quote_thumb) =
+                        m.conv_images.borrow_mut().get(r.quote_thumb);
                     let rich = r
                         .rich_md
                         .as_deref()
@@ -422,7 +545,7 @@ impl Frame {
                         audio_label: ss(r.audio_label),
                         is_album,
                         album: if is_album {
-                            tiles(&m, r.album)
+                            tiles(&m.conv_images, r.album)
                         } else {
                             ModelRc::default()
                         },
@@ -438,30 +561,29 @@ impl Frame {
                 })
                 .collect();
             if switched {
-                m.messages.set_vec(rows);
+                m.messages.replace(c.first_row, rows, c.total_rows);
             } else {
-                // Same chat: patch in place (older pages prepend rows; the view
-                // restores its position from the height delta).
-                sync_model(&m.messages, rows, |_, _| true);
+                m.messages
+                    .update(c.first_row, rows, c.total_rows, c.prepended);
             }
             app.set_active_jid(ss(c.active_jid));
             app.set_active_title(ss(c.title));
             app.set_active_subtitle(ss(c.subtitle));
             app.set_active_initials(ss(c.initials));
             app.set_active_tint(rgb(c.tint));
-            let (avatar, has_avatar) = m.image(c.avatar);
+            let (avatar, has_avatar) = m.conv_images.borrow_mut().get(c.avatar);
             app.set_active_avatar(avatar);
             app.set_active_has_avatar(has_avatar);
             app.set_active_muted(c.muted);
             app.set_active_pinned(c.pinned);
             app.set_active_archived(c.archived);
-            app.set_has_older(c.has_older);
             app.set_unread_in_view(c.unread_in_view);
             app.set_replying(c.replying);
             app.set_editing(c.editing);
             app.set_reply_sender(ss(c.reply_sender));
             app.set_reply_text(ss(c.reply_text));
-            let (thumb, has_thumb) = m.image(c.reply_thumb);
+            let (thumb, has_thumb) = m.conv_images.borrow_mut().get(c.reply_thumb);
+            m.conv_images.borrow_mut().end();
             app.set_reply_thumb(thumb);
             app.set_has_reply_thumb(has_thumb);
             let sugg: Vec<Suggestion> = c
@@ -498,6 +620,7 @@ impl Frame {
         }
 
         if let Some(o) = self.overlay {
+            m.overlay_images.borrow_mut().begin();
             app.set_picker_tab(o.picker_tab);
             let tabs: Vec<EmojiTab> = o
                 .emoji_tabs
@@ -518,7 +641,7 @@ impl Frame {
                 .gifs
                 .into_iter()
                 .map(|(id, px)| {
-                    let (image, has_image) = m.image(px);
+                    let (image, has_image) = m.overlay_images.borrow_mut().get(px);
                     GifItem {
                         id: ss(id),
                         image,
@@ -544,7 +667,7 @@ impl Frame {
             }
             if let Some((title, t)) = o.open_album {
                 app.set_album_title(ss(title));
-                app.set_album_tiles(tiles(&m, t));
+                app.set_album_tiles(tiles(&m.overlay_images, t));
                 app.set_album_open(true);
             }
 
@@ -556,7 +679,7 @@ impl Frame {
                     }
                     app.set_preview_title(ss(p.title));
                     app.set_preview_kind(ss(p.kind));
-                    let (img, has) = m.image(p.image);
+                    let (img, has) = m.overlay_images.borrow_mut().get(p.image);
                     app.set_preview_image(img);
                     app.set_preview_has_image(has);
                     app.set_preview_name(ss(p.name));
@@ -586,7 +709,7 @@ impl Frame {
             match o.viewer {
                 Some(v) => {
                     app.set_viewer_id(ss(v.id));
-                    let (img, has) = m.image(v.image);
+                    let (img, has) = m.overlay_images.borrow_mut().get(v.image);
                     app.set_viewer_image(img);
                     app.set_viewer_has_image(has);
                     app.set_viewer_is_video(v.is_video);
@@ -602,6 +725,7 @@ impl Frame {
                     app.set_viewer_image(Image::default());
                 }
             }
+            m.overlay_images.borrow_mut().end();
         }
     }
 }
