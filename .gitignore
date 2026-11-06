@@ -1,6 +1,8 @@
 # SvelteKit specific build and generated files
 .svelte-kit/
 build/
+.vite/
+vite.config.ts.*
 
 # Package manager dependencies
 node_modules/

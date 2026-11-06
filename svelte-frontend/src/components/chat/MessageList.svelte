@@ -12,6 +12,7 @@
   } from "../../lib/stores/messages.svelte";
   import { isGroup } from "../../lib/util/jid";
   import { scrollTarget, clearScrollTarget } from "../../lib/stores/scroll.svelte";
+  import { smoothWheel } from "../../lib/smooth-scroll";
   import MessageBubble from "./MessageBubble.svelte";
   import { groupAlbums } from "../../lib/util/album";
 
@@ -218,7 +219,6 @@
     if (node.scrollTop < 60 && hasOlder && !pagingOlder) {
       pagingOlder = true;
       const prevHeight = node.scrollHeight;
-      const prevTop = node.scrollTop;
       try {
         // Out of resident messages → read the next page from IndexedDB first.
         if (messages.length <= limit) await loadOlder(chatJid, PAGE);
@@ -227,13 +227,16 @@
       }
       limit += PAGE;
       await tick();
-      node.scrollTop = node.scrollHeight - prevHeight + prevTop;
+      // Add the growth to the current position, not one saved before the read:
+      // a wheel glide keeps moving during it, and restoring an old position
+      // would snap the view back.
+      node.scrollTop += node.scrollHeight - prevHeight;
     }
   }
 </script>
 
 <div class="wrap">
-  <div class="list" bind:this={el} onscroll={onScroll}>
+  <div class="list" bind:this={el} onscroll={onScroll} use:smoothWheel>
     {#if messages.length === 0}
       <div class="loading">Loading messages…</div>
     {:else}
