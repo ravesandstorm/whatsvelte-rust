@@ -1,0 +1,9 @@
+{
+  "build": {
+    "devUrl": "http://localhost:5176",
+    "beforeDevCommand": {
+      "script": "npm run dev:tauri-mock",
+      "cwd": "../svelte-frontend"
+    }
+  }
+}
