@@ -11,7 +11,7 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
@@ -39,8 +39,23 @@ pub(crate) const DIRTY_CONV: u8 = 4;
 pub(crate) const DIRTY_OVERLAY: u8 = 8;
 pub(crate) const DIRTY_ALL: u8 = 15;
 
-/// Messages shown when a chat opens / added per scroll-up page.
-pub(crate) const PAGE: usize = 40;
+/// Rows kept built on each side of the row the list last asked for. The model
+/// reports the chat's full length, so the list can scroll anywhere; only this
+/// window holds real row data (and references images).
+pub(crate) const ROW_WINDOW: usize = 60;
+/// Rebuild once the list is this close to the window's edge.
+const WINDOW_MARGIN: usize = 30;
+/// Rows around the viewport whose full image may load; the rest show thumbnails.
+pub(crate) const NEAR_ROWS: usize = 12;
+/// Rebuild after this many rows of scrolling so nearby full images get requested.
+const NEAR_STEP: usize = 8;
+/// `focus` value meaning "the newest row".
+pub(crate) const FOCUS_TAIL: usize = usize::MAX;
+/// Decoded in-bubble images kept in memory. Evicted ones reload from disk.
+const IMAGE_CACHE_BYTES: usize = 40 * 1024 * 1024;
+/// Media downloads + decodes running at once. A full-size decode can briefly
+/// take tens of megabytes, so this bounds the peak as well as the thread count.
+const MEDIA_LOADS: usize = 3;
 /// Toasts: lifetime and how many show at once.
 const TOAST_TTL: Duration = Duration::from_millis(5000);
 const TOAST_MAX: usize = 3;
@@ -107,7 +122,14 @@ pub(crate) struct View {
     pub dead: bool,
     pub section: Section,
     pub search: String,
-    pub window_limit: usize,
+    /// (chat, id at the window's first row, its row index, total rows): detects
+    /// history inserted above the viewport.
+    pub conv_anchor: Option<(String, String, usize, usize)>,
+    /// Message ids near the viewport; queued image loads for others are dropped.
+    pub near_ids: HashSet<String>,
+    /// First unread message when the chat opened. The "Unread" divider stays
+    /// there while reading, rather than running ahead of the rows being read.
+    pub unread_divider: Option<String>,
     pub reply_to: Option<String>,
     pub editing: Option<String>,
     /// Text that was in the composer when editing started (restored after).
@@ -157,6 +179,13 @@ pub struct Controller {
     pub(crate) media_inflight: Mutex<HashSet<String>>,
     /// Auto-loads that failed this session (not retried until clicked).
     pub(crate) media_failed: Mutex<HashSet<String>>,
+    pub(crate) media_permits: Semaphore,
+    /// Row the list last asked for (or [`FOCUS_TAIL`]); centres the row window.
+    pub(crate) focus: AtomicUsize,
+    pub(crate) built_focus: AtomicUsize,
+    pub(crate) win_first: AtomicUsize,
+    pub(crate) win_len: AtomicUsize,
+    pub(crate) win_total: AtomicUsize,
     pub(crate) lid_inflight: Mutex<HashSet<String>>,
     pub(crate) avatars: Mutex<HashMap<String, Pixels>>,
     pub(crate) avatar_fetched: Mutex<HashSet<String>>,
@@ -186,14 +215,19 @@ impl Controller {
             settings: Mutex::new(settings),
             view: Mutex::new(View {
                 loading_label: "Loading your chats…".into(),
-                window_limit: PAGE,
                 emoji_tab,
                 ..Default::default()
             }),
-            images: Mutex::new(ImageCache::new(400)),
+            images: Mutex::new(ImageCache::new(IMAGE_CACHE_BYTES)),
             media_paths: Mutex::new(HashMap::new()),
             media_inflight: Mutex::new(HashSet::new()),
             media_failed: Mutex::new(HashSet::new()),
+            media_permits: Semaphore::new(MEDIA_LOADS),
+            focus: AtomicUsize::new(FOCUS_TAIL),
+            built_focus: AtomicUsize::new(FOCUS_TAIL),
+            win_first: AtomicUsize::new(0),
+            win_len: AtomicUsize::new(0),
+            win_total: AtomicUsize::new(0),
             lid_inflight: Mutex::new(HashSet::new()),
             avatars: Mutex::new(HashMap::new()),
             avatar_fetched: Mutex::new(HashSet::new()),
@@ -208,6 +242,29 @@ impl Controller {
         });
         ctrl.load_wallpaper();
         ctrl
+    }
+
+    /// The list instantiated row `i`. Called on the UI thread from the model, so
+    /// it only touches atomics; a rebuild is scheduled when the row nears the
+    /// window's edge or has moved far enough to change which images are near.
+    pub(crate) fn row_requested(&self, i: usize) {
+        self.focus.store(i, Ordering::Relaxed);
+        let first = self.win_first.load(Ordering::Relaxed);
+        let end = first + self.win_len.load(Ordering::Relaxed);
+        let total = self.win_total.load(Ordering::Relaxed);
+        let low = first > 0 && i < first + WINDOW_MARGIN;
+        let high = end < total && i + WINDOW_MARGIN >= end;
+        let built = self.built_focus.load(Ordering::Relaxed);
+        let moved = built != FOCUS_TAIL && i.abs_diff(built) >= NEAR_STEP;
+        let from_tail = built == FOCUS_TAIL && i + NEAR_STEP < total;
+        if low || high || moved || from_tail {
+            self.mark(DIRTY_CONV);
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn dirty_bits(&self) -> u8 {
+        self.dirty.swap(0, Ordering::SeqCst)
     }
 
     pub(crate) fn mark(&self, bits: u8) {
@@ -374,7 +431,7 @@ impl Controller {
             n += 1;
             if n % 4 == 0 {
                 let me = self.clone();
-                let _ = tokio::task::spawn_blocking(move || lock(&me.store).flush()).await;
+                let _ = tokio::task::spawn_blocking(move || lock(&me.store).flush_periodic()).await;
             }
             let mut bits = 0;
             {
@@ -477,7 +534,6 @@ impl Controller {
                 booted,
                 resetting: true,
                 loading_label: "Loading your chats…".into(),
-                window_limit: PAGE,
                 ..Default::default()
             };
         }
@@ -661,7 +717,7 @@ impl Controller {
         self.mark(DIRTY_CHATS | if active { DIRTY_CONV } else { 0 });
     }
 
-    fn on_message(self: &Arc<Self>, m: MessageDto) {
+    pub(crate) fn on_message(self: &Arc<Self>, m: MessageDto) {
         let raw_chat = m.chat_jid.clone();
         let raw_sender = m.sender_jid.clone();
         let jid = {
