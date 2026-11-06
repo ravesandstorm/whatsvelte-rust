@@ -1,12 +1,15 @@
 //! Frame building: turns store + view state into the `Send` frame structs the
 //! UI thread copies into Slint models.
 
-use std::collections::HashMap;
+use std::cell::OnceCell;
+use std::collections::{HashMap, HashSet};
+use std::sync::atomic::Ordering;
 
 use crate::core::dto::MessageDto;
 use crate::store::{MessageStatus, Section, Store, UiMessage, media_label, quoted_text};
 use crate::ui::controller::{
-    Controller, DIRTY_CHATS, DIRTY_CONV, DIRTY_OVERLAY, DIRTY_SESSION, Rec, lock,
+    Controller, DIRTY_CHATS, DIRTY_CONV, DIRTY_OVERLAY, DIRTY_SESSION, FOCUS_TAIL, NEAR_ROWS,
+    ROW_WINDOW, Rec, lock,
 };
 use crate::ui::frame::{
     ChatRowData, ChatsFrame, ConvFrame, Frame, MsgRowData, OverlayFrame, PreviewData, SessionFrame,
@@ -299,7 +302,9 @@ impl Controller {
             pair_error: v.pair_error.clone(),
             pair_busy: v.pair_busy,
             dead: v.dead,
-            connected: v.status.connected,
+            // The client only reports "connected" after login, but a QR code can
+            // only have come over a live connection.
+            connected: v.status.connected || (v.qr.is_some() && !v.dead),
             syncing: v.syncing_shown,
             self_name: v
                 .status
@@ -445,7 +450,6 @@ impl Controller {
 
     fn conv_frame(&self) -> ConvFrame {
         let (
-            limit,
             reply_to,
             editing,
             composer,
@@ -455,10 +459,10 @@ impl Controller {
             suggestions,
             sugg_idx,
             flash,
+            divider,
         ) = {
             let mut v = lock(&self.view);
             (
-                v.window_limit,
                 v.reply_to.clone(),
                 v.editing.clone(),
                 v.composer_override.take(),
@@ -468,6 +472,7 @@ impl Controller {
                 v.suggestions.clone(),
                 v.suggestion_index,
                 v.flash.as_ref().map(|(id, _)| id.clone()),
+                v.unread_divider.clone(),
             )
         };
         let me_norm = self
@@ -503,23 +508,92 @@ impl Controller {
         };
 
         let all = s.messages(&jid);
-        let start = all.len().saturating_sub(limit);
-        let shown = &all[start..];
-        let mut to_load: Vec<UiMessage> = Vec::new();
-        let mut rows: Vec<MsgRowData> = Vec::with_capacity(shown.len());
-        let mut albums: HashMap<String, Vec<String>> = HashMap::new();
-        let mut prev: Option<&UiMessage> = None;
-        let mut divider_done = false;
+        // One row per message or album, for the whole chat. Only a window of it
+        // around the viewport gets built below.
+        let mut spans: Vec<(usize, usize)> = Vec::with_capacity(all.len());
         let mut unread_in_view = 0;
-        let mut reveal_index: Option<i32> = None;
+        let mut first_flagged_row = None;
+        let mut divider_row = None;
+        let mut reveal_row: Option<usize> = None;
+        let mut at = 0;
+        while at < all.len() {
+            let n = album_len(all, at);
+            let items = &all[at..at + n];
+            if items.iter().any(|x| x.unread) {
+                unread_in_view += 1;
+                first_flagged_row.get_or_insert(spans.len());
+            }
+            if divider
+                .as_ref()
+                .is_some_and(|id| items.iter().any(|x| &x.dto.id == id))
+            {
+                divider_row = Some(spans.len());
+            }
+            if reveal
+                .as_ref()
+                .is_some_and(|(_, id, _)| items.iter().any(|x| &x.dto.id == id))
+            {
+                reveal_row = Some(spans.len());
+            }
+            spans.push((at, n));
+            at += n;
+        }
+        let total = spans.len();
+        let first_unread_row = divider_row.or(first_flagged_row);
 
-        let mut i = 0;
-        while i < shown.len() {
-            let n = album_len(shown, i);
-            let group_items = &shown[i..i + n];
+        // History inserted above the current rows (a sync chunk) shifts them.
+        let mut prepended = 0;
+        let anchor = lock(&self.view).conv_anchor.clone();
+        if let Some((a_jid, a_id, a_row, a_total)) = anchor
+            && a_jid == jid
+            && total > a_total
+            && let Some(now) = spans.iter().position(|&(st, _)| all[st].dto.id == a_id)
+        {
+            prepended = now.saturating_sub(a_row);
+            if prepended > 0 && self.focus.load(Ordering::Relaxed) != FOCUS_TAIL {
+                self.focus.fetch_add(prepended, Ordering::Relaxed);
+            }
+        }
+        if let Some(row) = reveal_row {
+            self.focus.store(row, Ordering::Relaxed);
+        }
+        let focus = self.focus.load(Ordering::Relaxed);
+        let center = focus.min(total.saturating_sub(1));
+        let first = center
+            .saturating_sub(ROW_WINDOW)
+            .min(total.saturating_sub(2 * ROW_WINDOW));
+        let end = (first + 2 * ROW_WINDOW).min(total);
+
+        // Reply targets are looked up per row; index them once, only if needed.
+        let id_index: OnceCell<HashMap<&str, usize>> = OnceCell::new();
+        let find = |id: &str| {
+            id_index
+                .get_or_init(|| {
+                    all.iter()
+                        .enumerate()
+                        .map(|(i, m)| (m.dto.id.as_str(), i))
+                        .collect()
+                })
+                .get(id)
+                .map(|&i| &all[i])
+        };
+
+        let mut to_load: Vec<UiMessage> = Vec::new();
+        let mut near_ids: HashSet<String> = HashSet::new();
+        let mut rows: Vec<MsgRowData> = Vec::with_capacity(end - first);
+        let mut albums: HashMap<String, Vec<String>> = HashMap::new();
+        let mut prev: Option<&UiMessage> = first
+            .checked_sub(1)
+            .map(|p| &all[spans[p].0 + spans[p].1 - 1]);
+
+        for (row_index, &(start, n)) in spans.iter().enumerate().take(end).skip(first) {
+            let group_items = &all[start..start + n];
             let m = &group_items[n - 1]; // the row speaks for the last item (time, ticks)
             let d = &m.dto;
-            i += n;
+            let near = row_index.abs_diff(center) <= NEAR_ROWS;
+            if near {
+                near_ids.extend(group_items.iter().map(|x| x.dto.id.clone()));
+            }
 
             // The Svelte list has no day separators; runs group across days.
             let day_text = String::new();
@@ -529,17 +603,7 @@ impl Controller {
             prev = Some(m);
 
             let unread = group_items.iter().any(|x| x.unread);
-            if unread {
-                unread_in_view += 1;
-            }
-            let unread_divider = unread && !divider_done;
-            divider_done |= unread;
-            if reveal
-                .as_ref()
-                .is_some_and(|(_, id, _)| group_items.iter().any(|x| &x.dto.id == id))
-            {
-                reveal_index = Some(rows.len() as i32);
-            }
+            let unread_divider = first_unread_row == Some(row_index);
 
             // ---- album
             let mut album = Vec::new();
@@ -551,10 +615,8 @@ impl Controller {
                 let shown_tiles = if n > 4 { 4 } else { n };
                 for (k, item) in group_items.iter().take(shown_tiles).enumerate() {
                     let wants = item.dto.kind == "image" && auto_load;
-                    let has_full = lock(&self.images)
-                        .get(&format!("full:{}", item.dto.id))
-                        .is_some();
-                    if wants && !has_full && !inflight.contains(&item.dto.id) {
+                    let has_full = lock(&self.images).contains(&format!("full:{}", item.dto.id));
+                    if near && wants && !has_full && !inflight.contains(&item.dto.id) {
                         to_load.push(item.clone());
                     }
                     album.push(TileData {
@@ -573,18 +635,22 @@ impl Controller {
                 image = self.message_image(m);
                 let wants_full =
                     matches!(d.kind.as_str(), "image" | "sticker") && d.media.is_some();
-                let has_full = lock(&self.images).get(&format!("full:{}", d.id)).is_some();
-                if wants_full && auto_load && !has_full && !inflight.contains(&d.id) {
+                let has_full = lock(&self.images).contains(&format!("full:{}", d.id));
+                if near && wants_full && auto_load && !has_full && !inflight.contains(&d.id) {
                     to_load.push(m.clone());
                 }
             }
-            let (image_w, image_h) = image
+            // Prefer the media's real size so a row doesn't change height when
+            // its thumbnail is swapped for the full image.
+            let (image_w, image_h) = d
+                .media
                 .as_ref()
-                .map(|p| (p.width() as i32, p.height() as i32))
+                .map(|md| (md.width.unwrap_or(0) as i32, md.height.unwrap_or(0) as i32))
+                .filter(|&(w, h)| w > 0 && h > 0)
                 .or_else(|| {
-                    d.media
+                    image
                         .as_ref()
-                        .map(|md| (md.width.unwrap_or(0) as i32, md.height.unwrap_or(0) as i32))
+                        .map(|p| (p.width() as i32, p.height() as i32))
                 })
                 .unwrap_or((0, 0));
 
@@ -661,7 +727,7 @@ impl Controller {
                         None if d.from_me => title.clone(),
                         None => "You".to_string(),
                     };
-                    let target = s.find_message(&jid, &q.id);
+                    let target = find(&q.id);
                     let qt = quoted_text(
                         &q.kind,
                         q.text.as_deref(),
@@ -817,7 +883,9 @@ impl Controller {
             pinned: chat.is_some_and(|c| c.is_pinned()),
             archived: chat.is_some_and(|c| c.is_archived()),
             rows,
-            has_older: all.len() > limit,
+            first_row: first,
+            total_rows: total,
+            prepended,
             unread_in_view,
             replying: reply_to.is_some(),
             editing: editing.is_some(),
@@ -826,13 +894,34 @@ impl Controller {
             reply_thumb,
             composer,
             scroll_token,
-            reveal: reveal.and_then(|(t, id, c)| reveal_index.map(|ix| (t, id, ix, c))),
+            reveal: reveal.and_then(|(t, _, c)| {
+                reveal_row.map(|ix| {
+                    let (st, n) = spans[ix];
+                    (t, all[st + n - 1].dto.id.clone(), ix as i32, c)
+                })
+            }),
             focus_token,
             suggestions,
             suggestion_index: sugg_idx,
         };
+        let anchor = spans
+            .get(first)
+            .map(|&(st, _)| (jid.clone(), all[st].dto.id.clone(), first, total));
         drop(s);
-        lock(&self.view).albums = albums;
+        {
+            let mut v = lock(&self.view);
+            v.albums = albums;
+            v.near_ids = near_ids;
+            v.conv_anchor = anchor;
+            // One-shot: the frame carries it, and later frames mustn't re-centre.
+            if reveal_row.is_some() {
+                v.reveal = None;
+            }
+        }
+        self.built_focus.store(focus, Ordering::Relaxed);
+        self.win_first.store(first, Ordering::Relaxed);
+        self.win_len.store(end - first, Ordering::Relaxed);
+        self.win_total.store(total, Ordering::Relaxed);
         for m in to_load {
             self.spawn_image_load(m);
         }
