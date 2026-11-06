@@ -145,7 +145,6 @@ export global AppState {
     in-out property <bool> active-pinned;
     in-out property <bool> active-archived;
     in-out property <[MsgRow]> messages;
-    in-out property <bool> has-older;
     // unread incoming messages in the loaded window (jump-button badge)
     in-out property <int> unread-in-view;
     // bumped by Rust: scroll to the newest message
@@ -271,7 +270,6 @@ export global AppState {
     callback toggle-pin();
     callback toggle-archive();
     // message list
-    callback load-older();
     callback seen(string);
     callback reached-bottom();
     callback jump-to-bottom();

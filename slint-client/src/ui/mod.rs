@@ -61,7 +61,6 @@ pub fn install_callbacks(w: &AppWindow, ctrl: &Arc<Controller>) {
     spawn!(on_toggle_archive, c => | | c.toggle_active_flag("archived"));
 
     // message list
-    on!(on_load_older, c => | | c.load_older());
     on!(on_seen, c => |id| c.seen(id.to_string()));
     on!(on_reached_bottom, c => | | c.reached_bottom());
     on!(on_jump_to_bottom, c => | | c.jump_to_bottom());

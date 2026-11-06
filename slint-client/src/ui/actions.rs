@@ -2,6 +2,7 @@
 //! components' handlers, with the same optimistic + rollback semantics).
 
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::Instant;
 
 use crate::core::dto::QuotedDto;
@@ -9,7 +10,7 @@ use crate::core::error::ApiError;
 use crate::store::settings::ZOOM_STEP;
 use crate::store::{MessageStatus, Section, UiMessage, quoted_text};
 use crate::ui::controller::{
-    Controller, DIRTY_ALL, DIRTY_CHATS, DIRTY_CONV, DIRTY_OVERLAY, DIRTY_SESSION, PAGE, lock,
+    Controller, DIRTY_ALL, DIRTY_CHATS, DIRTY_CONV, DIRTY_OVERLAY, DIRTY_SESSION, FOCUS_TAIL, lock,
 };
 use crate::util::emoji;
 use crate::util::jid::{is_group, normalize_jid};
@@ -27,13 +28,10 @@ impl Controller {
     pub async fn select_chat(self: Arc<Self>, jid: String) {
         let me = self.clone();
         let j = jid.clone();
-        let unread = tokio::task::spawn_blocking(move || {
-            let mut s = lock(&me.store);
-            s.open_chat(&j);
-            s.chats.get(&j).map_or(0, |c| c.unread as usize)
-        })
-        .await
-        .unwrap_or(0);
+        let _ = tokio::task::spawn_blocking(move || lock(&me.store).open_chat(&j)).await;
+        // Decoded images belong to the chat being left.
+        lock(&self.images).clear();
+        self.focus.store(FOCUS_TAIL, Ordering::Relaxed);
         self.audio.stop();
         let (draft, first_unread) = {
             let s = lock(&self.store);
@@ -51,7 +49,6 @@ impl Controller {
         };
         {
             let mut v = lock(&self.view);
-            v.window_limit = (unread + 10).clamp(PAGE, 500);
             v.reply_to = None;
             v.editing = None;
             v.edit_stash = None;
@@ -59,6 +56,7 @@ impl Controller {
             v.composer_text = draft.clone();
             v.composer_override = Some((draft, None));
             v.focus_token += 1;
+            v.unread_divider = first_unread.clone();
             match first_unread {
                 // Put the "Unread" divider at the top of the view.
                 Some(id) => {
@@ -134,18 +132,11 @@ impl Controller {
 
     // ================================================================ message list
 
-    pub fn load_older(&self) {
-        lock(&self.view).window_limit += PAGE;
-        self.mark(DIRTY_CONV);
-    }
-
     fn mark_shown_read(self: &Arc<Self>) {
         let ids: Vec<String> = {
             let s = lock(&self.store);
             let Some(jid) = s.active.clone() else { return };
-            let limit = lock(&self.view).window_limit;
-            let all = s.messages(&jid);
-            all[all.len().saturating_sub(limit)..]
+            s.messages(&jid)
                 .iter()
                 .filter(|m| m.unread)
                 .map(|m| m.dto.id.clone())
@@ -156,50 +147,30 @@ impl Controller {
         }
     }
 
-    /// Back at the bottom: release paged-in history and mark what's shown read.
+    /// Back at the bottom: everything above has been passed, so mark it read.
     pub fn reached_bottom(self: &Arc<Self>) {
-        let mut v = lock(&self.view);
-        if v.window_limit > 2 * PAGE {
-            v.window_limit = PAGE;
-            v.scroll_token += 1;
-            drop(v);
-            self.mark(DIRTY_CONV);
-        } else {
-            drop(v);
-        }
         self.mark_shown_read();
     }
 
     pub fn jump_to_bottom(self: &Arc<Self>) {
         let mut v = lock(&self.view);
-        if v.window_limit > 2 * PAGE {
-            v.window_limit = PAGE;
-        }
         v.reveal = None;
+        v.unread_divider = None;
         v.scroll_token += 1;
         drop(v);
+        self.focus.store(FOCUS_TAIL, Ordering::Relaxed);
         self.mark(DIRTY_CONV);
         self.mark_shown_read();
     }
 
-    /// Scroll to a quoted message (paging it into the window) and flash it.
+    /// Scroll to a quoted message and flash it.
     pub fn reveal_quote(&self, id: String) {
         let Some(jid) = self.active() else { return };
-        let idx_from_end = {
-            let s = lock(&self.store);
-            let all = s.messages(&jid);
-            all.iter()
-                .position(|m| m.dto.id == id)
-                .map(|p| all.len() - p)
-        };
-        let Some(from_end) = idx_from_end else {
+        if lock(&self.store).find_message(&jid, &id).is_none() {
             self.toast("The original message isn't available");
             return;
-        };
-        let mut v = lock(&self.view);
-        if from_end > v.window_limit {
-            v.window_limit = from_end + 5;
         }
+        let mut v = lock(&self.view);
         v.reveal_token += 1;
         v.reveal = Some((v.reveal_token, id.clone(), true));
         v.flash = Some((id, Instant::now()));
